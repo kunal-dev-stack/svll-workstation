@@ -1,0 +1,7 @@
+bin/
+obj/
+*.user
+*.suo
+publish/
+release/*.exe
+!installer/app_transparent.ico
