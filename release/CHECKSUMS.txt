@@ -1,0 +1,22 @@
+======================================================================
+SHREE VASU LOGISTICS LIMITED - IT SUPPORT WORKSTATION v5.5
+RELEASE SHA-256 CHECKSUMS MANIFEST
+Release Date: 2026-10-05
+Lead Engineer: Kunal Turkar
+======================================================================
+
+FILE: SVLL-IT-Workstation-v5.5-Setup.exe
+SIZE: 67,050,732 bytes (63.94 MB)
+TYPE: Inno Setup Enterprise Installer (Windows 10 / 11 x64)
+SHA256: EF03B797C33C4D29DE87C7492E61A06E21824246E11767CD193BFF148731685B
+
+FILE: SVLL-IT-Workstation.exe
+SIZE: 72,114,496 bytes (68.77 MB)
+TYPE: Standalone Single-File Portable Executable (.NET 8.0 self-contained win-x64)
+SHA256: 462562F19C453E814E2CE5271A2177BA86561F92E8631ED155CA21FAA870D8D8
+
+======================================================================
+VERIFICATION INSTRUCTIONS (PowerShell):
+Get-FileHash -Path .\SVLL-IT-Workstation-v5.5-Setup.exe -Algorithm SHA256
+Get-FileHash -Path .\SVLL-IT-Workstation.exe -Algorithm SHA256
+======================================================================
