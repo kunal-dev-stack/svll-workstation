@@ -93,6 +93,114 @@ public partial class MainWindow : Window
     private List<ContinuousPingTarget> _watchdogTargets = new List<ContinuousPingTarget>();
     private List<SoftwarePackage> _softwarePackages = new List<SoftwarePackage>();
 
+    // Top Status Bar Live Indicators
+    private TextBlock? _lblTopBarHost;
+    private TextBlock? _lblTopBarUser;
+    private TextBlock? _lblTopBarIp;
+    private TextBlock? _lblTopBarGateway;
+    private TextBlock? _lblTopBarCpu;
+    private TextBlock? _lblTopBarRam;
+
+    // Terminal Drawer Toggle State
+    private RowDefinition _terminalRow = new RowDefinition { Height = new GridLength(185) };
+    private bool _isTerminalCollapsed = false;
+    private Button? _btnToggleTerminal;
+    private Grid? _terminalInputBar;
+
+    // 5-Hub Enterprise Workspaces Architecture
+    private class HubInfo
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Subtitle { get; set; } = "";
+        public string Glyph { get; set; } = "";
+        public List<(string Tag, string Label, string Icon)> SubTools { get; set; } = new();
+    }
+
+    private readonly List<HubInfo> _hubs = new()
+    {
+        new HubInfo
+        {
+            Id = "Hub_Monitoring",
+            Title = "LIVE MONITORING & TRIAGE",
+            Subtitle = "System Vitals, Continuous Watchdog & Latency Tests",
+            Glyph = "\uE80F",
+            SubTools = new()
+            {
+                ("Dashboard", "Executive Dashboard", "📊"),
+                ("PingMonitor", "24/7 Ping Watchdog", "⚡"),
+                ("WmsLatency", "WMS & ERP Latency", "🏢"),
+                ("SpeedTest", "Internet Speed Test", "🚀")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Network",
+            Title = "NETWORK OPERATIONS CENTER",
+            Subtitle = "IPConfig, Subnets, DNS Switching & Wi-Fi Diagnostics",
+            Glyph = "\uE968",
+            SubTools = new()
+            {
+                ("NetshSuite", "IPConfig & Netsh", "📋"),
+                ("Network", "Network & DNS Profiles", "🌐"),
+                ("SubnetScanner", "Subnet IP Scanner", "🔍"),
+                ("Wifi", "Wi-Fi Diagnostics", "📶"),
+                ("LanShares", "LAN File Shares", "📂")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Optimization",
+            Title = "SYSTEM OPTIMIZATION & SERVICING",
+            Subtitle = "Debloating, Temp Purge, Storage TRIM & Baseline Configs",
+            Glyph = "\uE74C",
+            SubTools = new()
+            {
+                ("WinUtilTweaks", "WinUtil Tweaks", "⚙️"),
+                ("Cleanup", "Disk & Temp Purge", "🧹"),
+                ("Disk", "Storage & TRIM", "💾"),
+                ("WinFeatures", "Windows Features", "🧩"),
+                ("WinUpdateConfig", "Windows Updates", "🔄"),
+                ("ConfigManager", "Baseline Profiles", "📋")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Diagnostics",
+            Title = "FLEET DIAGNOSTICS & HELPDESK",
+            Subtitle = "OS Repairs, Print Spooler, Event Analyzer & Support Bundle",
+            Glyph = "\uE90F",
+            SubTools = new()
+            {
+                ("Repair", "Windows OS Repair", "🩺"),
+                ("Printer", "Print Spooler Diagnostic", "🖨️"),
+                ("Services", "Services & Processes", "⚡"),
+                ("EventLog", "Event Log Analyzer", "⚠️"),
+                ("Health", "PC Health & Battery", "🔋"),
+                ("AssetPassport", "Asset Passport & QR", "🛡️"),
+                ("SupportBundle", "IT Support Bundle", "📦")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Playbook",
+            Title = "COMMAND PLAYBOOK & DEPLOYMENT",
+            Subtitle = "37 Dual-Syntax Fixes, WinGet Software & Local Admin",
+            Glyph = "\uE82D",
+            SubTools = new()
+            {
+                ("Library", "IT Command Playbook", "📖"),
+                ("WinGetSoftware", "WinGet Software", "📦"),
+                ("Users", "Local Users & Vault", "👤"),
+                ("About", "Updates & About", "ℹ️")
+            }
+        }
+    };
+
+    private readonly Dictionary<string, (Border Container, ContentControl Host, Dictionary<string, Button> SubButtons, string ActiveSubTag)> _hubViews 
+        = new Dictionary<string, (Border, ContentControl, Dictionary<string, Button>, string)>();
+    private string _activeHubId = "";
+
     // Vitals Polling
     private DispatcherTimer? _vitalsTimer;
     private static long _prevIdle, _prevKernel, _prevUser;
@@ -203,15 +311,20 @@ public partial class MainWindow : Window
 
         // ------------------ RIGHT WORKSPACE ------------------
         var mainGrid = new Grid();
-        mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Dynamic Page Host
-        mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(180) }); // Embedded Interactive Terminal
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 0: Top Status Bar
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Row 1: Dynamic Page Host
+        mainGrid.RowDefinitions.Add(_terminalRow); // Row 2: Embedded Interactive Terminal
 
-        _pageHost = new ContentControl { Margin = new Thickness(18, 16, 18, 8) };
-        Grid.SetRow(_pageHost, 0);
+        var topStatusBar = BuildTopStatusBar();
+        Grid.SetRow(topStatusBar, 0);
+        mainGrid.Children.Add(topStatusBar);
+
+        _pageHost = new ContentControl { Margin = new Thickness(14, 10, 14, 6) };
+        Grid.SetRow(_pageHost, 1);
         mainGrid.Children.Add(_pageHost);
 
         var terminalPanel = BuildEmbeddedTerminal();
-        Grid.SetRow(terminalPanel, 1);
+        Grid.SetRow(terminalPanel, 2);
         mainGrid.Children.Add(terminalPanel);
 
         Grid.SetColumn(mainGrid, 1);
@@ -288,57 +401,169 @@ public partial class MainWindow : Window
         return root;
     }
 
+    private UIElement BuildTopStatusBar()
+    {
+        var bar = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(16, 7, 16, 7)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        // Left Info Stack
+        var leftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        _lblTopBarHost = new TextBlock
+        {
+            Text = $"💻 {Environment.MachineName}",
+            FontSize = 11.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        leftStack.Children.Add(_lblTopBarHost);
+
+        leftStack.Children.Add(CreateStatusBarSeparator());
+
+        _lblTopBarUser = new TextBlock
+        {
+            Text = $"👤 {Environment.UserName}",
+            FontSize = 11,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        leftStack.Children.Add(_lblTopBarUser);
+
+        leftStack.Children.Add(CreateStatusBarSeparator());
+
+        _lblTopBarIp = new TextBlock
+        {
+            Text = "🌐 Detecting IP...",
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        leftStack.Children.Add(_lblTopBarIp);
+
+        leftStack.Children.Add(CreateStatusBarSeparator());
+
+        _lblTopBarGateway = new TextBlock
+        {
+            Text = $"⚡ GW: {DetectLocalGatewayIp()} 🟢",
+            FontSize = 11,
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        leftStack.Children.Add(_lblTopBarGateway);
+
+        Grid.SetColumn(leftStack, 0);
+        grid.Children.Add(leftStack);
+
+        // Right Info Stack
+        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        _lblTopBarCpu = new TextBlock
+        {
+            Text = "🚀 CPU: --%",
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var cpuPill = CreateStatusPill(_lblTopBarCpu);
+        rightStack.Children.Add(cpuPill);
+
+        _lblTopBarRam = new TextBlock
+        {
+            Text = "🧠 RAM: --%",
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var ramPill = CreateStatusPill(_lblTopBarRam);
+        rightStack.Children.Add(ramPill);
+
+        var btnQuickLog = new Button
+        {
+            Content = "📋 Device Audit Log",
+            FontSize = 10,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(8, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnQuickLog.Click += (s, e) =>
+        {
+            try
+            {
+                if (!File.Exists(AuditLogPath))
+                {
+                    if (!Directory.Exists(AuditLogDirectory))
+                        Directory.CreateDirectory(AuditLogDirectory);
+                    File.WriteAllText(AuditLogPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [DEVICE AUDIT LOG INITIALIZED FOR {Environment.MachineName}]\n");
+                }
+                Process.Start(new ProcessStartInfo { FileName = AuditLogPath, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open audit log: {ex.Message}", "Audit Log", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        rightStack.Children.Add(btnQuickLog);
+
+        Grid.SetColumn(rightStack, 1);
+        grid.Children.Add(rightStack);
+
+        bar.Child = grid;
+        return bar;
+    }
+
+    private UIElement CreateStatusBarSeparator()
+    {
+        return new Border
+        {
+            Width = 1,
+            Height = 12,
+            Background = BorderMuted,
+            Margin = new Thickness(10, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+    }
+
+    private Border CreateStatusPill(UIElement content)
+    {
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(4, 0, 0, 0),
+            Child = content
+        };
+    }
+
     private void BuildCategorizedNavigation()
     {
         _navButtons.Clear();
         _navPanel.Children.Clear();
 
-        // Tier 1: OVERVIEW & MONITORING
-        AddNavSectionHeader("OVERVIEW & MONITORING");
-        AddNav("\uE80F", "Executive Dashboard", "Dashboard");
-        AddNav("\uE839", "24/7 Ping Watchdog", "PingMonitor");
-        AddNav("\uEC4A", "Live Internet Speed Test", "SpeedTest");
+        AddNavSectionHeader("ENTERPRISE WORKSPACES");
 
-        // Tier 2: NETWORK OPERATIONS
-        AddNavSectionHeader("NETWORK OPERATIONS");
-        AddNav("\uE968", "Network & DNS Profiles", "Network");
-        AddNav("\uE753", "Subnet IP Scanner", "SubnetScanner");
-        AddNav("\uE774", "IPConfig & Netsh Suite", "NetshSuite");
-        AddNav("\uE701", "Wi-Fi Keys & Diagnostics", "Wifi");
-        AddNav("\uE8B7", "LAN File Share & Push", "LanShares");
-
-        // Tier 3: LOGISTICS & WAREHOUSE
-        AddNavSectionHeader("LOGISTICS & WAREHOUSE");
-        AddNav("\uE839", "WMS & ERP Latency Tester", "WmsLatency");
-
-        // Tier 4: ENTERPRISE ASSET & HELPDESK
-        AddNavSectionHeader("ENTERPRISE ASSET & HELPDESK");
-        AddNav("\uE8A5", "Asset Passport & QR Code", "AssetPassport");
-        AddNav("\uE7BA", "Event Log & Crash Analyzer", "EventLog");
-        AddNav("\uE8CB", "Diagnostic Support Bundle", "SupportBundle");
-
-        // Tier 5: SYSTEM ADMINISTRATION
-        AddNavSectionHeader("SYSTEM ADMINISTRATION");
-        AddNav("\uE74C", "WinUtil Tweaks & Debloat", "WinUtilTweaks");
-        AddNav("\uE896", "WinGet Software Deployer", "WinGetSoftware");
-        AddNav("\uE7B5", "Windows Features (DISM)", "WinFeatures");
-        AddNav("\uE777", "Windows Update Strategy", "WinUpdateConfig");
-        AddNav("\uE77B", "Local Users & Vault Admin", "Users");
-
-        // Tier 6: DIAGNOSTICS & HEALTH
-        AddNavSectionHeader("DIAGNOSTICS & HEALTH");
-        AddNav("\uE95E", "PC Health & Battery Report", "Health");
-        AddNav("\uE90F", "Windows OS Repair (SFC)", "Repair");
-        AddNav("\uEDA2", "Storage Volumes & TRIM", "Disk");
-        AddNav("\uE718", "Services & Process Control", "Services");
-        AddNav("\uE749", "Print Spooler Diagnostic", "Printer");
-
-        // Tier 7: KNOWLEDGE & SYSTEM
-        AddNavSectionHeader("KNOWLEDGE & SYSTEM");
-        AddNav("\uE82D", "IT Fix & Command Library", "Library");
-        AddNav("\uE74D", "Disk Cleanup & Temp Files", "Cleanup");
-        AddNav("\uE8CB", "Config & Presets Manager", "ConfigManager");
-        AddNav("\uE946", "Release Updates & About", "About");
+        foreach (var hub in _hubs)
+        {
+            AddHubNav(hub.Id, hub.Glyph, hub.Title, hub.Subtitle);
+        }
     }
 
     private void AddNavSectionHeader(string header)
@@ -349,51 +574,65 @@ public partial class MainWindow : Window
             FontSize = 9.5,
             FontWeight = FontWeights.Bold,
             Foreground = TextSubtle,
-            Margin = new Thickness(8, 12, 0, 4)
+            Margin = new Thickness(8, 12, 0, 6)
         };
         _navPanel.Children.Add(txt);
     }
 
-    private void AddNav(string glyph, string label, string tag)
+    private void AddHubNav(string hubId, string glyph, string title, string subtitle)
     {
         var btn = new Button
         {
-            Tag = tag,
-            Height = 33,
-            Margin = new Thickness(0, 1.5, 0, 1.5),
+            Tag = hubId,
+            MinHeight = 48,
+            Margin = new Thickness(0, 2, 0, 2),
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Cursor = Cursors.Hand,
             HorizontalContentAlignment = HorizontalAlignment.Left,
-            Padding = new Thickness(8, 0, 8, 0)
+            Padding = new Thickness(10, 6, 10, 6)
         };
 
-        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
         var icon = new TextBlock
         {
             Text = glyph,
             FontFamily = IconFont,
-            FontSize = 13,
+            FontSize = 15,
             Foreground = TextSubtle,
-            Width = 22,
             VerticalAlignment = VerticalAlignment.Center
         };
-        var text = new TextBlock
+        Grid.SetColumn(icon, 0);
+        grid.Children.Add(icon);
+
+        var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var txtTitle = new TextBlock
         {
-            Text = label,
+            Text = title,
             FontSize = 11.5,
-            FontWeight = FontWeights.Medium,
-            Foreground = TextDark,
-            VerticalAlignment = VerticalAlignment.Center
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark
         };
+        var txtSub = new TextBlock
+        {
+            Text = subtitle,
+            FontSize = 9.5,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 1, 0, 0)
+        };
+        textStack.Children.Add(txtTitle);
+        textStack.Children.Add(txtSub);
+        Grid.SetColumn(textStack, 1);
+        grid.Children.Add(textStack);
 
-        panel.Children.Add(icon);
-        panel.Children.Add(text);
-        btn.Content = panel;
+        btn.Content = grid;
+        btn.Click += (s, e) => NavigateTo(hubId);
 
-        btn.Click += (s, e) => NavigateTo(tag);
         _navPanel.Children.Add(btn);
-        _navButtons[tag] = btn;
+        _navButtons[hubId] = btn;
     }
 
     private UIElement BuildDeveloperAttributionCard()
@@ -428,32 +667,188 @@ public partial class MainWindow : Window
         return card;
     }
 
+    private UIElement GetOrCreateHubView(HubInfo hub)
+    {
+        if (_hubViews.TryGetValue(hub.Id, out var existing))
+        {
+            return existing.Container;
+        }
+
+        var container = new Border();
+        var mainGrid = new Grid();
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sub-Tabs Bar
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Sub-tool View Host
+
+        // Top Sub-Tabs Bar
+        var topBar = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 10, 14, 8),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var topStack = new StackPanel();
+
+        // Hub Title & Description
+        var headerRow = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+        var titleBlock = new TextBlock
+        {
+            Text = hub.Title,
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var subBlock = new TextBlock
+        {
+            Text = $"—  {hub.Subtitle}",
+            FontSize = 11,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0)
+        };
+        var titleStack = new StackPanel { Orientation = Orientation.Horizontal };
+        titleStack.Children.Add(titleBlock);
+        titleStack.Children.Add(subBlock);
+        DockPanel.SetDock(titleStack, Dock.Left);
+        headerRow.Children.Add(titleStack);
+        topStack.Children.Add(headerRow);
+
+        // Sub-tools Tabs (WrapPanel)
+        var tabWrap = new WrapPanel();
+        var subButtons = new Dictionary<string, Button>();
+        var contentHost = new ContentControl();
+
+        string initialSubTag = hub.SubTools.FirstOrDefault().Tag ?? "";
+
+        foreach (var sub in hub.SubTools)
+        {
+            var btnTab = new Button
+            {
+                Content = $"{sub.Icon}  {sub.Label}",
+                Height = 29,
+                Padding = new Thickness(12, 0, 12, 0),
+                Margin = new Thickness(0, 0, 6, 6),
+                FontSize = 11,
+                Cursor = Cursors.Hand,
+                BorderThickness = new Thickness(1),
+                BorderBrush = BorderMuted
+            };
+
+            string toolTag = sub.Tag;
+            btnTab.Click += (s, e) => SwitchHubSubTool(hub.Id, toolTag);
+
+            subButtons[sub.Tag] = btnTab;
+            tabWrap.Children.Add(btnTab);
+        }
+
+        topStack.Children.Add(tabWrap);
+        topBar.Child = topStack;
+
+        Grid.SetRow(topBar, 0);
+        mainGrid.Children.Add(topBar);
+
+        Grid.SetRow(contentHost, 1);
+        mainGrid.Children.Add(contentHost);
+
+        container.Child = mainGrid;
+
+        _hubViews[hub.Id] = (container, contentHost, subButtons, initialSubTag);
+
+        return container;
+    }
+
+    private void SwitchHubSubTool(string hubId, string subTag)
+    {
+        if (!_hubViews.TryGetValue(hubId, out var hubData)) return;
+
+        // Update Tab Button Styles
+        foreach (var kvp in hubData.SubButtons)
+        {
+            bool isCurrent = kvp.Key == subTag;
+            kvp.Value.Background = isCurrent ? SvllBlue : new SolidColorBrush(Color.FromRgb(241, 245, 249));
+            kvp.Value.Foreground = isCurrent ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+            kvp.Value.FontWeight = isCurrent ? FontWeights.Bold : FontWeights.Normal;
+            kvp.Value.BorderBrush = isCurrent ? SvllBlue : BorderMuted;
+        }
+
+        // Load sub-tool view into host
+        if (!_viewCache.TryGetValue(subTag, out var view))
+        {
+            view = CreateViewByTag(subTag);
+            _viewCache[subTag] = view;
+        }
+
+        hubData.Host.Content = view;
+        _hubViews[hubId] = (hubData.Container, hubData.Host, hubData.SubButtons, subTag);
+    }
+
     public void NavigateTo(string tag)
     {
-        foreach (var kvp in _navButtons)
+        // 1. Determine target Hub and SubTool
+        HubInfo? targetHub = null;
+        string targetSubTag = "";
+
+        if (tag.StartsWith("Hub_"))
         {
-            bool isCurrent = kvp.Key == tag;
-            var btn = kvp.Value;
-            btn.Background = isCurrent ? new SolidColorBrush(Color.FromRgb(239, 246, 255)) : Brushes.Transparent;
-            if (btn.Content is StackPanel sp && sp.Children.Count >= 2)
+            targetHub = _hubs.FirstOrDefault(h => h.Id == tag);
+            if (targetHub != null)
             {
-                if (sp.Children[0] is TextBlock icon)
-                    icon.Foreground = isCurrent ? SvllBlue : TextSubtle;
-                if (sp.Children[1] is TextBlock txt)
+                if (_hubViews.TryGetValue(targetHub.Id, out var existingData) && !string.IsNullOrEmpty(existingData.ActiveSubTag))
+                    targetSubTag = existingData.ActiveSubTag;
+                else
+                    targetSubTag = targetHub.SubTools.FirstOrDefault().Tag ?? "";
+            }
+        }
+        else
+        {
+            foreach (var h in _hubs)
+            {
+                if (h.SubTools.Any(st => st.Tag == tag))
                 {
-                    txt.Foreground = isCurrent ? SvllBlue : TextDark;
-                    txt.FontWeight = isCurrent ? FontWeights.SemiBold : FontWeights.Medium;
+                    targetHub = h;
+                    targetSubTag = tag;
+                    break;
                 }
             }
         }
 
-        if (!_viewCache.TryGetValue(tag, out var view))
+        if (targetHub == null)
         {
-            view = CreateViewByTag(tag);
-            _viewCache[tag] = view;
+            targetHub = _hubs[0];
+            targetSubTag = targetHub.SubTools[0].Tag;
         }
 
-        _pageHost.Content = view;
+        _activeHubId = targetHub.Id;
+
+        // 2. Highlight Sidebar Button
+        foreach (var kvp in _navButtons)
+        {
+            bool isCurrent = kvp.Key == targetHub.Id;
+            var btn = kvp.Value;
+            btn.Background = isCurrent ? new SolidColorBrush(Color.FromRgb(239, 246, 255)) : Brushes.Transparent;
+            if (btn.Content is Grid g && g.Children.Count >= 2)
+            {
+                if (g.Children[0] is TextBlock icon)
+                    icon.Foreground = isCurrent ? SvllBlue : TextSubtle;
+                if (g.Children[1] is StackPanel sp && sp.Children.Count >= 2)
+                {
+                    if (sp.Children[0] is TextBlock title)
+                        title.Foreground = isCurrent ? SvllBlue : TextDark;
+                    if (sp.Children[1] is TextBlock sub)
+                        sub.Foreground = isCurrent ? new SolidColorBrush(Color.FromRgb(3, 105, 161)) : TextSubtle;
+                }
+            }
+        }
+
+        // 3. Render Hub View & Activate Sub-Tool
+        var hubView = GetOrCreateHubView(targetHub);
+        _pageHost.Content = hubView;
+
+        SwitchHubSubTool(targetHub.Id, targetSubTag);
     }
 
     private UIElement CreateViewByTag(string tag)
@@ -579,6 +974,37 @@ public partial class MainWindow : Window
         };
         actions.Children.Add(btnOpenLog);
 
+        _btnToggleTerminal = new Button
+        {
+            Content = "▼ Minimize",
+            FontSize = 10,
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = Brushes.Transparent,
+            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        _btnToggleTerminal.Click += (s, e) =>
+        {
+            _isTerminalCollapsed = !_isTerminalCollapsed;
+            if (_isTerminalCollapsed)
+            {
+                _terminalRow.Height = new GridLength(32);
+                _btnToggleTerminal.Content = "▲ Expand Terminal";
+                _txtConsole.Visibility = Visibility.Collapsed;
+                if (_terminalInputBar != null) _terminalInputBar.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                _terminalRow.Height = new GridLength(185);
+                _btnToggleTerminal.Content = "▼ Minimize";
+                _txtConsole.Visibility = Visibility.Visible;
+                if (_terminalInputBar != null) _terminalInputBar.Visibility = Visibility.Visible;
+            }
+        };
+        actions.Children.Add(_btnToggleTerminal);
+
         Grid.SetColumn(actions, 1);
         barGrid.Children.Add(actions);
         bar.Child = barGrid;
@@ -603,6 +1029,7 @@ public partial class MainWindow : Window
 
         // Input bar
         var inputBar = new Grid { Margin = new Thickness(6, 4, 6, 6) };
+        _terminalInputBar = inputBar;
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

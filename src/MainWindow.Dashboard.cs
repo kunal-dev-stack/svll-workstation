@@ -563,6 +563,7 @@ public partial class MainWindow
 
                 _lblRamVal.Text = $"{loadPct}%";
                 _lblRamSub.Text = $"{usedGb} / {totalGb} GB";
+                if (_lblTopBarRam != null) _lblTopBarRam.Text = $"🧠 RAM: {loadPct}%";
 
                 if (_lblSpecRam != null)
                 {
@@ -580,6 +581,7 @@ public partial class MainWindow
             // 2. CPU Live Workload Sampling
             double cpuPct = await Task.Run(() => SampleCpuPercentage());
             _lblCpuVal.Text = $"{Math.Round(cpuPct)}%";
+            if (_lblTopBarCpu != null) _lblTopBarCpu.Text = $"🚀 CPU: {Math.Round(cpuPct)}%";
             if (_cpuCanvas != null && _cpuLine != null && _cpuFill != null)
             {
                 RenderSparkline(_cpuCanvas, _cpuLine, _cpuFill, _cpuHistory, cpuPct);
@@ -697,6 +699,8 @@ public partial class MainWindow
                     : "Virtual Adapter";
 
                 _lblNetVal.Text = ip;
+                if (_lblTopBarIp != null) _lblTopBarIp.Text = $"🌐 {ip}";
+                if (_lblTopBarGateway != null && gw != "None") _lblTopBarGateway.Text = $"⚡ GW: {gw} 🟢";
 
                 // Live Network Bandwidth I/O Throughput
                 var stats = activeInterface.GetIPv4Statistics();
