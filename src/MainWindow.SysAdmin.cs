@@ -210,6 +210,7 @@ foreach ($b in $bloat) {
         btnM365.Content = m365Panel;
         btnM365.Click += async (s, e) =>
         {
+            if (!await EnsureWinGetReadyAsync()) return;
             Log("\n[WINGET] Deploying Microsoft 365 Enterprise suite (Microsoft.Office)...");
             await ExecuteAsync("winget.exe", "install --id Microsoft.Office --exact --silent --accept-package-agreements --accept-source-agreements");
             Log("[WINGET] Microsoft 365 installation finished.");
@@ -234,6 +235,7 @@ foreach ($b in $bloat) {
         btnWinZip.Content = winzipPanel;
         btnWinZip.Click += async (s, e) =>
         {
+            if (!await EnsureWinGetReadyAsync()) return;
             Log("\n[WINGET] Deploying WinZip Archiver (WinZipComputing.WinZip)...");
             await ExecuteAsync("winget.exe", "install --id WinZipComputing.WinZip --exact --silent --accept-package-agreements --accept-source-agreements");
             Log("[WINGET] WinZip installation finished.");
@@ -338,6 +340,7 @@ foreach ($b in $bloat) {
                 MessageBox.Show("Please enter a valid WinGet package ID (e.g., Git.Git, Zoom.Zoom).", "Invalid Package ID", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+            if (!await EnsureWinGetReadyAsync()) return;
             Log($"\n[WINGET] Installing custom package: {pkg}...");
             await ExecuteAsync("winget.exe", $"install --id {pkg} --exact --silent --accept-package-agreements --accept-source-agreements");
             Log($"[WINGET] Installation of {pkg} finished.");
@@ -352,6 +355,8 @@ foreach ($b in $bloat) {
                 MessageBox.Show("Please select at least one software package.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+
+            if (!await EnsureWinGetReadyAsync()) return;
 
             Log($"\n[WINGET] Initiating batch deployment for {selected.Count} applications...");
             foreach (var item in selected)
@@ -898,6 +903,52 @@ foreach ($b in $bloat) {
 
         _txtVaultCredentials.Text = sb.ToString();
         MessageBox.Show($"Security Audit for [{currentUser}]:\n\nIn accordance with Windows NT security architecture, passwords are protected by one-way irreversible cryptographic hashes and cannot be viewed in plaintext.\n\nTo change or reset the user's password, use the '1-Click Reset Password' button above.", "Windows Authentication Security", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private async Task<bool> EnsureWinGetReadyAsync()
+    {
+        bool available = await Task.Run(() =>
+        {
+            try
+            {
+                var p = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "where.exe",
+                    Arguments = "winget",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                p?.WaitForExit(2000);
+                return p?.ExitCode == 0;
+            }
+            catch { return false; }
+        });
+
+        if (!available)
+        {
+            var res = MessageBox.Show(
+                "Windows Package Manager (WinGet) was not found in your system PATH.\n\n" +
+                "On Windows 10, WinGet is provided by the Microsoft 'App Installer' package.\n\n" +
+                "Would you like to open the Microsoft Store page to install/update App Installer?",
+                "WinGet Not Found (Windows 10 / 11)",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (res == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = "ms-windows-store://pdp/?productid=9NBLGGH4NNS1", UseShellExecute = true });
+                }
+                catch
+                {
+                    Process.Start(new ProcessStartInfo { FileName = "https://apps.microsoft.com/detail/9nblggh4nns1", UseShellExecute = true });
+                }
+            }
+            return false;
+        }
+        return true;
     }
 
     #endregion

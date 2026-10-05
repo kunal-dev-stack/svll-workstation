@@ -11,27 +11,17 @@ public class ProfileEditorDialog : Window
 
 	private readonly SolidColorBrush BorderMuted = new SolidColorBrush(Color.FromRgb(226, 232, 240));
 
-	private TextBox _txtName;
-
-	private TextBox _txtBranch;
-
-	private TextBox _txtIp;
-
-	private TextBox _txtGw;
-
-	private TextBox _txtDns1;
-
-	private TextBox _txtDns2;
-
-	private TextBox _txtNotes;
-
-	private ComboBox _cmbSubnet;
-
-	private RadioButton _rbDhcp;
-
-	private RadioButton _rbStatic;
-
-	private StackPanel _staticPanel;
+	private TextBox _txtName = null!;
+	private TextBox _txtBranch = null!;
+	private TextBox _txtIp = null!;
+	private TextBox _txtGw = null!;
+	private TextBox _txtDns1 = null!;
+	private TextBox _txtDns2 = null!;
+	private TextBox _txtNotes = null!;
+	private ComboBox _cmbSubnet = null!;
+	private RadioButton _rbDhcp = null!;
+	private RadioButton _rbStatic = null!;
+	private StackPanel _staticPanel = null!;
 
 	public NetworkProfile ResultProfile { get; private set; }
 

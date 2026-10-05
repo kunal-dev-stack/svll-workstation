@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <Resource Include="svll_brand_banner.png" />
+    <Resource Include="svll_brand_logo.png" />
   </ItemGroup>
 
 </Project>

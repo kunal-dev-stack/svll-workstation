@@ -524,39 +524,39 @@ public partial class MainWindow
         });
 
         sp.Children.Add(CreateToolRow("Purge User Temporary Files (%TEMP%)", "Deletes temporary session files accumulated in the current user AppData\\Local\\Temp directory.",
-            async () =>
+            () => Task.Run(() =>
             {
                 Log("\n[CLEANUP] Cleaning User Temp directory...");
                 CleanDirectory(Path.GetTempPath());
                 Log("[CLEANUP] User Temp cleanup finished.");
-            }, "Clean %TEMP%"));
+            }), "Clean %TEMP%"));
 
         sp.Children.Add(CreateToolRow("Purge Windows System Temp (C:\\Windows\\Temp)", "Cleans system-wide installers and temporary files created by background services.",
-            async () =>
+            () => Task.Run(() =>
             {
                 Log("\n[CLEANUP] Cleaning Windows System Temp directory...");
                 CleanDirectory(@"C:\Windows\Temp");
                 Log("[CLEANUP] System Temp cleanup finished.");
-            }, "Clean System Temp"));
+            }), "Clean System Temp"));
 
         sp.Children.Add(CreateToolRow("Purge Windows Prefetch", "Deletes obsolete application prefetch execution records in C:\\Windows\\Prefetch.",
-            async () =>
+            () => Task.Run(() =>
             {
                 Log("\n[CLEANUP] Cleaning Windows Prefetch directory...");
                 CleanDirectory(@"C:\Windows\Prefetch");
                 Log("[CLEANUP] Prefetch cleanup finished.");
-            }, "Clean Prefetch"));
+            }), "Clean Prefetch"));
 
         sp.Children.Add(CreateToolRow("Empty Windows Recycle Bin", "Permanently empties all deleted files across all physical drive Recycle Bins.",
-            async () =>
+            () => Task.Run(() =>
             {
                 Log("\n[CLEANUP] Emptying Windows Recycle Bin...");
                 SHEmptyRecycleBin(IntPtr.Zero, null!, 7);
                 Log("[CLEANUP] Recycle Bin emptied.");
-            }, "Empty Bin"));
+            }), "Empty Bin"));
 
         sp.Children.Add(CreateToolRow("Launch Cleanmgr GUI", "Opens native Windows Disk Cleanup utility for deep system volume analysis.",
-            async () => OpenTool("cleanmgr.exe"), "Open Cleanmgr"));
+            () => Task.Run(() => OpenTool("cleanmgr.exe")), "Open Cleanmgr"));
 
         card.Child = sp;
         root.Children.Add(card);
@@ -897,6 +897,7 @@ public partial class MainWindow
         };
         upStack.Children.Add(statusBlock);
 
+        var btnRow = new StackPanel { Orientation = Orientation.Horizontal };
         var btnCheckUpdate = new Button
         {
             Content = "Check GitHub for Latest Release",
@@ -905,11 +906,29 @@ public partial class MainWindow
             Background = SvllBlue,
             Foreground = Brushes.White,
             FontWeight = FontWeights.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Left
+            Margin = new Thickness(0, 0, 10, 0)
         };
+
+        var btnApplyUpdate = new Button
+        {
+            Content = "Download & Apply Update Now",
+            Height = 32,
+            Padding = new Thickness(14, 0, 14, 0),
+            Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)), // Green
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.Bold,
+            Visibility = Visibility.Collapsed
+        };
+
+        string downloadUrl = "";
+        string updateFileName = "";
+
         btnCheckUpdate.Click += async (s, e) =>
         {
-            statusBlock.Text = "Querying GitHub API...";
+            btnCheckUpdate.IsEnabled = false;
+            statusBlock.Text = "Querying GitHub API (kunal-dev-stack/svll-workstation)...";
+            btnApplyUpdate.Visibility = Visibility.Collapsed;
+
             try
             {
                 using var client = new HttpClient();
@@ -917,15 +936,98 @@ public partial class MainWindow
                 string json = await client.GetStringAsync("https://api.github.com/repos/kunal-dev-stack/svll-workstation/releases/latest");
                 using var doc = JsonDocument.Parse(json);
                 string tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
-                statusBlock.Text = $"Latest Release on GitHub: {tag} (Installed Version: v{CurrentVersion})";
-                Log($"[UPDATER] Found release {tag} on GitHub repository.");
+
+                // Find setup asset
+                downloadUrl = "";
+                if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var asset in assets.EnumerateArray())
+                    {
+                        string name = asset.GetProperty("name").GetString() ?? "";
+                        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && name.Contains("Setup", StringComparison.OrdinalIgnoreCase))
+                        {
+                            downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
+                            updateFileName = name;
+                            break;
+                        }
+                    }
+                }
+
+                string cleanTag = tag.TrimStart('v', 'V');
+                if (cleanTag != CurrentVersion && !string.IsNullOrEmpty(downloadUrl))
+                {
+                    statusBlock.Text = $"🎉 New update available: {tag} (Installed: v{CurrentVersion})! Click 'Download & Apply Update Now'.";
+                    statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(5, 150, 105));
+                    btnApplyUpdate.Visibility = Visibility.Visible;
+                }
+                else if (cleanTag != CurrentVersion && string.IsNullOrEmpty(downloadUrl))
+                {
+                    statusBlock.Text = $"New tag {tag} found on GitHub, but no installer (*Setup*.exe) is attached to the release yet.";
+                    statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(217, 119, 6));
+                }
+                else
+                {
+                    statusBlock.Text = $"✔ You are already running the latest version (v{CurrentVersion}).";
+                    statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
+                }
+
+                Log($"[UPDATER] Checked GitHub releases: latest tag is '{tag}'.");
             }
             catch (Exception ex)
             {
                 statusBlock.Text = $"Update query error: {ex.Message}";
+                statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
+            }
+            finally
+            {
+                btnCheckUpdate.IsEnabled = true;
             }
         };
-        upStack.Children.Add(btnCheckUpdate);
+
+        btnApplyUpdate.Click += async (s, e) =>
+        {
+            if (string.IsNullOrEmpty(downloadUrl)) return;
+            btnApplyUpdate.IsEnabled = false;
+            btnCheckUpdate.IsEnabled = false;
+            statusBlock.Text = $"Downloading {updateFileName}... Please wait.";
+            statusBlock.Foreground = SvllBlue;
+
+            try
+            {
+                string tempDir = Path.GetTempPath();
+                string targetPath = Path.Combine(tempDir, string.IsNullOrEmpty(updateFileName) ? "SVLL-Setup.exe" : updateFileName);
+
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "SVLL-Workstation");
+                var bytes = await client.GetByteArrayAsync(downloadUrl);
+                await File.WriteAllBytesAsync(targetPath, bytes);
+
+                statusBlock.Text = "Download complete! Launching silent installer and updating...";
+                Log($"[UPDATER] Downloaded update to {targetPath}. Launching installer.");
+
+                // Launch silent installer and exit current app
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = targetPath,
+                    Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+                    UseShellExecute = true
+                });
+
+                await Task.Delay(1000);
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                statusBlock.Text = $"Failed to download/install update: {ex.Message}";
+                statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
+                btnApplyUpdate.IsEnabled = true;
+                btnCheckUpdate.IsEnabled = true;
+            }
+        };
+
+        btnRow.Children.Add(btnCheckUpdate);
+        btnRow.Children.Add(btnApplyUpdate);
+        upStack.Children.Add(btnRow);
 
         updateBox.Child = upStack;
         sp.Children.Add(updateBox);

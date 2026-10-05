@@ -53,6 +53,7 @@ $exePath = Join-Path $publishDir "SVLL-IT-Workstation.exe"
 if (-not (Test-Path $exePath)) {
     throw "Compiled binary was not found at $exePath"
 }
+$exeSize = (Get-Item $exePath).Length / 1MB
 $exeMb = [Math]::Round($exeSize, 2)
 Write-Host "[OK] Published single-file executable successfully: $exeMb MB" -ForegroundColor Green
 

@@ -102,12 +102,19 @@ public partial class MainWindow : Window
     public MainWindow(string[] args)
     {
         Title = $"SVLL IT Support Workstation v{CurrentVersion} - Enterprise Fleet Diagnostics";
-        Width = 1340;
-        Height = 880;
-        MinHeight = 750;
-        MinWidth = 1100;
+        WindowState = WindowState.Maximized;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Width = 1280;
+        Height = 760;
+        MinWidth = 980;
+        MinHeight = 600;
         Background = BgApp;
+
+        try
+        {
+            Icon = new BitmapImage(new Uri("pack://application:,,,/svll_brand_logo.png", UriKind.Absolute));
+        }
+        catch { }
 
         InitializeSoftwareLibrary();
         InitializeDefaultWatchdogTargets();
@@ -190,53 +197,51 @@ public partial class MainWindow : Window
     private UIElement RenderSvllBrandLogo()
     {
         var root = new StackPanel();
+        var topRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
 
-        // Use embedded brand banner if available, fallback gracefully
         try
         {
-            var logoUri = new Uri("pack://application:,,,/svll_brand_banner.png", UriKind.Absolute);
+            var logoUri = new Uri("pack://application:,,,/svll_brand_logo.png", UriKind.Absolute);
             var bitmap = new BitmapImage(logoUri);
             var img = new Image
             {
                 Source = bitmap,
-                MaxHeight = 44,
+                Width = 44,
+                Height = 44,
                 Stretch = Stretch.Uniform,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 0, 0, 4)
+                Margin = new Thickness(0, 0, 10, 0),
+                VerticalAlignment = VerticalAlignment.Center
             };
-            root.Children.Add(img);
+            topRow.Children.Add(img);
         }
-        catch
+        catch { }
+
+        var brandText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        brandText.Children.Add(new TextBlock
         {
-            // Vector fallback
-            var topRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
-            var brandText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            brandText.Children.Add(new TextBlock
-            {
-                Text = "SHREE VASU",
-                FontSize = 13,
-                FontWeight = FontWeights.ExtraBold,
-                Foreground = SvllBlue
-            });
-            brandText.Children.Add(new TextBlock
-            {
-                Text = "LOGISTICS LIMITED",
-                FontSize = 9.5,
-                FontWeight = FontWeights.Bold,
-                Foreground = SvllRed,
-                Margin = new Thickness(0, -1, 0, 0)
-            });
-            brandText.Children.Add(new TextBlock
-            {
-                Text = "GET CARRIED AWAY",
-                FontSize = 8.0,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = TextSubtle,
-                Margin = new Thickness(0, 1, 0, 0)
-            });
-            topRow.Children.Add(brandText);
-            root.Children.Add(topRow);
-        }
+            Text = "SHREE VASU",
+            FontSize = 13.5,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = SvllBlue
+        });
+        brandText.Children.Add(new TextBlock
+        {
+            Text = "LOGISTICS LIMITED",
+            FontSize = 9.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllRed,
+            Margin = new Thickness(0, -1, 0, 0)
+        });
+        brandText.Children.Add(new TextBlock
+        {
+            Text = "GET CARRIED AWAY",
+            FontSize = 8.0,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 1, 0, 0)
+        });
+        topRow.Children.Add(brandText);
+        root.Children.Add(topRow);
 
         root.Children.Add(new TextBlock
         {
@@ -244,7 +249,7 @@ public partial class MainWindow : Window
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = TextDark,
-            Margin = new Thickness(4, 2, 0, 0)
+            Margin = new Thickness(2, 0, 0, 0)
         });
 
         root.Children.Add(new Border

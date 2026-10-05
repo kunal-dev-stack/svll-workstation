@@ -44,6 +44,7 @@ public partial class MainWindow
     private TextBlock _lblWatchdogDrops = null!;
     private TextBlock _lblWatchdogChimeState = null!;
     private bool _watchdogAudioChimeEnabled = true;
+    private bool _hasActiveAudioAlert = false;
 
     #region 1. 24/7 Continuous Ping Watchdog & Multi-Audit
 
@@ -51,12 +52,44 @@ public partial class MainWindow
     {
         _watchdogTargets = new List<ContinuousPingTarget>
         {
-            new ContinuousPingTarget { Host = "8.8.8.8", Description = "Google Primary DNS" },
+            new ContinuousPingTarget { Host = "8.8.8.8", Description = "Google Primary DNS (Global WAN)" },
             new ContinuousPingTarget { Host = "1.1.1.1", Description = "Cloudflare Global Resolver" },
-            new ContinuousPingTarget { Host = "192.168.1.1", Description = "Branch Default Gateway" },
-            new ContinuousPingTarget { Host = "svll.in", Description = "Shree Vasu Logistics Web Portal" },
-            new ContinuousPingTarget { Host = "208.67.222.222", Description = "OpenDNS Resolver" }
+            new ContinuousPingTarget { Host = "208.67.222.222", Description = "OpenDNS Enterprise Resolver" }
         };
+
+        // Dynamically detect and prepend the active branch default gateway
+        string localGw = DetectLocalGatewayIp();
+        if (!string.IsNullOrEmpty(localGw))
+        {
+            _watchdogTargets.Insert(0, new ContinuousPingTarget { Host = localGw, Description = "Active Branch Default Gateway (LAN)" });
+        }
+        else
+        {
+            _watchdogTargets.Insert(0, new ContinuousPingTarget { Host = "192.168.1.1", Description = "Default Gateway (LAN Standard)" });
+        }
+    }
+
+    private string DetectLocalGatewayIp()
+    {
+        try
+        {
+            var active = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up
+                            && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .OrderByDescending(n => n.GetIPProperties().GatewayAddresses.Count > 0)
+                .FirstOrDefault();
+
+            if (active != null)
+            {
+                var gw = active.GetIPProperties().GatewayAddresses
+                    .FirstOrDefault(g => g.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+                                         && !g.Address.ToString().StartsWith("0.")
+                                         && !g.Address.ToString().StartsWith("127."));
+                if (gw != null) return gw.Address.ToString();
+            }
+        }
+        catch { }
+        return "";
     }
 
     private UIElement BuildPingMonitorView()
@@ -274,17 +307,24 @@ public partial class MainWindow
 
         var btnToggleChime = new Button
         {
-            Content = "Toggle Audio Chime",
+            Content = _watchdogAudioChimeEnabled ? " 🔔 Chime: Active " : " 🔕 Chime: MUTED ",
             Height = 34,
-            Padding = new Thickness(12, 0, 12, 0),
-            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
-            BorderBrush = BorderMuted,
+            Padding = new Thickness(14, 0, 14, 0),
+            Background = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(240, 253, 244)) : new SolidColorBrush(Color.FromRgb(254, 242, 242)),
+            Foreground = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllRed,
+            BorderBrush = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(187, 247, 208)) : new SolidColorBrush(Color.FromRgb(254, 202, 202)),
+            FontWeight = FontWeights.Bold,
             Cursor = Cursors.Hand
         };
         btnToggleChime.Click += (s, e) =>
         {
             _watchdogAudioChimeEnabled = !_watchdogAudioChimeEnabled;
+            btnToggleChime.Content = _watchdogAudioChimeEnabled ? " 🔔 Chime: Active " : " 🔕 Chime: MUTED ";
+            btnToggleChime.Background = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(240, 253, 244)) : new SolidColorBrush(Color.FromRgb(254, 242, 242));
+            btnToggleChime.Foreground = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllRed;
+            btnToggleChime.BorderBrush = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(187, 247, 208)) : new SolidColorBrush(Color.FromRgb(254, 202, 202));
             _lblWatchdogChimeState.Text = _watchdogAudioChimeEnabled ? "Enabled 🔔" : "Muted 🔕";
+            _lblWatchdogChimeState.Foreground = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllRed;
             Log($"[WATCHDOG] Audio chime failure alerts {(_watchdogAudioChimeEnabled ? "enabled" : "muted")}.");
         };
         actionToolbar.Children.Add(btnToggleChime);
@@ -363,7 +403,7 @@ public partial class MainWindow
 
     private async Task AuditWatchdogTargetsAsync()
     {
-        bool hasFailure = false;
+        bool hasConfirmedOutage = false;
 
         foreach (var target in _watchdogTargets)
         {
@@ -387,7 +427,6 @@ public partial class MainWindow
                         target.CurrentLatency = -1;
                         target.Status = "TIMEOUT / DROP";
                         target.ConsecutiveDrops++;
-                        hasFailure = true;
                     }
                     target.LastAuditTime = DateTime.Now.ToString("HH:mm:ss");
                 }
@@ -396,21 +435,43 @@ public partial class MainWindow
                     target.CurrentLatency = -1;
                     target.Status = "HOST UNREACHABLE";
                     target.ConsecutiveDrops++;
-                    hasFailure = true;
                 }
             });
+
+            // Require at least 2 consecutive drops before flagging confirmed outage (prevents single-packet drop false alarms)
+            if (target.ConsecutiveDrops >= 2)
+            {
+                hasConfirmedOutage = true;
+            }
         }
 
         _listWatchdog.Items.Refresh();
 
-        // Acoustic Failure Alert Chime
-        if (hasFailure)
+        // Update Live Telemetry Scorecards
+        int onlineCount = _watchdogTargets.Count(t => t.Status == "ONLINE");
+        int totalDrops = _watchdogTargets.Sum(t => t.ConsecutiveDrops);
+
+        if (_lblWatchdogOnlineHosts != null)
+            _lblWatchdogOnlineHosts.Text = $"{onlineCount} / {_watchdogTargets.Count}";
+        if (_lblWatchdogDrops != null)
+            _lblWatchdogDrops.Text = $"{totalDrops} Drops";
+        if (_lblWatchdogTotalHosts != null)
+            _lblWatchdogTotalHosts.Text = $"{_watchdogTargets.Count} Hosts";
+
+        // Acoustic Failure Alert Chime (Only sounds if chime is enabled AND only on new outage transition, NOT repeating every 3 seconds)
+        if (_watchdogAudioChimeEnabled && hasConfirmedOutage && !_hasActiveAudioAlert)
         {
             try
             {
                 SystemSounds.Exclamation.Play();
             }
             catch { }
+            _hasActiveAudioAlert = true;
+            Log("[WATCHDOG] Acoustic alert chime triggered for sustained network outage.");
+        }
+        else if (!hasConfirmedOutage)
+        {
+            _hasActiveAudioAlert = false;
         }
     }
 

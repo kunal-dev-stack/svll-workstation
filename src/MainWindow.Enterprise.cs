@@ -546,7 +546,7 @@ public partial class MainWindow
         var healthSnapshot = _healthResults.ToList();
         var crashSnapshot = _allEventLogs.ToList();
 
-        await Task.Run(async () =>
+        await Task.Run(() =>
         {
             // 1. Comprehensive System Specs Summary
             var specs = new StringBuilder();

@@ -714,10 +714,10 @@ public partial class MainWindow
             }, "Purge Stuck Jobs"));
 
         sp.Children.Add(CreateToolRow("Open Windows Print Management Console", "Launches the MMC Print Management snap-in for driver and server inspection.",
-            async () => OpenTool("printmanagement.msc"), "Open PrintManagement"));
+            () => Task.Run(() => OpenTool("printmanagement.msc")), "Open PrintManagement"));
 
         sp.Children.Add(CreateToolRow("Open Classic Devices and Printers Control Panel", "Opens the classic Windows control panel interface for printers.",
-            async () => OpenTool("control.exe", "printers"), "Open Printers Control"));
+            () => Task.Run(() => OpenTool("control.exe", "printers")), "Open Printers Control"));
 
         card.Child = sp;
         root.Children.Add(card);

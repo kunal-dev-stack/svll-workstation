@@ -27,9 +27,7 @@ public partial class MainWindow
     private TextBlock _lblRamVal = null!;
     private TextBlock _lblRamSub = null!;
     private TextBlock _lblNetVal = null!;
-    private TextBlock _lblNetSub = null!;
     private TextBlock _lblUptimeVal = null!;
-    private TextBlock _lblHealthScore = null!;
 
     // Waveform Canvases
     private Canvas _cpuCanvas = null!;
