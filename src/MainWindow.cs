@@ -192,11 +192,12 @@ public partial class MainWindow : Window
         {
             Id = "Hub_Playbook",
             Title = "COMMAND PLAYBOOK & DEPLOYMENT",
-            Subtitle = "37 Dual-Syntax Fixes, WinGet Software & Local Admin",
+            Subtitle = "37 Dual-Syntax Fixes, Offline USB Depot, Driver Finder & WinGet",
             Glyph = "\uE82D",
             SubTools = new()
             {
                 ("Library", "IT Command Playbook", "📖"),
+                ("UsbDepot", "USB Depot & Driver Finder", "🔌"),
                 ("WinGetSoftware", "WinGet Software", "📦"),
                 ("Users", "Local Users & Vault", "👤"),
                 ("About", "Updates & About", "ℹ️")
@@ -1031,6 +1032,7 @@ public partial class MainWindow : Window
             "SupportBundle" => BuildSupportBundleView(),
             "TurboBooster" => BuildTurboBoosterView(),
             "WinUtilTweaks" => BuildWinUtilTweaksView(),
+            "UsbDepot" => BuildUsbDepotView(),
             "WinGetSoftware" => BuildWinGetSoftwareView(),
             "WinFeatures" => BuildWinFeaturesView(),
             "WinUpdateConfig" => BuildWinUpdateConfigView(),

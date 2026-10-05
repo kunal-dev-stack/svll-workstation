@@ -177,6 +177,55 @@ public partial class MainWindow
         topBanner.Child = bannerGrid;
         root.Children.Add(topBanner);
 
+        // ------------------ Quick Staging Banner for New PC/Laptop Deployment ------------------
+        var quickDeployBanner = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 10, 14, 10),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        var deployGrid = new Grid();
+        deployGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        deployGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var deployTextStack = new StackPanel();
+        deployTextStack.Children.Add(new TextBlock
+        {
+            Text = "🔌 RAPID NEW PC & LAPTOP STAGING DEPOT",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52))
+        });
+        deployTextStack.Children.Add(new TextBlock
+        {
+            Text = "Plug in any USB drive to silently deploy enterprise applications (.exe/.msi), install hardware drivers (.inf), or automatically download matching OEM WHQL drivers.",
+            FontSize = 10.5,
+            Foreground = TextDark,
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+        deployGrid.Children.Add(deployTextStack);
+
+        var btnOpenDepot = new Button
+        {
+            Content = "Open USB Depot & Driver Finder ➔",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(12, 6, 12, 6),
+            Background = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        btnOpenDepot.Click += (s, e) => NavigateTo("UsbDepot");
+        Grid.SetColumn(btnOpenDepot, 1);
+        deployGrid.Children.Add(btnOpenDepot);
+        quickDeployBanner.Child = deployGrid;
+        root.Children.Add(quickDeployBanner);
+
         // ------------------ 2. Performance Metrics & Visual Waveforms (CPU, RAM, Net I/O) ------------------
         var vitalsCard = new Border
         {
