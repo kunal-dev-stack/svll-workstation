@@ -6,14 +6,14 @@ Lead Engineer: Kunal Turkar
 ======================================================================
 
 FILE: SVLL-IT-Workstation-v5.6-Setup.exe
-SIZE: 67,050,476 bytes (63.94 MB)
+SIZE: 67,064,260 bytes (63.96 MB)
 TYPE: Inno Setup Enterprise Installer (Windows 10 / 11 x64)
-SHA256: ADEF4ECDA366CDF0BA5612C649DA5F81A17EE3C7F00FF6736790D9BF4B11D6E3
+SHA256: C161ABF682DAF8E5CB0A21CF0E09FA05658925C3A2D2D8CFA6606C1D118982DC
 
 FILE: SVLL-IT-Workstation.exe
-SIZE: 72,114,496 bytes (68.77 MB)
+SIZE: 72,130,880 bytes (68.79 MB)
 TYPE: Standalone Single-File Portable Executable (.NET 8.0 self-contained win-x64)
-SHA256: 0F6B7B8A26FFA7DA48E14DC539D0C9B99EB2683EB3179585088CD8382261D147
+SHA256: 5B020B7B1433855E299064074C9B4533016B96138D5890D163D1458A9316507B
 
 ======================================================================
 VERIFICATION INSTRUCTIONS (PowerShell):

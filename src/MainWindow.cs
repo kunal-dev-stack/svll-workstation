@@ -199,6 +199,7 @@ public partial class MainWindow : Window
                 ("Library", "IT Command Playbook", "📖"),
                 ("UsbDepot", "USB Depot & Driver Finder", "🔌"),
                 ("WinGetSoftware", "WinGet Software", "📦"),
+                ("AppUninstaller", "App Uninstaller & Force Purge", "🗑️"),
                 ("Users", "Local Users & Vault", "👤"),
                 ("About", "Updates & About", "ℹ️")
             }
@@ -1034,6 +1035,7 @@ public partial class MainWindow : Window
             "WinUtilTweaks" => BuildWinUtilTweaksView(),
             "UsbDepot" => BuildUsbDepotView(),
             "WinGetSoftware" => BuildWinGetSoftwareView(),
+            "AppUninstaller" => BuildAppUninstallerView(),
             "WinFeatures" => BuildWinFeaturesView(),
             "WinUpdateConfig" => BuildWinUpdateConfigView(),
             "Users" => BuildUsersView(),

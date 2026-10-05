@@ -10,23 +10,30 @@
 
 ## 🚀 Executive Release Highlights
 
-Version 5.6 is a major enterprise release of the **SVLL IT Support Workstation**, engineered to deliver automated PC/laptop provisioning, offline USB deployment, cloud WHQL driver downloads, 1-click RAM & CPU acceleration, a 37-scenario dual-syntax IT command playbook, and a streamlined 5-Hub enterprise navigation architecture.
-
-This version increments the release version to **v5.6** to ensure seamless auto-update delivery to all existing endpoints running earlier versions.
+Version 5.6 is a major enterprise release of the **SVLL IT Support Workstation**, engineered to deliver automated PC/laptop provisioning, offline USB deployment, cloud WHQL driver downloads, 1-click RAM & CPU acceleration, a 37-scenario dual-syntax IT command playbook, an elevated **App Uninstaller & Nuclear Force Purge** with password bypass, and a streamlined 5-Hub enterprise navigation architecture.
 
 ---
 
 ## 🌟 New Features in v5.6
 
-### 1. 🔌 Offline USB Software & Driver Depot (`Hub 5 -> UsbDepot`)
+### 1. 🗑️ App Uninstaller & Nuclear Force Purge (Password-Bypass Removal) (`Hub 5 -> AppUninstaller`)
+* **Live Registry Software Scanner**: Automatically audits 64-bit (`HKLM`), 32-bit WOW64 (`HKLM`), and User (`HKCU`) registry uninstall hives with live instant search and filter pills (`ALL`, `64-BIT`, `32-BIT`, `MSI`).
+* **Standard Elevated Silent Uninstall**: Runs the software uninstaller in the workstation's elevated Administrator context with silent parameters (`/qn`, `/VERYSILENT`, `/S`), preventing Windows UAC from prompting for an administrator password.
+* **🔥 Nuclear Force Purge & Bypass (Zero Password Required)**: For stubborn software protected by an uninstaller password, or broken/corrupt uninstallers:
+  1. Forcibly terminates all running processes of the target application (`Process.Kill(entireProcessTree: true)`).
+  2. Stops and unregisters associated Windows background services (`sc.exe delete`).
+  3. Takes administrative filesystem ownership (`takeown` and `icacls`) to overcome locked permissions.
+  4. Obliterates the application installation folders from disk (`Directory.Delete` & `rd /s /q`).
+  5. Wipes the uninstall registration keys from the Windows Registry (`HKLM` and `HKCU`).
+  6. Purges startup Run entries and desktop/start menu shortcuts.
+  7. **COMPLETELY BYPASSES ANY UNINSTALL PASSWORD WITH ZERO PASSWORDS REQUIRED.**
+
+---
+
+### 2. 🔌 Offline USB Software & Driver Depot (`Hub 5 -> UsbDepot`)
 * **Removable Drive Auto-Discovery**: Automatically enumerates connected USB thumb drives and displays volume labels, free space, and capacity (e.g. `E:\ [SVLL_IT_USB] (14.8 GB Free)`).
 * **Universal Repository Support**: Allows browsing any external SSD, local directory, or network file share (`\\server\it_depot`).
-* **1-Click USB Structure Initialization**: Automatically creates the standard enterprise folder structure on your USB drive:
-  * `\SVLL_Depot\Software` (Place `.msi` and `.exe` installers here)
-  * `\SVLL_Depot\Drivers` (Place `.inf` driver folders here)
-  * `\SVLL_Depot\Scripts` (Place `.bat` and `.ps1` automation scripts here)
-  * `\SVLL_Depot\deploy.json` (Customizable deployment manifest)
-  * `\SVLL_Depot\README_DEPOT.txt`
+* **1-Click USB Structure Initialization**: Automatically creates the standard enterprise folder structure on your USB drive (`\SVLL_Depot\Software`, `\Drivers`, `\Scripts`, and a sample `deploy.json`).
 * **Deep Recursive File Scanner**: Recursively scans all subfolders up to 5 levels deep for deployable packages (`.msi`, `.exe`, `.inf`, `.ps1`, `.bat`, `.cmd`).
 * **Intelligent Silent Argument Detection**:
   * `.msi` ➔ Auto-applies `msiexec.exe /i "<path>" /qn /norestart`.
@@ -41,14 +48,10 @@ This version increments the release version to **v5.6** to ensure seamless auto-
 
 ---
 
-### 2. 🌐 Automated Online Driver Finder & Downloader (`Hub 5 -> UsbDepot`)
+### 3. 🌐 Automated Online Driver Finder & Downloader (`Hub 5 -> UsbDepot`)
 * **OEM Hardware Identification**: Reads Motherboard, Computer Model, and BIOS Serial / Service Tag via WMI.
 * **1-Click OEM Support Portals**: Opens the browser directly to the manufacturer's exact support page for that **Dell Service Tag**, **Lenovo Serial**, **HP Serial**, or **ASUS/Acer model**.
-* **1-Click OEM Update Tool Launchers**: One-click launches or downloads the official OEM driver utility:
-  * **Dell**: Launches `Dell Command | Update` (`dcu-cli.exe`) or opens official installer.
-  * **Lenovo**: Launches `Lenovo System Update` / `Lenovo Commercial Vantage`.
-  * **HP**: Launches `HP Support Assistant` / `HP Image Assistant`.
-  * **Intel**: Launches / downloads `Intel Driver & Support Assistant (DSA)`.
+* **1-Click OEM Update Tool Launchers**: One-click launches or downloads the official OEM driver utility (Dell Command | Update, Lenovo Vantage, HP Support Assistant, Intel DSA).
 * **Missing & Problem Hardware Diagnostic (Yellow Bangs)**:
   * Scans `Win32_PnPEntity` for devices with `ConfigManagerErrorCode > 0` (Code 28 missing drivers, Code 10, Code 43, Code 31).
   * Displays device name, class, manufacturer, and exact Hardware ID (`PCI\VEN_8086&DEV_...`).
@@ -60,13 +63,13 @@ This version increments the release version to **v5.6** to ensure seamless auto-
 
 ---
 
-### 3. 💾 1-Click Driver Export / Backup to USB (`Hub 5 -> UsbDepot`)
+### 4. 💾 1-Click Driver Export / Backup to USB (`Hub 5 -> UsbDepot`)
 * Backs up all installed third-party drivers (`pnputil.exe /export-driver * "<USB>\SVLL_Depot\Drivers\<Model>"`) directly into cleanly organized `.inf` folders on your USB flash drive.
 * Offline deployment: When configuring the next laptop of the same model, plug the USB drive in, switch to Tab 1, and the USB Depot will install all drivers offline in under 30 seconds!
 
 ---
 
-### 4. ⚡ 1-Click RAM & CPU Turbo Booster (`Top Status Bar`, `Dashboard`, and `Hub 3`)
+### 5. ⚡ 1-Click RAM & CPU Turbo Booster (`Top Status Bar`, `Dashboard`, and `Hub 3`)
 * **Working Set Memory Compaction**: Calls Win32 `EmptyWorkingSet` and `SetProcessWorkingSetSize` across all user-space processes to flush stale pages and commit cached memory back to the available pool.
 * **Telemetry & Bloat Process Termination**: Safely halts non-critical telemetry, background updaters, and advertising tasks (`CompatTelRunner`, `mscorsvw`, `GameBarFTServer`, `smartscreen`).
 * **Ultimate Performance Power Plan**: Activates Windows' zero-throttling "Ultimate Performance" or "High Performance" power profile (`powercfg /setactive`).
@@ -74,7 +77,7 @@ This version increments the release version to **v5.6** to ensure seamless auto-
 
 ---
 
-### 5. 📖 IT Fix & Command Playbook (`Hub 5 -> Library`)
+### 6. 📖 IT Fix & Command Playbook (`Hub 5 -> Library`)
 * **37 Enterprise Scenarios across 7 Categories**:
   1. *Network & Connectivity Fixes* (DNS Flush, Winsock Reset, ARP Clear, Gateway Ping, Net Adapter Reset, Release/Renew DHCP)
   2. *Windows OS & Integrity Repairs* (SFC Scannow, DISM RestoreHealth, WinSxS Component Cleanup, CheckDisk, Spooler Reset, Explorer Restart)
@@ -87,22 +90,13 @@ This version increments the release version to **v5.6** to ensure seamless auto-
 
 ---
 
-### 6. 🏛️ 5-Hub Enterprise Navigation Architecture
-Consolidates 27 administrative tools into 5 structured workspaces:
+### 7. 🏛️ 5-Hub Enterprise Navigation Architecture
+Consolidates 28 administrative tools into 5 structured workspaces:
 1. **Live Monitoring & Triage (`Hub_Monitoring`)**: System Vitals, Continuous Watchdog, Latency Tests, Bandwidth Speed Test.
 2. **Network Operations Center (`Hub_Network`)**: IPConfig, Subnet IP Scanner (Free vs Occupied), Netsh Suite, Wi-Fi Keys, LAN Shares.
 3. **System Optimization & Servicing (`Hub_Optimization`)**: 1-Click Turbo Booster, WinUtil Debloat, Storage TRIM & Temp Purge, DISM Features, Windows Update Strategy, Config Manager.
 4. **Fleet Diagnostics & Helpdesk (`Hub_Diagnostics`)**: Windows OS Repairs, Print Spooler, Services & Processes, Event Log Analyzer, PC Health & Battery Report, Hardware Asset Passport & QR, IT Support Bundle.
-5. **Command Playbook & Deployment (`Hub_Playbook`)**: 37 IT Dual-Syntax Fixes, Offline USB Software & Driver Depot, WinGet Software Deployer, Local Users & Vault, Updates & About.
-
----
-
-### 7. 🛡️ Enterprise Stability & Logging
-* **Top Status Bar**: Live persistent header displaying Hostname, Logged User, Active IP, Default Gateway (`⚡ GW: IP 🟢`), live CPU %, live RAM %, and Quick Device Audit Log viewer.
-* **Persistent Device Action & Audit Log**: Automatically writes every administrative action to `%APPDATA%\SVLL_IT_Workstation\device_action_history.log`.
-* **Collapsible Terminal Console**: Header toggle button (`▼ Minimize` / `▲ Expand Terminal`) allows collapsing the terminal to a compact 32px status bar for full-screen workspace visibility.
-* **Full-Screen Responsive Scaling**: Automatically launches maximized and scales responsively to monitor resolutions from 1366x768 up to 4K.
-* **Windows 10 & 11 Compatible**: Tested and certified for Windows 10 (Build 19041+) and Windows 11.
+5. **Command Playbook & Deployment (`Hub_Playbook`)**: 37 IT Dual-Syntax Fixes, Offline USB Software & Driver Depot, WinGet Software Deployer, App Uninstaller & Force Purge, Local Users & Vault, Updates & About.
 
 ---
 
@@ -110,8 +104,8 @@ Consolidates 27 administrative tools into 5 structured workspaces:
 
 | Package | Filename | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- |
-| **Enterprise Installer** | `SVLL-IT-Workstation-v5.6-Setup.exe` | 63.94 MB | `ADEF4ECDA366CDF0BA5612C649DA5F81A17EE3C7F00FF6736790D9BF4B11D6E3` |
-| **Portable Executable** | `SVLL-IT-Workstation.exe` | 68.77 MB | `0F6B7B8A26FFA7DA48E14DC539D0C9B99EB2683EB3179585088CD8382261D147` |
+| **Enterprise Installer** | `SVLL-IT-Workstation-v5.6-Setup.exe` | 63.96 MB | `C161ABF682DAF8E5CB0A21CF0E09FA05658925C3A2D2D8CFA6606C1D118982DC` |
+| **Portable Executable** | `SVLL-IT-Workstation.exe` | 68.79 MB | `5B020B7B1433855E299064074C9B4533016B96138D5890D163D1458A9316507B` |
 
 ---
 

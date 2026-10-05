@@ -103,7 +103,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\make_project.ps1
 This script will:
 1. Compile the self-contained, single-file Windows x64 binary into `publish/SVLL-IT-Workstation.exe`.
 2. Locate the Inno Setup compiler (`ISCC.exe`).
-3. Compile the setup package with our custom transparent icon into `release/SVLL-IT-Workstation-v5.5-Setup.exe`.
+3. Compile the setup package with our custom transparent icon into `release/SVLL-IT-Workstation-v5.6-Setup.exe`.
 
 ---
 
@@ -111,8 +111,8 @@ This script will:
 
 | Package | Filename | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- |
-| **Enterprise Installer** | `release\SVLL-IT-Workstation-v5.6-Setup.exe` | 63.94 MB | `ADEF4ECDA366CDF0BA5612C649DA5F81A17EE3C7F00FF6736790D9BF4B11D6E3` |
-| **Portable Executable** | `publish\SVLL-IT-Workstation.exe` | 68.77 MB | `0F6B7B8A26FFA7DA48E14DC539D0C9B99EB2683EB3179585088CD8382261D147` |
+| **Enterprise Installer** | `release\SVLL-IT-Workstation-v5.6-Setup.exe` | 63.96 MB | `C161ABF682DAF8E5CB0A21CF0E09FA05658925C3A2D2D8CFA6606C1D118982DC` |
+| **Portable Executable** | `publish\SVLL-IT-Workstation.exe` | 68.79 MB | `5B020B7B1433855E299064074C9B4533016B96138D5890D163D1458A9316507B` |
 
 ---
 

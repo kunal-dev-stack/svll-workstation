@@ -208,9 +208,11 @@ public partial class MainWindow
         });
         deployGrid.Children.Add(deployTextStack);
 
+        var deployActions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
         var btnOpenDepot = new Button
         {
-            Content = "Open USB Depot & Driver Finder ➔",
+            Content = "USB Depot ➔",
             FontSize = 11,
             FontWeight = FontWeights.Bold,
             Padding = new Thickness(12, 6, 12, 6),
@@ -218,11 +220,28 @@ public partial class MainWindow
             Foreground = Brushes.White,
             BorderThickness = new Thickness(0),
             Cursor = Cursors.Hand,
-            VerticalAlignment = VerticalAlignment.Center
+            Margin = new Thickness(0, 0, 6, 0)
         };
         btnOpenDepot.Click += (s, e) => NavigateTo("UsbDepot");
-        Grid.SetColumn(btnOpenDepot, 1);
-        deployGrid.Children.Add(btnOpenDepot);
+        deployActions.Children.Add(btnOpenDepot);
+
+        var btnOpenUninstaller = new Button
+        {
+            Content = "🗑️ Force App Purge ➔",
+            ToolTip = "Remove any software without password prompts or force-purge stubborn apps",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(12, 6, 12, 6),
+            Background = new SolidColorBrush(Color.FromRgb(239, 68, 68)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnOpenUninstaller.Click += (s, e) => NavigateTo("AppUninstaller");
+        deployActions.Children.Add(btnOpenUninstaller);
+
+        Grid.SetColumn(deployActions, 1);
+        deployGrid.Children.Add(deployActions);
         quickDeployBanner.Child = deployGrid;
         root.Children.Add(quickDeployBanner);
 
