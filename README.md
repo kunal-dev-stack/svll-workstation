@@ -16,19 +16,36 @@
 
 ---
 
+## ⚡ 1-Click System Deployment (PowerShell)
+
+To deploy or update SVLL IT Support Workstation on any clean PC or laptop in seconds, open **Windows PowerShell** (Run as Administrator) and run:
+
+```powershell
+irm https://tinyurl.com/svll-setup | iex
+```
+
+*Alternative mirror:*
+```powershell
+irm https://tinyurl.com/svll-workstation | iex
+```
+
+> **How it works**: This one-liner downloads the official v5.6 setup package from GitHub releases directly into memory, validates dependencies, executes silent unattended deployment into `C:\Program Files\ShreeVasuLogistics\ITWorkstation`, creates Start Menu and Desktop shortcuts, and launches the workstation immediately.
+
+---
+
 ## 🏛️ 5-Hub Enterprise Architecture
 
-The workstation consolidates 27 advanced administrative tools into 5 structured workspaces:
+The workstation consolidates 28 advanced administrative tools into 5 structured workspaces:
 
 1. **Live Monitoring & Triage (`Hub_Monitoring`)**: System Vitals, Continuous Watchdog, Latency Tests, Bandwidth Speed Test.
 2. **Network Operations Center (`Hub_Network`)**: IPConfig, Subnet IP Scanner (Free vs Occupied), Netsh Suite, Wi-Fi Keys, LAN Shares.
 3. **System Optimization & Servicing (`Hub_Optimization`)**: 1-Click Turbo Booster, WinUtil Debloat, Storage TRIM & Temp Purge, DISM Features, Windows Update Strategy, Config Manager.
 4. **Fleet Diagnostics & Helpdesk (`Hub_Diagnostics`)**: Windows OS Repairs, Print Spooler, Services & Processes, Event Log Analyzer, PC Health & Battery Report, Hardware Asset Passport & QR, IT Support Bundle.
-5. **Command Playbook & Deployment (`Hub_Playbook`)**: 37 IT Dual-Syntax Fixes, Offline USB Software & Driver Depot, WinGet Software Deployer, Local Users & Vault, Updates & About.
+5. **Command Playbook & Deployment (`Hub_Playbook`)**: 37 IT Dual-Syntax Fixes, Offline USB Software & Driver Depot, App Uninstaller & Nuclear Force Purge, WinGet Software Deployer, Local Users & Vault, Updates & About.
 
 ---
 
-## 🌟 Key Features in v5.5
+## 🌟 Key Features in v5.6
 
 ### 1. 🔌 Offline USB Software & Driver Depot
 * **USB Flash Drive Auto-Discovery**: Automatically enumerates connected removable USB drives and displays volume labels, free space, and capacity (e.g. `E:\ [SVLL_IT_USB] (14.8 GB Free)`).
@@ -80,7 +97,15 @@ The workstation consolidates 27 advanced administrative tools into 5 structured 
   7. *Warehouse & Logistics Endpoint Fixes* (Query Zebra/TSC Printers, Clear Thermal Print Spooler, Test WMS Latency, Test Barcode Port)
 * **Dual Syntax View**: Displays both CMD and PowerShell code side-by-side with 1-click **Copy CMD**, **Copy PowerShell**, and **⚡ Run Directly in Workstation Console** buttons.
 
-### 6. 🛡️ Enterprise Stability & Logging
+### 6. 🗑️ App Uninstaller & Nuclear Force Purge (Password Bypass)
+* **Silent Elevated Uninstall**: Detects installed applications across 64-bit & 32-bit registry hives (`UninstallString` & `QuietUninstallString`) and executes silent uninstallation under NT AUTHORITY\SYSTEM / Administrator without prompting for Windows passwords or UAC.
+* **Nuclear Force Purge**: For stubborn software, enterprise agents, or third-party tools protected by uninstallation passwords:
+  * **Process Tree Annihilation**: Force-kills all locked binaries and active worker threads (`taskkill /F /IM`).
+  * **Service Destruction**: Stops and deletes associated background Windows services (`sc.exe delete`).
+  * **Filesystem Takeown**: Reclaims NTFS ownership (`takeown /F /R /D Y` and `icacls /grant administrators:F`), unlocks handles, and deletes the entire installation directory.
+  * **Registry Scrubbing**: Purges all traces from `HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall` and vendor registry trees.
+
+### 7. 🛡️ Enterprise Stability & Logging
 * **Top Status Bar**: Live persistent header displaying Hostname, Logged User, Active IP, Default Gateway (`⚡ GW: IP 🟢`), live CPU %, live RAM %, and Quick Device Audit Log viewer.
 * **Persistent Device Action & Audit Log**: Automatically writes every administrative action to `%APPDATA%\SVLL_IT_Workstation\device_action_history.log`.
 * **Collapsible Terminal Console**: Header toggle button (`▼ Minimize` / `▲ Expand Terminal`) allows collapsing the terminal to a compact 32px status bar for full-screen workspace visibility.
