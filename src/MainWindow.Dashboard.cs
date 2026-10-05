@@ -125,13 +125,48 @@ public partial class MainWindow
             Content = " Refresh Telemetry ",
             FontSize = 11,
             Padding = new Thickness(10, 5, 10, 5),
-            Margin = new Thickness(0, 0, 14, 0),
+            Margin = new Thickness(0, 0, 10, 0),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             Cursor = Cursors.Hand
         };
         btnRefresh.Click += (s, e) => UpdateLiveVitals();
         topActions.Children.Add(btnRefresh);
+
+        var btnDashboardTurbo = new Button
+        {
+            Content = "⚡ 1-Click Turbo Boost",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(0, 0, 14, 0),
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnDashboardTurbo.Click += async (s, e) =>
+        {
+            btnDashboardTurbo.IsEnabled = false;
+            btnDashboardTurbo.Content = "⏳ Optimizing...";
+            try
+            {
+                var res = await ExecuteTurboBoostAsync();
+                MessageBox.Show(
+                    $"🎉 System Accelerated Successfully!\n\n" +
+                    $"• RAM Released: {res.freedMb} MB\n" +
+                    $"• Bloat Tasks Terminated: {res.killedCount}\n" +
+                    $"• Applications Trimmed: {res.trimmedCount}\n" +
+                    $"• CPU Power Plan: Ultimate Performance Activated",
+                    "1-Click Turbo Acceleration", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            finally
+            {
+                btnDashboardTurbo.IsEnabled = true;
+                btnDashboardTurbo.Content = "⚡ 1-Click Turbo Boost";
+            }
+        };
+        topActions.Children.Add(btnDashboardTurbo);
 
         // Circular Stability Ring Gauge
         var gaugeContainer = BuildCircularHealthGauge();

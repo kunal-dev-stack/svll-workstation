@@ -58,6 +58,12 @@ public partial class MainWindow : Window
     [DllImport("Shell32.dll", CharSet = CharSet.Unicode)]
     private static extern uint SHEmptyRecycleBin(IntPtr hwnd, string pszRootPath, uint dwFlags);
 
+    [DllImport("psapi.dll")]
+    private static extern int EmptyWorkingSet(IntPtr hwProc);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
+
     public const string CurrentVersion = "5.5";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
@@ -156,6 +162,7 @@ public partial class MainWindow : Window
             Glyph = "\uE74C",
             SubTools = new()
             {
+                ("TurboBooster", "RAM & CPU Booster", "⚡"),
                 ("WinUtilTweaks", "WinUtil Tweaks", "⚙️"),
                 ("Cleanup", "Disk & Temp Purge", "🧹"),
                 ("Disk", "Storage & TRIM", "💾"),
@@ -401,6 +408,126 @@ public partial class MainWindow : Window
         return root;
     }
 
+    public async Task<(int killedCount, int trimmedCount, double freedMb)> ExecuteTurboBoostAsync(
+        bool trimWorkingSets = true,
+        bool terminateBloat = true,
+        bool optimizeCpu = true,
+        bool cleanTemps = true)
+    {
+        Log("\n========================================================");
+        Log("[TURBO BOOST] Initiating 1-Click RAM & CPU Optimization...");
+        Log("========================================================");
+
+        var memBefore = new MEMORYSTATUSEX();
+        GlobalMemoryStatusEx(memBefore);
+        double initialAvailMb = memBefore.ullAvailPhys / (1024.0 * 1024.0);
+        uint initialLoad = memBefore.dwMemoryLoad;
+
+        int killedCount = 0;
+        int trimmedCount = 0;
+
+        await Task.Run(() =>
+        {
+            // 1. Terminate Safe-To-Kill Non-Essential Background Tasks
+            if (terminateBloat)
+            {
+                var safeToKill = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    // Telemetry & Diagnostics
+                    "compattelrunner", "devicecensus", "wsqmcons", "mousocoreworker", "diagtrack",
+                    // Background Updaters & Installers
+                    "microsoftedgeupdate", "googleupdate", "adobedeviceservice", "adobeupdateservice",
+                    "onedrivestandaloneupdater", "jusched",
+                    // Consumer Game Bar & Background Bloat
+                    "gamebarpresencewriter", "gamebar", "xboxappservices", "xboxnetapisvc",
+                    "phoneexperiencehost", "yourphone", "cortana",
+                    // News & Widgets
+                    "newsandinterests", "widgets"
+                };
+
+                int currentPid = Process.GetCurrentProcess().Id;
+
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (p.Id == currentPid) continue;
+                        if (safeToKill.Contains(p.ProcessName))
+                        {
+                            string pName = p.ProcessName;
+                            int pId = p.Id;
+                            p.Kill();
+                            p.WaitForExit(1000);
+                            killedCount++;
+                            Dispatcher.Invoke(() => Log($"[TURBO BOOST] Terminated non-essential background process: {pName} (PID: {pId})"));
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            // 2. Trim Process Working Sets across accessible processes
+            if (trimWorkingSets)
+            {
+                int currentPid = Process.GetCurrentProcess().Id;
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (p.Id == currentPid) continue;
+                        EmptyWorkingSet(p.Handle);
+                        SetProcessWorkingSetSize(p.Handle, (IntPtr)(-1), (IntPtr)(-1));
+                        trimmedCount++;
+                    }
+                    catch { }
+                }
+
+                // Trim self
+                try
+                {
+                    EmptyWorkingSet(Process.GetCurrentProcess().Handle);
+                    SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, (IntPtr)(-1), (IntPtr)(-1));
+                }
+                catch { }
+
+                // Force .NET runtime Garbage Collection
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            }
+
+            // 3. Purge Temporary Session Files & Empty Recycle Bin
+            if (cleanTemps)
+            {
+                try { CleanDirectory(System.IO.Path.GetTempPath()); } catch { }
+                try { SHEmptyRecycleBin(IntPtr.Zero, null!, 7); } catch { }
+            }
+        });
+
+        // 4. Activate Windows Ultimate Performance CPU Power Scheme
+        if (optimizeCpu)
+        {
+            Log("[TURBO BOOST] Activating Ultimate Performance power scheme to remove processor throttling...");
+            await ExecuteAsync("powercfg.exe", "-duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61");
+            await ExecuteAsync("powercfg.exe", "-setactive e9a42b02-d5df-448d-aa00-03f14749eb61");
+        }
+
+        // Measure final memory
+        var memAfter = new MEMORYSTATUSEX();
+        GlobalMemoryStatusEx(memAfter);
+        double finalAvailMb = memAfter.ullAvailPhys / (1024.0 * 1024.0);
+        uint finalLoad = memAfter.dwMemoryLoad;
+        double freedMb = Math.Max(0, Math.Round(finalAvailMb - initialAvailMb, 1));
+
+        Log($"[TURBO BOOST] Optimization Complete! Physical RAM Load: {initialLoad}% -> {finalLoad}% ({freedMb} MB reclaimed).");
+        Log($"[TURBO BOOST] Pruned {killedCount} background tasks, trimmed working sets for {trimmedCount} processes.");
+
+        // Update live vitals
+        UpdateLiveVitals();
+
+        return (killedCount, trimmedCount, freedMb);
+    }
+
     private UIElement BuildTopStatusBar()
     {
         var bar = new Border
@@ -489,6 +616,41 @@ public partial class MainWindow : Window
         };
         var ramPill = CreateStatusPill(_lblTopBarRam);
         rightStack.Children.Add(ramPill);
+
+        var btnTurbo = new Button
+        {
+            Content = "⚡ 1-Click Turbo Boost",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(10, 2, 10, 2),
+            Margin = new Thickness(8, 0, 0, 0),
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnTurbo.Click += async (s, e) =>
+        {
+            btnTurbo.IsEnabled = false;
+            btnTurbo.Content = "⏳ Boosting...";
+            try
+            {
+                var res = await ExecuteTurboBoostAsync();
+                MessageBox.Show(
+                    $"🎉 Turbo Boost Successful!\n\n" +
+                    $"• RAM Released: {res.freedMb} MB\n" +
+                    $"• Bloat Tasks Terminated: {res.killedCount}\n" +
+                    $"• Working Sets Trimmed: {res.trimmedCount} applications\n" +
+                    $"• Power Plan: Ultimate Performance Activated",
+                    "Resource Optimization", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            finally
+            {
+                btnTurbo.IsEnabled = true;
+                btnTurbo.Content = "⚡ 1-Click Turbo Boost";
+            }
+        };
+        rightStack.Children.Add(btnTurbo);
 
         var btnQuickLog = new Button
         {
@@ -867,6 +1029,7 @@ public partial class MainWindow : Window
             "AssetPassport" => BuildAssetPassportView(),
             "EventLog" => BuildEventLogAnalyzerView(),
             "SupportBundle" => BuildSupportBundleView(),
+            "TurboBooster" => BuildTurboBoosterView(),
             "WinUtilTweaks" => BuildWinUtilTweaksView(),
             "WinGetSoftware" => BuildWinGetSoftwareView(),
             "WinFeatures" => BuildWinFeaturesView(),

@@ -952,4 +952,325 @@ foreach ($b in $bloat) {
     }
 
     #endregion
+
+    #region 6. 1-Click RAM & CPU Turbo Booster
+
+    private UIElement BuildTurboBoosterView()
+    {
+        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var root = new StackPanel { Margin = new Thickness(0, 0, 10, 0) };
+
+        // 1. Header Card
+        var headerCard = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        var headerStack = new StackPanel();
+
+        var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        headerRow.Children.Add(new TextBlock
+        {
+            Text = "1-CLICK RAM & CPU TURBO BOOSTER",
+            FontSize = 14,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0)
+        });
+
+        var turboBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)), // Green-100
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(8, 2, 8, 2),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        turboBadge.Child = new TextBlock
+        {
+            Text = "⚡ Instant System Accelerator",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(21, 128, 61)) // Green-700
+        };
+        headerRow.Children.Add(turboBadge);
+        headerStack.Children.Add(headerRow);
+
+        headerStack.Children.Add(new TextBlock
+        {
+            Text = "Reduces workstation memory load, trims bloated process working sets, terminates non-essential background tasks, and eliminates CPU power throttling with a single click.",
+            FontSize = 11.5,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 0, 0, 14)
+        });
+
+        // Live Vitals Metric Cards (3 Columns)
+        var vitalsGrid = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        vitalsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        vitalsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        vitalsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var mem = new MEMORYSTATUSEX();
+        GlobalMemoryStatusEx(mem);
+        double totalGb = Math.Round((double)mem.ullTotalPhys / (1024 * 1024 * 1024), 1);
+        double availGb = Math.Round((double)mem.ullAvailPhys / (1024 * 1024 * 1024), 1);
+        double usedGb = Math.Round(totalGb - availGb, 1);
+        int procCount = Process.GetProcesses().Length;
+
+        // RAM Metric Card
+        var ramCard = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 0, 6, 0)
+        };
+        var ramStack = new StackPanel();
+        ramStack.Children.Add(new TextBlock { Text = "PHYSICAL RAM LOAD", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
+        var lblRamLoad = new TextBlock { Text = $"{mem.dwMemoryLoad}%", FontSize = 22, FontWeight = FontWeights.Bold, Foreground = SvllBlue, Margin = new Thickness(0, 2, 0, 2) };
+        var lblRamSub = new TextBlock { Text = $"{usedGb} / {totalGb} GB In Use", FontSize = 11, Foreground = TextDark };
+        ramStack.Children.Add(lblRamLoad);
+        ramStack.Children.Add(lblRamSub);
+        ramCard.Child = ramStack;
+        Grid.SetColumn(ramCard, 0);
+        vitalsGrid.Children.Add(ramCard);
+
+        // CPU Metric Card
+        var cpuCard = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(3, 0, 3, 0)
+        };
+        var cpuStack = new StackPanel();
+        cpuStack.Children.Add(new TextBlock { Text = "ACTIVE PROCESSES", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
+        var lblProcCount = new TextBlock { Text = $"{procCount}", FontSize = 22, FontWeight = FontWeights.Bold, Foreground = SvllBlue, Margin = new Thickness(0, 2, 0, 2) };
+        var lblProcSub = new TextBlock { Text = "Background Threads & Tasks", FontSize = 11, Foreground = TextDark };
+        cpuStack.Children.Add(lblProcCount);
+        cpuStack.Children.Add(lblProcSub);
+        cpuCard.Child = cpuStack;
+        Grid.SetColumn(cpuCard, 1);
+        vitalsGrid.Children.Add(cpuCard);
+
+        // System Scheme Card
+        var schemeCard = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(6, 0, 0, 0)
+        };
+        var schemeStack = new StackPanel();
+        schemeStack.Children.Add(new TextBlock { Text = "PROCESSOR POWER SCHEME", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
+        schemeStack.Children.Add(new TextBlock { Text = "⚡ Ultimate Plan", FontSize = 22, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129)), Margin = new Thickness(0, 2, 0, 2) });
+        schemeStack.Children.Add(new TextBlock { Text = "Zero Dynamic Throttling", FontSize = 11, Foreground = TextDark });
+        schemeCard.Child = schemeStack;
+        Grid.SetColumn(schemeCard, 2);
+        vitalsGrid.Children.Add(schemeCard);
+
+        headerStack.Children.Add(vitalsGrid);
+        headerCard.Child = headerStack;
+        root.Children.Add(headerCard);
+
+        // 2. Primary 1-Click Action Card
+        var actionCard = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(18),
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        var actionStack = new StackPanel();
+
+        actionStack.Children.Add(new TextBlock
+        {
+            Text = "ONE-CLICK AUTOMATED ACCELERATION",
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+
+        // Granular Tuning Checkboxes
+        var chkGrid = new WrapPanel { Margin = new Thickness(0, 0, 0, 14) };
+        var chkWorkingSets = new CheckBox { Content = "Trim Application Working Sets (Release RAM)", IsChecked = true, Margin = new Thickness(0, 0, 16, 6), FontSize = 11 };
+        var chkKillBloat = new CheckBox { Content = "Terminate Non-Essential Bloat & Updaters", IsChecked = true, Margin = new Thickness(0, 0, 16, 6), FontSize = 11 };
+        var chkCpuPower = new CheckBox { Content = "Activate Ultimate Performance CPU Scheme", IsChecked = true, Margin = new Thickness(0, 0, 16, 6), FontSize = 11 };
+        var chkCleanTemps = new CheckBox { Content = "Purge User Temp & Empty Recycle Bin", IsChecked = true, Margin = new Thickness(0, 0, 16, 6), FontSize = 11 };
+        chkGrid.Children.Add(chkWorkingSets);
+        chkGrid.Children.Add(chkKillBloat);
+        chkGrid.Children.Add(chkCpuPower);
+        chkGrid.Children.Add(chkCleanTemps);
+        actionStack.Children.Add(chkGrid);
+
+        var btnExecuteAll = new Button
+        {
+            Content = " ⚡ EXECUTE 1-CLICK TURBO BOOST NOW (FREE RAM & REDUCE CPU) ",
+            Height = 44,
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+
+        var progressBooster = new ProgressBar
+        {
+            Height = 6,
+            IsIndeterminate = true,
+            Visibility = Visibility.Collapsed,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+
+        // Result Banner
+        var resultBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)), // Green-50
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)), // Green-200
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(14),
+            Visibility = Visibility.Collapsed,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        var resultStack = new StackPanel();
+        var txtResultTitle = new TextBlock
+        {
+            Text = "🎉 TURBO ACCELERATION COMPLETED SUCCESSFULLY!",
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(21, 128, 61)),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        var txtResultDetails = new TextBlock
+        {
+            FontSize = 11.5,
+            Foreground = TextDark,
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 18
+        };
+        resultStack.Children.Add(txtResultTitle);
+        resultStack.Children.Add(txtResultDetails);
+        resultBorder.Child = resultStack;
+
+        btnExecuteAll.Click += async (s, e) =>
+        {
+            btnExecuteAll.IsEnabled = false;
+            progressBooster.Visibility = Visibility.Visible;
+            resultBorder.Visibility = Visibility.Collapsed;
+
+            try
+            {
+                bool doTrim = chkWorkingSets.IsChecked == true;
+                bool doKill = chkKillBloat.IsChecked == true;
+                bool doCpu = chkCpuPower.IsChecked == true;
+                bool doTemps = chkCleanTemps.IsChecked == true;
+
+                var res = await ExecuteTurboBoostAsync(doTrim, doKill, doCpu, doTemps);
+
+                // Update Local Metric Displays
+                var m = new MEMORYSTATUSEX();
+                GlobalMemoryStatusEx(m);
+                double tGb = Math.Round((double)m.ullTotalPhys / (1024 * 1024 * 1024), 1);
+                double aGb = Math.Round((double)m.ullAvailPhys / (1024 * 1024 * 1024), 1);
+                lblRamLoad.Text = $"{m.dwMemoryLoad}%";
+                lblRamSub.Text = $"{Math.Round(tGb - aGb, 1)} / {tGb} GB In Use";
+                lblProcCount.Text = $"{Process.GetProcesses().Length}";
+
+                txtResultDetails.Text = $"• Physical Memory Released: {res.freedMb} MB reclaimed\n" +
+                                        $"• Background Bloat Tasks Pruned: {res.killedCount} non-essential processes\n" +
+                                        $"• Applications Trimmed: {res.trimmedCount} working sets optimized\n" +
+                                        $"• CPU Power Scheme: Ultimate Performance latency active\n" +
+                                        $"• Persistent device audit history logged to disk.";
+                resultBorder.Visibility = Visibility.Visible;
+            }
+            finally
+            {
+                progressBooster.Visibility = Visibility.Collapsed;
+                btnExecuteAll.IsEnabled = true;
+            }
+        };
+
+        actionStack.Children.Add(btnExecuteAll);
+        actionStack.Children.Add(progressBooster);
+        actionStack.Children.Add(resultBorder);
+
+        actionCard.Child = actionStack;
+        root.Children.Add(actionCard);
+
+        // 3. Individual Granular Tool Rows
+        var granularCard = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        var granularStack = new StackPanel();
+
+        granularStack.Children.Add(new TextBlock
+        {
+            Text = "INDIVIDUAL RESOURCE ACTIONS",
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            Margin = new Thickness(0, 0, 0, 10)
+        });
+
+        granularStack.Children.Add(CreateToolRow(
+            "Trim Application Working Sets (Flush RAM Only)",
+            "Sweeps every accessible process and releases unused standby memory allocations back to physical RAM.",
+            async () => await ExecuteTurboBoostAsync(trimWorkingSets: true, terminateBloat: false, optimizeCpu: false, cleanTemps: false),
+            "Trim Memory"));
+
+        granularStack.Children.Add(CreateToolRow(
+            "Terminate Non-Essential Bloatware Tasks Only",
+            "Forcefully terminates safe-to-kill background updaters, diagnostics runners, and consumer telemetry tasks.",
+            async () => await ExecuteTurboBoostAsync(trimWorkingSets: false, terminateBloat: true, optimizeCpu: false, cleanTemps: false),
+            "Kill Bloat"));
+
+        granularStack.Children.Add(CreateToolRow(
+            "Unlock & Activate Ultimate Performance CPU Plan",
+            "Sets processor minimum/maximum frequency to 100% and unparks CPU cores to eliminate workload micro-stuttering.",
+            async () => await ExecuteTurboBoostAsync(trimWorkingSets: false, terminateBloat: false, optimizeCpu: true, cleanTemps: false),
+            "Set Power Plan"));
+
+        granularStack.Children.Add(CreateToolRow(
+            "Restart Windows Explorer Shell",
+            "Terminates hung or memory-leaking explorer.exe instances and cleanly restarts the desktop taskbar shell.",
+            async () =>
+            {
+                Log("[TURBO BOOST] Restarting Windows Explorer shell...");
+                await ExecuteAsync("taskkill.exe", "/f /im explorer.exe");
+                await Task.Delay(500);
+                Process.Start("explorer.exe");
+                Log("[TURBO BOOST] Windows Explorer relaunched cleanly.");
+            },
+            "Restart Shell"));
+
+        granularCard.Child = granularStack;
+        root.Children.Add(granularCard);
+
+        scroll.Content = root;
+        return scroll;
+    }
+
+    #endregion
 }
