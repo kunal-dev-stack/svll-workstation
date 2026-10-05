@@ -16,232 +16,410 @@ namespace SVLL_IT_Workstation;
 
 public partial class MainWindow
 {
-    #region 1. Complete IT Troubleshooting & Command Library (22 Scenarios)
+    #region 1. Complete IT Troubleshooting & Command Library (37 Enterprise Scenarios)
 
     private void InitializeCommandLibrary()
     {
         _solutionsLibrary = new List<TroubleshootingSolution>
         {
+            // ==================== 1. NETWORK SCENARIOS (8) ====================
             new TroubleshootingSolution
             {
-                Title = "169.254.x.x APIPA Automatic IP Fallback",
+                Title = "169.254.x.x APIPA Automatic Private IP Fallback",
                 Category = "Network",
-                Symptoms = "No IP lease received from branch DHCP router; endpoint displays 169.254.x.x autoconfiguration address.",
-                Explanation = "Reinitializes DHCP client binding, purges stale DORA leases, and requests a fresh address from the router.",
+                Symptoms = "Endpoint displays a 169.254.x.x autoconfiguration address; no valid DHCP lease negotiated with gateway/switch.",
+                Explanation = "Releases stale DHCP client bindings, resets local ARP table, and initiates a clean DORA DHCP handshake negotiation.",
                 CmdCommand = "ipconfig /release && ipconfig /renew",
                 PowerShellCommand = "Restart-NetAdapter -Name *; Start-Sleep 2; ipconfig /renew",
-                Tags = new[] { "169.254", "apipa", "dhcp", "network" }
+                Tags = new[] { "169.254", "apipa", "dhcp", "ipconfig", "network" }
             },
             new TroubleshootingSolution
             {
-                Title = "Stuck Print Spooler / Phantom Locked Jobs",
+                Title = "DNS Cache Corruption & Hostname Resolution Failure",
+                Category = "Network",
+                Symptoms = "Ping to public IP 8.8.8.8 succeeds, but domain names fail with 'DNS_PROBE_FINISHED_NXDOMAIN' or 'Host not found'.",
+                Explanation = "Flushes local client DNS resolver cache, reregisters DNS names with active domain controllers, and restarts Dnscache.",
+                CmdCommand = "ipconfig /flushdns && ipconfig /registerdns && netsh winsock reset",
+                PowerShellCommand = "Clear-DnsClientCache; Register-DnsClient; Restart-Service Dnscache -Force",
+                Tags = new[] { "dns", "flushdns", "nxdomain", "resolver", "winsock" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Complete TCP/IP Protocol Stack & Winsock Reset",
+                Category = "Network",
+                Symptoms = "System shows valid IP address but cannot transmit or receive packets; corrupted LSP or Winsock catalog.",
+                Explanation = "Resets TCP/IP registry configurations to clean system defaults and purges corrupted third-party Winsock LSP layers.",
+                CmdCommand = "netsh int ip reset && netsh winsock reset",
+                PowerShellCommand = "netsh int ip reset; netsh winsock reset",
+                Tags = new[] { "tcp", "winsock", "reset", "stack", "lsp" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Continuous Gateway & Internet Ping Diagnostic",
+                Category = "Network",
+                Symptoms = "Intermittent connection dropouts, packet drops, or fluctuating latency during ERP, WMS, or web browsing.",
+                Explanation = "Initiates continuous ICMP echo polling to detect packet drops, latency jitter, and timeout patterns.",
+                CmdCommand = "ping -t 8.8.8.8",
+                PowerShellCommand = "Test-Connection -ComputerName 8.8.8.8 -Count 100",
+                Tags = new[] { "ping", "icmp", "latency", "packet loss", "jitter" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Traceroute & Hop Latency Path Inspection",
+                Category = "Network",
+                Symptoms = "Sluggish responsiveness to centralized logistics servers; need to pinpoint which router hop is introducing delay.",
+                Explanation = "Performs packet hop-by-hop latency tracing with numeric IP routing to isolate WAN and switch bottlenecks.",
+                CmdCommand = "tracert -d 8.8.8.8",
+                PowerShellCommand = "Test-NetConnection -ComputerName 8.8.8.8 -TraceRoute",
+                Tags = new[] { "tracert", "traceroute", "hops", "latency", "routing" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "View Active TCP Listening Ports & Process IDs",
+                Category = "Network",
+                Symptoms = "Need to verify if a local service (ERP client, local SQL instance, or web service) is listening or port conflict exists.",
+                Explanation = "Enumerates all active TCP listening sockets, bound local IPs/ports, and the owning process identifier (PID).",
+                CmdCommand = "netstat -ano | findstr LISTENING",
+                PowerShellCommand = "Get-NetTCPConnection -State Listen | Select-Object LocalAddress, LocalPort, OwningProcess",
+                Tags = new[] { "ports", "netstat", "tcp", "listening", "pid" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Reveal Saved Warehouse Wi-Fi Passwords & Profiles",
+                Category = "Network",
+                Symptoms = "Technician needs cleartext WPA2/WPA3 pre-shared security key for currently configured wireless networks.",
+                Explanation = "Extracts WLAN profiles stored in the local Windows wireless profile store along with unencrypted security keys.",
+                CmdCommand = "netsh wlan show profile name=* key=clear",
+                PowerShellCommand = "netsh wlan show profiles | Select-String \":\\s+(.+)$\" | ForEach-Object { $p = $_.Matches.Groups[1].Value.Trim(); netsh wlan show profile name=\"$p\" key=clear }",
+                Tags = new[] { "wifi", "wlan", "password", "key", "wireless" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Network Adapter Hard Reset & Driver Rebind",
+                Category = "Network",
+                Symptoms = "Ethernet or Wi-Fi adapter stuck in 'Identifying...' or 'Media Disconnected' despite cable being securely inserted.",
+                Explanation = "Forcefully cycles the physical network interface controller driver off and on without requiring a machine reboot.",
+                CmdCommand = "wmic path win32_networkadapter where \"NetConnectionStatus=2\" call disable && timeout /t 2 && wmic path win32_networkadapter where \"NetConnectionStatus=2\" call enable",
+                PowerShellCommand = "Get-NetAdapter | Where-Object Status -eq 'Up' | Restart-NetAdapter",
+                Tags = new[] { "adapter", "restart", "nic", "ethernet", "driver" }
+            },
+
+            // ==================== 2. PRINTERS SCENARIOS (4) ====================
+            new TroubleshootingSolution
+            {
+                Title = "Stuck Print Spooler / Phantom Locked Jobs Purge",
                 Category = "Printers",
-                Symptoms = "Print jobs locked with status 'Deleting' or 'Printing'; print queue cannot be cleared from GUI.",
+                Symptoms = "Print jobs locked with status 'Deleting' or 'Printing'; print queue cannot be cleared from Windows GUI.",
                 Explanation = "Terminates the spooler service and forcefully purges locked .SHD and .SPL spool files from System32\\spool\\PRINTERS.",
                 CmdCommand = "net stop spooler && del /Q /F /S %systemroot%\\System32\\Spool\\Printers\\* && net start spooler",
                 PowerShellCommand = "Stop-Service Spooler -Force; Remove-Item $env:windir\\System32\\spool\\PRINTERS\\* -Force -Recurse; Start-Service Spooler",
-                Tags = new[] { "printer", "spooler", "queue" }
+                Tags = new[] { "printer", "spooler", "queue", "stuck", "locked" }
             },
             new TroubleshootingSolution
             {
-                Title = "DNS Resolution Failure & Webpages Not Loading",
-                Category = "Network",
-                Symptoms = "Ping to 8.8.8.8 succeeds, but hostnames fail with 'Host not found' or 'DNS_PROBE_FINISHED_NXDOMAIN'.",
-                Explanation = "Flushes local resolver cache, reregisters client DNS, and resets the Winsock API catalog.",
-                CmdCommand = "ipconfig /flushdns && ipconfig /registerdns && netsh winsock reset",
-                PowerShellCommand = "Clear-DnsClientCache; Register-DnsClient; Restart-Service Dnscache -Force",
-                Tags = new[] { "dns", "flushdns", "winsock" }
+                Title = "Enumerate All Installed Printers & Port Status",
+                Category = "Printers",
+                Symptoms = "Need to audit all physical and networked printers, assigned IP/USB ports, and operational status.",
+                Explanation = "Queries WMI/CIM printer objects to list printer names, drivers, assigned ports, and shared states.",
+                CmdCommand = "wmic printer get name,drivername,portname,status,shared",
+                PowerShellCommand = "Get-Printer | Select-Object Name, DriverName, PortName, PrinterStatus, Shared",
+                Tags = new[] { "printers", "inventory", "wmic", "ports", "drivers" }
             },
             new TroubleshootingSolution
             {
-                Title = "Corrupt System Store & Windows Crashes",
+                Title = "List Installed Printer Drivers in Driver Store",
+                Category = "Printers",
+                Symptoms = "Corrupt printer driver causing spooler crashes; need to inspect installed driver versions and vendors.",
+                Explanation = "Enumerates all printer drivers registered in the Windows system repository.",
+                CmdCommand = "cscript %systemroot%\\System32\\Printing_Admin_Scripts\\en-US\\prndrvr.vbs -l",
+                PowerShellCommand = "Get-PrinterDriver | Select-Object Name, MajorVersion, Manufacturer, PrinterEnvironment",
+                Tags = new[] { "drivers", "printer", "spooler", "store" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Force Clear Specific Print Queue Jobs via WMI",
+                Category = "Printers",
+                Symptoms = "Single printer queue contains 50+ jammed barcode/invoice jobs while other printers must stay online.",
+                Explanation = "Removes all pending or error-state print jobs directly across all queues using PowerShell CIM.",
+                CmdCommand = "net stop spooler && del /q /f \"%systemroot%\\System32\\spool\\PRINTERS\\*.*\" && net start spooler",
+                PowerShellCommand = "Get-PrintJob -PrinterName * | Remove-PrintJob",
+                Tags = new[] { "printjob", "cancel", "purge", "queue" }
+            },
+
+            // ==================== 3. WINDOWS OS SCENARIOS (9) ====================
+            new TroubleshootingSolution
+            {
+                Title = "Corrupt System Component Store Image Repair (DISM & SFC)",
                 Category = "Windows OS",
-                Symptoms = "System UI freezes, SFC reports corrupt unfixable files, or unexpected BSOD stop errors occur.",
-                Explanation = "Repairs the Windows component store image payload using Windows Update as source and executes SFC.",
+                Symptoms = "System UI freezes, file explorer crashes, or SFC reports corrupt files it cannot repair.",
+                Explanation = "Services the Windows component store (WinSxS) image payload against clean Windows Update sources, followed by SFC integrity replacement.",
                 CmdCommand = "dism /Online /Cleanup-Image /RestoreHealth && sfc /scannow",
                 PowerShellCommand = "Repair-WindowsImage -Online -RestoreHealth; sfc /scannow",
-                Tags = new[] { "sfc", "dism", "crash", "corrupt" }
+                Tags = new[] { "sfc", "dism", "corrupt", "system32", "bsod" }
             },
             new TroubleshootingSolution
             {
-                Title = "Active Directory Secure Channel / Trust Failure",
-                Category = "Active Directory",
-                Symptoms = "'The trust relationship between this workstation and the primary domain failed' upon user logon.",
-                Explanation = "Tests and repairs the Kerberos secure channel machine password negotiated with the domain controller.",
-                CmdCommand = "nltest /sc_query:SVLL.LOCAL /sc_reset:SVLL.LOCAL",
-                PowerShellCommand = "Test-ComputerSecureChannel -Repair -Verbose",
-                Tags = new[] { "trust", "domain", "active directory", "kerberos" }
-            },
-            new TroubleshootingSolution
-            {
-                Title = "WinSxS Component Store Bloat Cleanup",
-                Category = "Storage",
-                Symptoms = "System drive C: is low on disk space; WinSxS folder consumes 15GB+ of storage space.",
-                Explanation = "Purges superseded Windows updates and compresses baseline operating system payloads.",
-                CmdCommand = "dism.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase",
-                PowerShellCommand = "dism.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase",
-                Tags = new[] { "winsxs", "storage", "cleanup", "dism" }
-            },
-            new TroubleshootingSolution
-            {
-                Title = "Windows Update Download Error 0x80070002",
+                Title = "Stuck Windows Update Download Cache Flush (0x80070002)",
                 Category = "Windows OS",
-                Symptoms = "Windows updates fail with error codes 0x80070002, 0x80240034, or download gets stuck at 0%.",
-                Explanation = "Stops wuauserv and BITS, purges the corrupt SoftwareDistribution download catalog, and restarts services.",
+                Symptoms = "Windows Updates stuck downloading at 0%, or update errors 0x80070002, 0x80240034, 0x80070003 occur.",
+                Explanation = "Halts Windows Update (wuauserv) and BITS, purges the corrupted SoftwareDistribution download cache, and reregisters services.",
                 CmdCommand = "net stop wuauserv && net stop bits && rd /s /q %windir%\\SoftwareDistribution && net start wuauserv",
                 PowerShellCommand = "Stop-Service wuauserv, bits; Remove-Item $env:windir\\SoftwareDistribution -Recurse -Force; Start-Service wuauserv, bits",
-                Tags = new[] { "update", "softwaredistribution", "wuauserv" }
+                Tags = new[] { "update", "softwaredistribution", "wuauserv", "0x80070002" }
             },
             new TroubleshootingSolution
             {
-                Title = "BitLocker Volume Recovery Key Extraction",
-                Category = "Security",
-                Symptoms = "Need to backup BitLocker 48-digit numerical recovery password for volume C: before motherboard swap.",
-                Explanation = "Queries the BitLocker volume protector to display the active numerical recovery key ID and key.",
-                CmdCommand = "manage-bde -protectors -get C:",
-                PowerShellCommand = "(Get-BitLockerVolume -MountPoint C:).KeyProtector | Where-Object { $_.KeyProtectorType -eq 'RecoveryPassword' } | Select-Object -ExpandProperty RecoveryPassword",
-                Tags = new[] { "bitlocker", "recovery", "encryption" }
-            },
-            new TroubleshootingSolution
-            {
-                Title = "Remote Desktop (RDP) Port 3389 Enable & Firewall",
-                Category = "Security",
-                Symptoms = "Cannot connect to workstation via MSTSC; connection refused on port 3389.",
-                Explanation = "Enables Terminal Server registry keys and opens Windows Defender Firewall rules for RDP.",
-                CmdCommand = "reg add \"HKLM\\System\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 0 /f && netsh advfirewall firewall set rule group=\"remote desktop\" new enable=Yes",
-                PowerShellCommand = "Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name 'fDenyTSConnections' -Value 0; Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'",
-                Tags = new[] { "rdp", "remote desktop", "firewall", "3389" }
-            },
-            new TroubleshootingSolution
-            {
-                Title = "Microsoft Activation Scripts (MAS) Launch",
+                Title = "Restart Frozen Windows Explorer Shell & Taskbar",
                 Category = "Windows OS",
-                Symptoms = "Windows or Office displays 'Activation Expired' or watermark on desktop.",
-                Explanation = "Executes the community Microsoft Activation Scripts (MAS) utility for HWID activation.",
-                CmdCommand = "powershell -Command \"irm https://get.activated.win | iex\"",
-                PowerShellCommand = "irm https://get.activated.win | iex",
-                Tags = new[] { "mas", "activation", "windows", "office" }
+                Symptoms = "Taskbar unresponsive, system tray clock frozen, or Start Menu fails to open.",
+                Explanation = "Forcefully terminates all hung explorer.exe threads and cleanly relaunches the Windows desktop shell.",
+                CmdCommand = "taskkill /f /im explorer.exe && start explorer.exe",
+                PowerShellCommand = "Stop-Process -Name explorer -Force; Start-Process explorer",
+                Tags = new[] { "explorer", "taskbar", "shell", "freeze", "desktop" }
             },
             new TroubleshootingSolution
             {
-                Title = "Chris Titus Tech Windows Utility Launch",
+                Title = "Re-register All Modern UWP & Microsoft Store Apps",
                 Category = "Windows OS",
-                Symptoms = "Need to apply advanced debloat, install custom tool bundles, or configure Windows servicing.",
-                Explanation = "Launches the Chris Titus Tech Windows Utility script interface via PowerShell.",
-                CmdCommand = "powershell -Command \"irm https://christitus.com/win | iex\"",
-                PowerShellCommand = "irm https://christitus.com/win | iex",
-                Tags = new[] { "ctt", "winutil", "debloat", "titus" }
-            },
-            new TroubleshootingSolution
-            {
-                Title = "Re-register Corrupted Windows Store & UWP Apps",
-                Category = "Windows OS",
-                Symptoms = "Windows Calculator, Photos, or Microsoft Store crash immediately upon launch.",
-                Explanation = "Re-registers all modern AppX application manifest manifests across all local user accounts.",
+                Symptoms = "Windows Calculator, Photos, or Microsoft Store closes immediately on startup without error.",
+                Explanation = "Iterates through all provisioned AppX package manifests in Program Files and re-registers XML bindings for all user accounts.",
                 CmdCommand = "powershell -ExecutionPolicy Bypass -Command \"Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \\\"$($_.InstallLocation)\\AppXManifest.xml\\\"}\"",
                 PowerShellCommand = "Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\\AppXManifest.xml\"}",
-                Tags = new[] { "uwp", "store", "calculator", "appx" }
+                Tags = new[] { "appx", "uwp", "store", "calculator", "photos" }
             },
             new TroubleshootingSolution
             {
-                Title = "Unlock Windows 'Ultimate Performance' Power Plan",
-                Category = "Performance",
-                Symptoms = "Workstation CPU throttling or sluggish disk performance under high logistics workloads.",
-                Explanation = "Unlocks the hidden Windows 10/11 Ultimate Performance power scheme and sets it as active.",
-                CmdCommand = "powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 && powercfg -setactive e9a42b02-d5df-448d-aa00-03f14749eb61",
-                PowerShellCommand = "powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61; powercfg -setactive e9a42b02-d5df-448d-aa00-03f14749eb61",
-                Tags = new[] { "power", "performance", "cpu", "throttle" }
-            },
-            new TroubleshootingSolution
-            {
-                Title = "Rebuild Corrupted Windows Icon & Thumbnail Cache",
+                Title = "Rebuild Corrupted Desktop Icon & Thumbnail Cache",
                 Category = "Windows OS",
-                Symptoms = "Desktop icons show generic white paper icons or incorrect graphical assets.",
-                Explanation = "Stops explorer.exe, deletes corrupted IconCache.db and thumbnail cache files, and restarts shell.",
+                Symptoms = "Application desktop icons display blank white sheets or distorted graphical glitches.",
+                Explanation = "Kills explorer, deletes hidden SQLite icon cache databases (IconCache.db and thumbnail caches), and restarts shell.",
                 CmdCommand = "taskkill /f /im explorer.exe && del /a /q \"%localappdata%\\IconCache.db\" && start explorer.exe",
                 PowerShellCommand = "Stop-Process -Name explorer -Force; Remove-Item $env:LOCALAPPDATA\\IconCache.db -Force; Start-Process explorer",
-                Tags = new[] { "icons", "thumbnail", "cache", "explorer" }
+                Tags = new[] { "icons", "cache", "thumbnails", "blank", "explorer" }
             },
             new TroubleshootingSolution
             {
-                Title = "Purge Volume Shadow Copies (VSS)",
-                Category = "Storage",
-                Symptoms = "Volume C: reports insufficient space due to hidden Volume Shadow Copies holding disk blocks.",
-                Explanation = "Deletes all shadow copies on volume C: using VSSAdmin to free storage.",
-                CmdCommand = "vssadmin delete shadows /for=C: /all /quiet",
-                PowerShellCommand = "vssadmin delete shadows /for=C: /all /quiet",
-                Tags = new[] { "vss", "shadow", "storage", "disk" }
+                Title = "Generate Battery Health & Energy Efficiency Report",
+                Category = "Windows OS",
+                Symptoms = "Warehouse laptop battery drains rapidly or dies unexpectedly; need hardware wear level & capacity history.",
+                Explanation = "Compiles deep ACPI battery charge history, cycle counts, and battery capacity loss into an HTML report on Desktop.",
+                CmdCommand = "powercfg /batteryreport /output \"%userprofile%\\Desktop\\battery_report.html\"",
+                PowerShellCommand = "powercfg /batteryreport /output \"$env:USERPROFILE\\Desktop\\battery_report.html\"; Start-Process \"$env:USERPROFILE\\Desktop\\battery_report.html\"",
+                Tags = new[] { "battery", "powercfg", "health", "laptop", "power" }
             },
             new TroubleshootingSolution
             {
-                Title = "Reset Windows Firewall to Factory Default",
-                Category = "Security",
-                Symptoms = "Inbound or outbound network traffic blocked due to conflicting or corrupted firewall rules.",
-                Explanation = "Restores the Windows Defender Firewall to its out-of-the-box state.",
-                CmdCommand = "netsh advfirewall reset",
-                PowerShellCommand = "(New-Object -ComObject HNetCfg.FwPolicy2).RestoreLocalFirewallDefaults()",
-                Tags = new[] { "firewall", "security", "network" }
+                Title = "Windows License & Activation Expiration Query",
+                Category = "Windows OS",
+                Symptoms = "Need to verify if Windows license is KMS, OEM, Retail, or permanent volume license.",
+                Explanation = "Queries the Windows Software Licensing Management tool to display license status and expiry.",
+                CmdCommand = "slmgr.vbs /xpr && slmgr.vbs /dli",
+                PowerShellCommand = "Get-CimInstance SoftwareLicensingProduct -Filter \"PartialProductKey IS NOT NULL\" | Select-Object Name, LicenseStatus, GracePeriodRemaining",
+                Tags = new[] { "license", "slmgr", "activation", "kms", "retail" }
             },
             new TroubleshootingSolution
             {
-                Title = "Release and Renew IP Lease Immediately",
-                Category = "Network",
-                Symptoms = "Network displays 'No Internet Access' but Ethernet cable is securely connected.",
-                Explanation = "Performs an instant DHCP lease release and renewal without rebooting.",
-                CmdCommand = "ipconfig /release && ipconfig /renew",
-                PowerShellCommand = "ipconfig /release; ipconfig /renew",
-                Tags = new[] { "ipconfig", "dhcp", "lease" }
+                Title = "Microsoft Activation Scripts (MAS) Community Utility",
+                Category = "Windows OS",
+                Symptoms = "Windows or Office displays 'Activation Expired' or watermark on desktop.",
+                Explanation = "Launches the community open-source Microsoft Activation Scripts (MAS) for HWID / KMS38 activation.",
+                CmdCommand = "powershell -Command \"irm https://get.activated.win | iex\"",
+                PowerShellCommand = "irm https://get.activated.win | iex",
+                Tags = new[] { "mas", "activation", "windows", "office", "hwid" }
             },
             new TroubleshootingSolution
             {
-                Title = "View Open TCP Ports & Listening Sockets",
-                Category = "Network",
-                Symptoms = "Need to verify if a local service (e.g. ERP client, web server) is listening on a specific port.",
-                Explanation = "Lists all active TCP listening ports and the process ID owning the socket.",
-                CmdCommand = "netstat -ano | findstr LISTENING",
-                PowerShellCommand = "Get-NetTCPConnection -State Listen | Select-Object LocalAddress, LocalPort, OwningProcess",
-                Tags = new[] { "ports", "netstat", "tcp", "sockets" }
+                Title = "Chris Titus Tech Windows Utility (CTT WinUtil)",
+                Category = "Windows OS",
+                Symptoms = "Need to apply advanced OS debloat, manage background telemetry, or configure Windows servicing.",
+                Explanation = "Executes the community CTT WinUtil utility for advanced system tuning and package deployment.",
+                CmdCommand = "powershell -Command \"irm https://christitus.com/win | iex\"",
+                PowerShellCommand = "irm https://christitus.com/win | iex",
+                Tags = new[] { "ctt", "winutil", "debloat", "titus", "tweaks" }
+            },
+
+            // ==================== 4. ACTIVE DIRECTORY SCENARIOS (5) ====================
+            new TroubleshootingSolution
+            {
+                Title = "Active Directory Trust Relationship Failure Repair",
+                Category = "Active Directory",
+                Symptoms = "'The trust relationship between this workstation and the primary domain failed' upon domain user login.",
+                Explanation = "Resets and renegotiates the Kerberos machine secure channel password with the domain controller.",
+                CmdCommand = "nltest /sc_query:%userdnsdomain% /sc_reset:%userdnsdomain%",
+                PowerShellCommand = "Test-ComputerSecureChannel -Repair -Verbose",
+                Tags = new[] { "trust", "domain", "active directory", "kerberos", "secure channel" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Force Immediate Group Policy Update (Computer & User)",
+                Category = "Active Directory",
+                Symptoms = "New corporate security GPOs, desktop restrictions, or mapped drives not applying to endpoint.",
+                Explanation = "Forces an immediate background and foreground re-application of all Active Directory GPOs without reboot.",
+                CmdCommand = "gpupdate /force",
+                PowerShellCommand = "gpupdate /force",
+                Tags = new[] { "gpo", "gpupdate", "policy", "domain", "active directory" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Generate Comprehensive Group Policy Result HTML Report",
+                Category = "Active Directory",
+                Symptoms = "Need to troubleshoot which specific GPO is overriding corporate firewall or desktop settings.",
+                Explanation = "Generates an exhaustive HTML report of all applied Computer and User GPOs with error codes on Desktop.",
+                CmdCommand = "gpresult /h \"%userprofile%\\Desktop\\gpreport.html\" /f",
+                PowerShellCommand = "gpresult /h \"$env:USERPROFILE\\Desktop\\gpreport.html\" /f; Start-Process \"$env:USERPROFILE\\Desktop\\gpreport.html\"",
+                Tags = new[] { "gpresult", "gpo", "audit", "report", "domain" }
             },
             new TroubleshootingSolution
             {
                 Title = "Audit Local Administrators Group Membership",
                 Category = "Active Directory",
-                Symptoms = "Unauthorized local accounts or domain users possessing elevated local administrator rights.",
-                Explanation = "Enumerates all members of the local Administrators group.",
+                Symptoms = "Security compliance requires auditing which domain users or local accounts hold elevated admin rights.",
+                Explanation = "Enumerates all members of the local SAM database Administrators group.",
                 CmdCommand = "net localgroup Administrators",
                 PowerShellCommand = "Get-LocalGroupMember -Group 'Administrators'",
-                Tags = new[] { "administrators", "security", "audit", "sam" }
+                Tags = new[] { "administrators", "security", "audit", "localgroup", "sam" }
             },
             new TroubleshootingSolution
             {
-                Title = "Force User & Computer Group Policy Update",
+                Title = "Identify Active Domain Controller & Logon Server",
                 Category = "Active Directory",
-                Symptoms = "New domain security policies, wallpaper, or drive mappings not applying to client machine.",
-                Explanation = "Forces an immediate re-application of computer and user Group Policy objects from the DC.",
-                CmdCommand = "gpupdate /force",
-                PowerShellCommand = "gpupdate /force",
-                Tags = new[] { "gpo", "gpupdate", "domain", "policy" }
+                Symptoms = "Workstation logging in slowly; need to verify which Domain Controller authenticated the session.",
+                Explanation = "Queries the NetLogon service and DNS SRV records to determine the active DC providing authentication.",
+                CmdCommand = "echo %LOGONSERVER% && nltest /dsgetdc:%userdnsdomain%",
+                PowerShellCommand = "[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().FindDomainController().Name",
+                Tags = new[] { "dc", "logonserver", "netlogon", "domain", "active directory" }
+            },
+
+            // ==================== 5. SECURITY SCENARIOS (4) ====================
+            new TroubleshootingSolution
+            {
+                Title = "BitLocker 48-Digit Numerical Recovery Key Extraction",
+                Category = "Security",
+                Symptoms = "Need to backup 48-digit numerical BitLocker recovery password for drive C: before BIOS update or motherboard swap.",
+                Explanation = "Queries the BitLocker volume protector store to display the numerical recovery password for volume C:.",
+                CmdCommand = "manage-bde -protectors -get C:",
+                PowerShellCommand = "(Get-BitLockerVolume -MountPoint C:).KeyProtector | Where-Object { $_.KeyProtectorType -eq 'RecoveryPassword' } | Select-Object -ExpandProperty RecoveryPassword",
+                Tags = new[] { "bitlocker", "recovery key", "tpm", "encryption", "manage-bde" }
             },
             new TroubleshootingSolution
             {
-                Title = "Restart Windows Explorer Shell",
-                Category = "Windows OS",
-                Symptoms = "Taskbar frozen, Start Menu unresponsive, or system tray icons unresponsive.",
-                Explanation = "Forcefully terminates explorer.exe and relaunches the shell cleanly.",
-                CmdCommand = "taskkill /f /im explorer.exe && start explorer.exe",
-                PowerShellCommand = "Stop-Process -Name explorer -Force; Start-Process explorer",
-                Tags = new[] { "explorer", "taskbar", "shell", "freeze" }
+                Title = "Enable Remote Desktop (RDP) Port 3389 & Firewall Rules",
+                Category = "Security",
+                Symptoms = "Remote Desktop connection refused; port 3389 closed or disabled in system settings.",
+                Explanation = "Modifies Terminal Server registry keys to enable RDP connections and opens inbound Windows Defender Firewall rules.",
+                CmdCommand = "reg add \"HKLM\\System\\CurrentControlSet\\Control\\Terminal Server\" /v fDenyTSConnections /t REG_DWORD /d 0 /f && netsh advfirewall firewall set rule group=\"remote desktop\" new enable=Yes",
+                PowerShellCommand = "Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name 'fDenyTSConnections' -Value 0; Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'",
+                Tags = new[] { "rdp", "remote desktop", "3389", "firewall", "terminal server" }
             },
             new TroubleshootingSolution
             {
-                Title = "Reset TCP/IP Stack & Winsock Catalog",
-                Category = "Network",
-                Symptoms = "Complete network stack failure where network adapter has valid IP but cannot send packets.",
-                Explanation = "Resets both TCP/IP registry parameters and Winsock LSP provider layers.",
-                CmdCommand = "netsh int ip reset && netsh winsock reset",
-                PowerShellCommand = "netsh int ip reset; netsh winsock reset",
-                Tags = new[] { "tcp", "winsock", "reset", "network" }
+                Title = "Reset Windows Defender Firewall to Factory Defaults",
+                Category = "Security",
+                Symptoms = "Corrupt firewall rules blocking essential warehouse software or network file shares.",
+                Explanation = "Restores the Windows Defender Firewall configuration to clean out-of-the-box system defaults.",
+                CmdCommand = "netsh advfirewall reset",
+                PowerShellCommand = "(New-Object -ComObject HNetCfg.FwPolicy2).RestoreLocalFirewallDefaults()",
+                Tags = new[] { "firewall", "advfirewall", "reset", "security", "defaults" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Force Windows Defender Antivirus Definition Update",
+                Category = "Security",
+                Symptoms = "Defender antivirus signatures out of date or definition download failing in Windows Security app.",
+                Explanation = "Invokes the Microsoft Antimalware Command Line utility to fetch latest security intelligence directly.",
+                CmdCommand = "\"%ProgramFiles%\\Windows Defender\\MpCmdRun.exe\" -SignatureUpdate",
+                PowerShellCommand = "Update-MpSignature",
+                Tags = new[] { "defender", "antivirus", "signatures", "mpcmdrun", "security" }
+            },
+
+            // ==================== 6. STORAGE SCENARIOS (4) ====================
+            new TroubleshootingSolution
+            {
+                Title = "WinSxS Component Store Bloat Cleanup & ResetBase",
+                Category = "Storage",
+                Symptoms = "System drive C: low on space; C:\\Windows\\WinSxS folder consumes 15GB-25GB of disk storage.",
+                Explanation = "Purges superseded Windows update component packages and compresses the base OS payload.",
+                CmdCommand = "dism.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase",
+                PowerShellCommand = "dism.exe /Online /Cleanup-Image /StartComponentCleanup /ResetBase",
+                Tags = new[] { "winsxs", "storage", "cleanup", "dism", "disk space" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Purge Volume Shadow Copies (VSS) to Free Storage",
+                Category = "Storage",
+                Symptoms = "Drive C: capacity missing; hidden Volume Shadow Copies holding large block allocations.",
+                Explanation = "Deletes obsolete system restore snapshots and shadow storage allocations on volume C:.",
+                CmdCommand = "vssadmin delete shadows /for=C: /all /quiet",
+                PowerShellCommand = "vssadmin delete shadows /for=C: /all /quiet",
+                Tags = new[] { "vss", "shadow copies", "storage", "vssadmin", "disk" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Force SSD TRIM Optimization & Storage Defragmentation",
+                Category = "Storage",
+                Symptoms = "Solid-state drive write speeds degraded or sluggish IOPS during database operations.",
+                Explanation = "Sends ATA TRIM commands to notify the SSD controller of unused storage blocks for garbage collection.",
+                CmdCommand = "defrag C: /O /U /V",
+                PowerShellCommand = "Optimize-Volume -DriveLetter C -Defrag -Verbose",
+                Tags = new[] { "ssd", "trim", "defrag", "storage", "performance" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Check & Scan Drive C: File System Integrity (Read-Only Scan)",
+                Category = "Storage",
+                Symptoms = "Suspected NTFS volume corruption or bad sectors after unexpected power loss.",
+                Explanation = "Performs an online read-only verification of the NTFS file system metadata without unmounting volume.",
+                CmdCommand = "chkdsk C: /scan",
+                PowerShellCommand = "Repair-Volume -DriveLetter C -Scan",
+                Tags = new[] { "chkdsk", "ntfs", "filesystem", "corruption", "disk" }
+            },
+
+            // ==================== 7. PERFORMANCE SCENARIOS (3) ====================
+            new TroubleshootingSolution
+            {
+                Title = "Unlock Windows 'Ultimate Performance' Power Plan",
+                Category = "Performance",
+                Symptoms = "CPU dynamic frequency scaling causes micro-stuttering and latency during barcode scanning or heavy workloads.",
+                Explanation = "Duplicates and activates the hidden Windows Ultimate Performance power scheme to disable all core throttling.",
+                CmdCommand = "powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 && powercfg -setactive e9a42b02-d5df-448d-aa00-03f14749eb61",
+                PowerShellCommand = "powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61; powercfg -setactive e9a42b02-d5df-448d-aa00-03f14749eb61",
+                Tags = new[] { "ultimate performance", "powercfg", "cpu", "throttle", "latency" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Identify Top 10 Memory Consuming Processes",
+                Category = "Performance",
+                Symptoms = "Physical RAM utilization at 95%+; workstation freezing and paging heavily.",
+                Explanation = "Enumerates and sorts all running Win32 processes by private and working set memory usage.",
+                CmdCommand = "tasklist /FO TABLE /NH | sort /R /+58",
+                PowerShellCommand = "Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 10 ProcessName, @{Name='RAM (MB)';Expression={[math]::Round($_.WorkingSet64/1MB,2)}}",
+                Tags = new[] { "ram", "memory", "leak", "processes", "tasklist" }
+            },
+            new TroubleshootingSolution
+            {
+                Title = "Hardware Inventory: Motherboard, BIOS & Serial Inspection",
+                Category = "Performance",
+                Symptoms = "Need serial number, BIOS firmware version, and motherboard model for warranty or IT asset tracking.",
+                Explanation = "Extracts hardware DMI/SMBIOS information directly from the motherboard firmware.",
+                CmdCommand = "wmic bios get serialnumber,smbiosbiosversion,manufacturer && wmic baseboard get product,manufacturer",
+                PowerShellCommand = "Get-CimInstance Win32_BIOS | Select-Object Manufacturer, SMBIOSBIOSVersion, SerialNumber; Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer, Product",
+                Tags = new[] { "hardware", "bios", "serialnumber", "motherboard", "asset" }
             }
+        };
+    }
+
+    private (Brush bg, Brush fg) GetCategoryBadgeColors(string category)
+    {
+        return category switch
+        {
+            "Network" => (new SolidColorBrush(Color.FromRgb(224, 242, 254)), new SolidColorBrush(Color.FromRgb(3, 105, 161))),
+            "Printers" => (new SolidColorBrush(Color.FromRgb(243, 232, 255)), new SolidColorBrush(Color.FromRgb(126, 34, 206))),
+            "Windows OS" => (new SolidColorBrush(Color.FromRgb(254, 243, 199)), new SolidColorBrush(Color.FromRgb(180, 83, 9))),
+            "Active Directory" => (new SolidColorBrush(Color.FromRgb(219, 234, 254)), new SolidColorBrush(Color.FromRgb(29, 78, 216))),
+            "Security" => (new SolidColorBrush(Color.FromRgb(254, 226, 226)), new SolidColorBrush(Color.FromRgb(185, 28, 28))),
+            "Storage" => (new SolidColorBrush(Color.FromRgb(236, 253, 245)), new SolidColorBrush(Color.FromRgb(4, 120, 87))),
+            "Performance" => (new SolidColorBrush(Color.FromRgb(237, 233, 254)), new SolidColorBrush(Color.FromRgb(109, 40, 217))),
+            _ => (new SolidColorBrush(Color.FromRgb(241, 245, 249)), new SolidColorBrush(Color.FromRgb(71, 85, 105)))
         };
     }
 
@@ -256,209 +434,561 @@ public partial class MainWindow
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(16),
+            Padding = new Thickness(18),
             Margin = new Thickness(0, 0, 0, 14)
         };
 
         var sp = new StackPanel();
-        sp.Children.Add(new TextBlock
+
+        // 1. Header with title and count badge
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        titleRow.Children.Add(new TextBlock
         {
-            Text = "ENTERPRISE IT FIX & COMMAND PLAYBOOK (22 SCENARIOS)",
-            FontSize = 13,
+            Text = "ENTERPRISE IT FIX & COMMAND PLAYBOOK",
+            FontSize = 14,
             FontWeight = FontWeights.Bold,
             Foreground = SvllBlue,
-            Margin = new Thickness(0, 0, 0, 6)
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0)
         });
+
+        var countBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(224, 242, 254)),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(8, 2, 8, 2),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        countBadge.Child = new TextBlock
+        {
+            Text = $"{_solutionsLibrary.Count} Enterprise Solutions",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161))
+        };
+        titleRow.Children.Add(countBadge);
+        sp.Children.Add(titleRow);
+
         sp.Children.Add(new TextBlock
         {
-            Text = "Comprehensive library of verified logistics IT remediation procedures with 1-click clipboard copy and direct execution for CMD and PowerShell.",
-            FontSize = 11,
+            Text = "Curated enterprise troubleshooting library with dual-syntax commands (Command Prompt CMD and Windows PowerShell), 1-click clipboard copy, and direct execution into the integrated terminal.",
+            FontSize = 11.5,
             Foreground = TextSubtle,
             Margin = new Thickness(0, 0, 0, 12)
         });
 
-        // Search & Filter Toolbar
-        var searchGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        // 2. Category Filter Pills Bar
+        var categories = new[] { "All", "Network", "Printers", "Windows OS", "Active Directory", "Security", "Storage", "Performance" };
+        string activeCategory = "All";
+
+        var pillContainer = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+        var pillButtons = new Dictionary<string, Button>();
+
+        // 3. Search Bar & Result Counter
+        var searchGrid = new Grid { Margin = new Thickness(0, 0, 0, 14) };
         searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
+        searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var txtSearch = new TextBox
-        {
-            Height = 30,
-            FontSize = 12,
-            Padding = new Thickness(8, 4, 8, 4),
-            Margin = new Thickness(0, 0, 8, 0)
-        };
-        Grid.SetColumn(txtSearch, 0);
-        searchGrid.Children.Add(txtSearch);
-
-        var cmbCategory = new ComboBox
-        {
-            Height = 30,
-            FontSize = 12,
-            ItemsSource = new[] { "All Categories", "Network", "Printers", "Windows OS", "Active Directory", "Storage", "Security", "Performance" },
-            SelectedIndex = 0
-        };
-        Grid.SetColumn(cmbCategory, 1);
-        searchGrid.Children.Add(cmbCategory);
-        sp.Children.Add(searchGrid);
-
-        // Master-Detail Split Grid
-        var mdGrid = new Grid();
-        mdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(320) });
-        mdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        // Left List of scenarios
-        var listScenarios = new ListBox
-        {
-            Height = 440,
-            FontSize = 12,
-            BorderBrush = BorderMuted,
-            BorderThickness = new Thickness(1),
-            Margin = new Thickness(0, 0, 12, 0)
-        };
-        Grid.SetColumn(listScenarios, 0);
-        mdGrid.Children.Add(listScenarios);
-
-        // Right Detail Panel
-        var detailBorder = new Border
+        var searchBorder = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(16)
+            Padding = new Thickness(8, 2, 8, 2)
+        };
+        var searchInnerGrid = new Grid();
+        searchInnerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        searchInnerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        searchInnerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var searchIcon = new TextBlock
+        {
+            Text = "🔍",
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 6, 0)
+        };
+        Grid.SetColumn(searchIcon, 0);
+        searchInnerGrid.Children.Add(searchIcon);
+
+        var txtSearch = new TextBox
+        {
+            Height = 28,
+            FontSize = 12,
+            BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(txtSearch, 1);
+        searchInnerGrid.Children.Add(txtSearch);
+
+        var btnClearSearch = new Button
+        {
+            Content = "✕",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Width = 22,
+            Height = 22,
+            Background = Brushes.Transparent,
+            Foreground = TextSubtle,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            Visibility = Visibility.Collapsed
+        };
+        btnClearSearch.Click += (s, e) => { txtSearch.Clear(); txtSearch.Focus(); };
+        Grid.SetColumn(btnClearSearch, 2);
+        searchInnerGrid.Children.Add(btnClearSearch);
+
+        searchBorder.Child = searchInnerGrid;
+        Grid.SetColumn(searchBorder, 0);
+        searchGrid.Children.Add(searchBorder);
+
+        var lblResultCount = new TextBlock
+        {
+            FontSize = 11,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(14, 0, 0, 0)
+        };
+        Grid.SetColumn(lblResultCount, 1);
+        searchGrid.Children.Add(lblResultCount);
+
+        sp.Children.Add(pillContainer);
+        sp.Children.Add(searchGrid);
+
+        // 4. Master-Detail Split Grid
+        var mdGrid = new Grid();
+        mdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(380) });
+        mdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        // Left List Container
+        var leftScroll = new ScrollViewer
+        {
+            Height = 560,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Margin = new Thickness(0, 0, 14, 0)
+        };
+        var leftCardsStack = new StackPanel();
+        leftScroll.Content = leftCardsStack;
+        Grid.SetColumn(leftScroll, 0);
+        mdGrid.Children.Add(leftScroll);
+
+        // Right Detail ScrollViewer
+        var detailScroll = new ScrollViewer
+        {
+            Height = 560,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         };
         var detailStack = new StackPanel();
-        detailBorder.Child = detailStack;
-        Grid.SetColumn(detailBorder, 1);
-        mdGrid.Children.Add(detailBorder);
+        detailScroll.Content = detailStack;
+        Grid.SetColumn(detailScroll, 1);
+        mdGrid.Children.Add(detailScroll);
 
         sp.Children.Add(mdGrid);
         card.Child = sp;
         root.Children.Add(card);
 
-        void FilterList()
+        TroubleshootingSolution? selectedSolution = null;
+
+        // Populate Pill Buttons
+        foreach (var cat in categories)
+        {
+            int count = (cat == "All") 
+                ? _solutionsLibrary.Count 
+                : _solutionsLibrary.Count(x => x.Category.Equals(cat, StringComparison.OrdinalIgnoreCase));
+
+            var btnPill = new Button
+            {
+                Content = $"{cat} ({count})",
+                Height = 28,
+                Padding = new Thickness(12, 0, 12, 0),
+                Margin = new Thickness(0, 0, 6, 6),
+                FontSize = 11,
+                Cursor = Cursors.Hand,
+                BorderThickness = new Thickness(1),
+                BorderBrush = BorderMuted
+            };
+
+            string currentCategoryName = cat;
+            btnPill.Click += (s, e) =>
+            {
+                activeCategory = currentCategoryName;
+                UpdatePillStyles();
+                FilterAndRender();
+            };
+
+            pillButtons[cat] = btnPill;
+            pillContainer.Children.Add(btnPill);
+        }
+
+        void UpdatePillStyles()
+        {
+            foreach (var kvp in pillButtons)
+            {
+                bool isSelected = kvp.Key == activeCategory;
+                kvp.Value.Background = isSelected ? SvllBlue : new SolidColorBrush(Color.FromRgb(241, 245, 249));
+                kvp.Value.Foreground = isSelected ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+                kvp.Value.FontWeight = isSelected ? FontWeights.Bold : FontWeights.Normal;
+                kvp.Value.BorderBrush = isSelected ? SvllBlue : BorderMuted;
+            }
+        }
+
+        void FilterAndRender()
         {
             string q = txtSearch.Text.Trim().ToLowerInvariant();
-            string cat = cmbCategory.SelectedItem?.ToString() ?? "All Categories";
+            btnClearSearch.Visibility = string.IsNullOrEmpty(q) ? Visibility.Collapsed : Visibility.Visible;
 
             var filtered = _solutionsLibrary.Where(s =>
             {
-                bool matchCat = cat == "All Categories" || s.Category == cat;
-                bool matchQ = string.IsNullOrEmpty(q)
-                              || s.Title.ToLowerInvariant().Contains(q)
-                              || s.Symptoms.ToLowerInvariant().Contains(q)
-                              || s.Tags.Any(t => t.ToLowerInvariant().Contains(q));
-                return matchCat && matchQ;
+                bool matchCat = activeCategory == "All" || s.Category.Equals(activeCategory, StringComparison.OrdinalIgnoreCase);
+                bool matchQuery = string.IsNullOrEmpty(q)
+                    || s.Title.ToLowerInvariant().Contains(q)
+                    || s.Symptoms.ToLowerInvariant().Contains(q)
+                    || s.Explanation.ToLowerInvariant().Contains(q)
+                    || s.Tags.Any(t => t.ToLowerInvariant().Contains(q))
+                    || s.CmdCommand.ToLowerInvariant().Contains(q)
+                    || s.PowerShellCommand.ToLowerInvariant().Contains(q);
+                return matchCat && matchQuery;
             }).ToList();
 
-            listScenarios.ItemsSource = filtered;
-            if (filtered.Count > 0) listScenarios.SelectedIndex = 0;
-            else detailStack.Children.Clear();
+            lblResultCount.Text = $"Showing {filtered.Count} of {_solutionsLibrary.Count} commands";
+
+            if (selectedSolution == null || !filtered.Contains(selectedSolution))
+            {
+                selectedSolution = filtered.FirstOrDefault();
+            }
+
+            RenderLeftCards(leftCardsStack, filtered, selectedSolution, sol =>
+            {
+                selectedSolution = sol;
+                FilterAndRender();
+            });
+
+            if (selectedSolution != null)
+            {
+                RenderSolutionDetail(detailStack, selectedSolution);
+            }
+            else
+            {
+                detailStack.Children.Clear();
+                var emptyNotice = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                    BorderBrush = BorderMuted,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(24),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 40, 0, 0)
+                };
+                var emptyStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+                emptyStack.Children.Add(new TextBlock { Text = "🔍 No Matching Scenarios Found", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = TextDark, HorizontalAlignment = HorizontalAlignment.Center });
+                emptyStack.Children.Add(new TextBlock { Text = "Try adjusting your search query or selecting 'All' categories.", FontSize = 11, Foreground = TextSubtle, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) });
+                emptyNotice.Child = emptyStack;
+                detailStack.Children.Add(emptyNotice);
+            }
         }
 
-        txtSearch.TextChanged += (s, e) => FilterList();
-        cmbCategory.SelectionChanged += (s, e) => FilterList();
+        txtSearch.TextChanged += (s, e) => FilterAndRender();
 
-        listScenarios.SelectionChanged += (s, e) =>
-        {
-            if (listScenarios.SelectedItem is TroubleshootingSolution sol)
-            {
-                RenderSolutionDetail(detailStack, sol);
-            }
-        };
-
-        FilterList();
+        UpdatePillStyles();
+        FilterAndRender();
 
         scroll.Content = root;
         return scroll;
+    }
+
+    private void RenderLeftCards(StackPanel container, List<TroubleshootingSolution> list, TroubleshootingSolution? activeSol, Action<TroubleshootingSolution> onSelect)
+    {
+        container.Children.Clear();
+
+        foreach (var item in list)
+        {
+            bool isSelected = item == activeSol;
+            var (badgeBg, badgeFg) = GetCategoryBadgeColors(item.Category);
+
+            var card = new Border
+            {
+                Background = isSelected ? new SolidColorBrush(Color.FromRgb(239, 246, 255)) : Brushes.White,
+                BorderBrush = isSelected ? SvllBlue : new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+                BorderThickness = isSelected ? new Thickness(3, 1, 1, 1) : new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 0, 0, 6),
+                Cursor = Cursors.Hand
+            };
+
+            var stack = new StackPanel();
+
+            // Top Row: Category Badge
+            var topRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+            
+            var badgeBorder = new Border
+            {
+                Background = badgeBg,
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6, 1, 6, 1),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            badgeBorder.Child = new TextBlock
+            {
+                Text = item.Category.ToUpperInvariant(),
+                FontSize = 9.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = badgeFg
+            };
+            topRow.Children.Add(badgeBorder);
+            stack.Children.Add(topRow);
+
+            // Title
+            var txtTitle = new TextBlock
+            {
+                Text = item.Title,
+                FontSize = 11.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = isSelected ? SvllBlue : TextDark,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 4)
+            };
+            stack.Children.Add(txtTitle);
+
+            // Symptoms snippet
+            var txtSymptoms = new TextBlock
+            {
+                Text = item.Symptoms,
+                FontSize = 10,
+                Foreground = TextSubtle,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxHeight = 16
+            };
+            stack.Children.Add(txtSymptoms);
+
+            card.Child = stack;
+
+            // Events
+            TroubleshootingSolution currentItem = item;
+            card.MouseDown += (s, e) => onSelect(currentItem);
+            if (!isSelected)
+            {
+                card.MouseEnter += (s, e) => card.Background = new SolidColorBrush(Color.FromRgb(248, 250, 252));
+                card.MouseLeave += (s, e) => card.Background = Brushes.White;
+            }
+
+            container.Children.Add(card);
+        }
     }
 
     private void RenderSolutionDetail(StackPanel container, TroubleshootingSolution sol)
     {
         container.Children.Clear();
 
-        container.Children.Add(new TextBlock
+        var (badgeBg, badgeFg) = GetCategoryBadgeColors(sol.Category);
+
+        // Header Section
+        var headerCard = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(14),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        var headerStack = new StackPanel();
+
+        var metaRow = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
+        var catBadge = new Border
+        {
+            Background = badgeBg,
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        catBadge.Child = new TextBlock
+        {
+            Text = sol.Category.ToUpperInvariant(),
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = badgeFg
+        };
+        metaRow.Children.Add(catBadge);
+
+        foreach (var tag in sol.Tags)
+        {
+            var tagBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6, 2, 6, 2),
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            tagBadge.Child = new TextBlock
+            {
+                Text = $"#{tag}",
+                FontSize = 10,
+                Foreground = TextSubtle
+            };
+            metaRow.Children.Add(tagBadge);
+        }
+        headerStack.Children.Add(metaRow);
+
+        headerStack.Children.Add(new TextBlock
         {
             Text = sol.Title,
             FontSize = 15,
             FontWeight = FontWeights.Bold,
             Foreground = SvllBlue,
+            TextWrapping = TextWrapping.Wrap
+        });
+        headerCard.Child = headerStack;
+        container.Children.Add(headerCard);
+
+        // Symptoms Box (Soft Amber / Warning)
+        var symptomsBox = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(255, 251, 235)), // Amber-50
+            BorderBrush = new SolidColorBrush(Color.FromRgb(253, 230, 138)), // Amber-200
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        var symStack = new StackPanel();
+        symStack.Children.Add(new TextBlock
+        {
+            Text = "⚠️  SYMPTOMS & PROBLEM OCCURRENCE",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(180, 83, 9)), // Amber-700
             Margin = new Thickness(0, 0, 0, 4)
         });
-
-        container.Children.Add(new TextBlock
+        symStack.Children.Add(new TextBlock
         {
-            Text = $"Category: {sol.Category}  |  Tags: {string.Join(", ", sol.Tags)}",
-            FontSize = 11,
-            Foreground = TextSubtle,
-            Margin = new Thickness(0, 0, 0, 10)
+            Text = sol.Symptoms,
+            FontSize = 11.5,
+            Foreground = TextDark,
+            TextWrapping = TextWrapping.Wrap
         });
+        symptomsBox.Child = symStack;
+        container.Children.Add(symptomsBox);
 
-        container.Children.Add(new TextBlock { Text = "SYMPTOMS / ISSUE:", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = TextDark });
-        container.Children.Add(new TextBlock { Text = sol.Symptoms, FontSize = 11.5, Foreground = TextDark, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 8) });
-
-        container.Children.Add(new TextBlock { Text = "ROOT CAUSE & EXPLANATION:", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = TextDark });
-        container.Children.Add(new TextBlock { Text = sol.Explanation, FontSize = 11.5, Foreground = TextDark, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 14) });
+        // Root Cause & Technical Remediation Box (Soft Sky / Blue)
+        var causeBox = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 249, 255)), // Sky-50
+            BorderBrush = new SolidColorBrush(Color.FromRgb(186, 230, 253)), // Sky-200
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        var causeStack = new StackPanel();
+        causeStack.Children.Add(new TextBlock
+        {
+            Text = "💡  ROOT CAUSE & TECHNICAL REMEDIATION",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161)), // Sky-700
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+        causeStack.Children.Add(new TextBlock
+        {
+            Text = sol.Explanation,
+            FontSize = 11.5,
+            Foreground = TextDark,
+            TextWrapping = TextWrapping.Wrap
+        });
+        causeBox.Child = causeStack;
+        container.Children.Add(causeBox);
 
         // CMD Command Block
         container.Children.Add(CreateCommandBlock("Command Prompt (CMD)", sol.CmdCommand, false));
 
         // PowerShell Command Block
-        container.Children.Add(CreateCommandBlock("PowerShell Command", sol.PowerShellCommand, true));
+        container.Children.Add(CreateCommandBlock("Windows PowerShell", sol.PowerShellCommand, true));
     }
 
     private UIElement CreateCommandBlock(string label, string command, bool isPowerShell)
     {
         var border = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
-            CornerRadius = new CornerRadius(5),
-            Padding = new Thickness(10),
+            Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), // Slate-900
+            BorderBrush = new SolidColorBrush(Color.FromRgb(51, 65, 85)), // Slate-700
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12),
             Margin = new Thickness(0, 0, 0, 10)
         };
 
         var sp = new StackPanel();
 
-        var header = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
-        header.Children.Add(new TextBlock
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var promptStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        promptStack.Children.Add(new TextBlock
+        {
+            Text = isPowerShell ? "PS >_" : "CMD >_",
+            FontFamily = new FontFamily("Consolas, monospace"),
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = isPowerShell ? new SolidColorBrush(Color.FromRgb(56, 189, 248)) : new SolidColorBrush(Color.FromRgb(245, 158, 11)),
+            Margin = new Thickness(0, 0, 6, 0)
+        });
+        promptStack.Children.Add(new TextBlock
         {
             Text = label.ToUpperInvariant(),
             FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225))
         });
+        Grid.SetColumn(promptStack, 0);
+        header.Children.Add(promptStack);
 
-        var btnPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var btnPanel = new StackPanel { Orientation = Orientation.Horizontal };
 
         var btnCopy = new Button
         {
-            Content = "Copy",
-            Height = 22,
-            Padding = new Thickness(8, 0, 8, 0),
+            Content = "📋 Copy",
+            Height = 24,
+            Padding = new Thickness(10, 0, 10, 0),
             Margin = new Thickness(0, 0, 6, 0),
-            FontSize = 10,
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
             Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
             Foreground = Brushes.White,
-            BorderThickness = new Thickness(0)
+            BorderThickness = new Thickness(1),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            Cursor = Cursors.Hand
         };
-        btnCopy.Click += (s, e) =>
+        btnCopy.Click += async (s, e) =>
         {
-            Clipboard.SetText(command);
-            MessageBox.Show("Command copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                Clipboard.SetText(command);
+                btnCopy.Content = "✔ Copied!";
+                btnCopy.Background = new SolidColorBrush(Color.FromRgb(16, 185, 129));
+                await Task.Delay(1800);
+                btnCopy.Content = "📋 Copy";
+                btnCopy.Background = new SolidColorBrush(Color.FromRgb(30, 41, 59));
+            }
+            catch { }
         };
         btnPanel.Children.Add(btnCopy);
 
         var btnRun = new Button
         {
-            Content = "Run Now",
-            Height = 22,
-            Padding = new Thickness(8, 0, 8, 0),
-            FontSize = 10,
+            Content = isPowerShell ? "⚡ Run in PS" : "⚡ Run in CMD",
+            Height = 24,
+            Padding = new Thickness(10, 0, 10, 0),
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
             Background = SvllBlue,
             Foreground = Brushes.White,
-            BorderThickness = new Thickness(0)
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
         };
         btnRun.Click += async (s, e) =>
         {
@@ -470,16 +1000,23 @@ public partial class MainWindow
         };
         btnPanel.Children.Add(btnRun);
 
+        Grid.SetColumn(btnPanel, 1);
         header.Children.Add(btnPanel);
         sp.Children.Add(header);
 
-        var txtCmd = new TextBlock
+        var txtCmd = new TextBox
         {
             Text = command,
-            FontFamily = new FontFamily("Consolas, monospace"),
+            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
             FontSize = 11,
-            Foreground = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
-            TextWrapping = TextWrapping.Wrap
+            Foreground = isPowerShell 
+                ? new SolidColorBrush(Color.FromRgb(56, 189, 248)) 
+                : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            IsReadOnly = true,
+            TextWrapping = TextWrapping.Wrap,
+            Padding = new Thickness(4, 4, 4, 4)
         };
         sp.Children.Add(txtCmd);
 

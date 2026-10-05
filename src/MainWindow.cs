@@ -309,8 +309,6 @@ public partial class MainWindow : Window
 
         // Tier 3: LOGISTICS & WAREHOUSE
         AddNavSectionHeader("LOGISTICS & WAREHOUSE");
-        AddNav("\uE749", "Thermal Label Printers", "ThermalPrinters");
-        AddNav("\uEC5A", "Barcode Live Test Bench", "BarcodeScanner");
         AddNav("\uE839", "WMS & ERP Latency Tester", "WmsLatency");
 
         // Tier 4: ENTERPRISE ASSET & HELPDESK
@@ -470,8 +468,6 @@ public partial class MainWindow : Window
             "NetshSuite" => BuildNetshSuiteView(),
             "Wifi" => BuildWifiView(),
             "LanShares" => BuildLanShareView(),
-            "ThermalPrinters" => BuildThermalPrintersView(),
-            "BarcodeScanner" => BuildBarcodeScannerView(),
             "WmsLatency" => BuildWmsLatencyView(),
             "AssetPassport" => BuildAssetPassportView(),
             "EventLog" => BuildEventLogAnalyzerView(),
