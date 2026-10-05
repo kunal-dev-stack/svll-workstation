@@ -13,7 +13,7 @@ Write-Host "  Developed by: Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================" -ForegroundColor Cyan
 
 # Check if a local installer package exists in the repo
-$localSetup = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "release\SVLL-IT-Workstation-v5.5-Setup.exe"
+$localSetup = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "release\SVLL-IT-Workstation-v5.6-Setup.exe"
 $tempExe = $null
 
 if (Test-Path $localSetup) {
