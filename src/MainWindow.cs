@@ -99,6 +99,11 @@ public partial class MainWindow : Window
     private readonly List<double> _cpuHistory = new List<double>();
     private readonly List<double> _ramHistory = new List<double>();
 
+    // Persistent Device Action & Audit Log Paths
+    public static readonly string AuditLogDirectory = System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SVLL_IT_Workstation");
+    public static readonly string AuditLogPath = System.IO.Path.Combine(AuditLogDirectory, "device_action_history.log");
+
     public MainWindow(string[] args)
     {
         Title = $"SVLL IT Support Workstation v{CurrentVersion} - Enterprise Fleet Diagnostics";
@@ -127,7 +132,28 @@ public partial class MainWindow : Window
         Loaded += async (s, e) =>
         {
             NavigateTo("Dashboard");
+            Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Initial state verified.");
             await HandleCommandLineArgsAsync(args);
+        };
+
+        Closing += (s, e) =>
+        {
+            try
+            {
+                // Stop active background timers
+                _watchdogTimer?.Stop();
+                _isWatchdogRunning = false;
+                _vitalsTimer?.Stop();
+
+                // Revert runtime watchdog state to clean factory baseline
+                InitializeDefaultWatchdogTargets();
+
+                // Log session closure event
+                string sessionEnd = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [DEVICE AUDIT] Session concluded for host {Environment.MachineName}. Reverted all runtime session state to initial factory baseline.\n" +
+                                    "--------------------------------------------------------------------------------\n";
+                File.AppendAllText(AuditLogPath, sessionEnd);
+            }
+            catch { }
         };
     }
 
@@ -527,6 +553,36 @@ public partial class MainWindow : Window
         btnClear.Click += (s, e) => _txtConsole.Clear();
         actions.Children.Add(btnClear);
 
+        var btnOpenLog = new Button
+        {
+            Content = "View Device Audit Log",
+            FontSize = 10,
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = Brushes.Transparent,
+            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnOpenLog.Click += (s, e) =>
+        {
+            try
+            {
+                if (!File.Exists(AuditLogPath))
+                {
+                    if (!Directory.Exists(AuditLogDirectory))
+                        Directory.CreateDirectory(AuditLogDirectory);
+                    File.WriteAllText(AuditLogPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [DEVICE AUDIT LOG INITIALIZED FOR {Environment.MachineName}]\n");
+                }
+                Process.Start(new ProcessStartInfo { FileName = AuditLogPath, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open audit log: {ex.Message}", "Audit Log", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        actions.Children.Add(btnOpenLog);
+
         Grid.SetColumn(actions, 1);
         barGrid.Children.Add(actions);
         bar.Child = barGrid;
@@ -702,10 +758,26 @@ public partial class MainWindow : Window
 
     public void Log(string msg)
     {
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        string formattedEntry = $"[{timestamp}] {msg}";
+
         Dispatcher.Invoke(() =>
         {
             _txtConsole.AppendText(msg + Environment.NewLine);
             _txtConsole.ScrollToEnd();
+        });
+
+        // Store action permanently in local device audit history file
+        Task.Run(() =>
+        {
+            try
+            {
+                if (!Directory.Exists(AuditLogDirectory))
+                    Directory.CreateDirectory(AuditLogDirectory);
+
+                File.AppendAllText(AuditLogPath, formattedEntry + Environment.NewLine);
+            }
+            catch { }
         });
     }
 

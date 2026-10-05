@@ -305,6 +305,29 @@ public partial class MainWindow
         };
         actionToolbar.Children.Add(btnRemove);
 
+        var btnResetTargets = new Button
+        {
+            Content = "Reset to Initial Targets",
+            Height = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnResetTargets.Click += (s, e) =>
+        {
+            InitializeDefaultWatchdogTargets();
+            _listWatchdog.ItemsSource = null;
+            _listWatchdog.ItemsSource = _watchdogTargets;
+            _listWatchdog.Items.Refresh();
+            _lblWatchdogTotalHosts.Text = $"{_watchdogTargets.Count} Hosts";
+            _lblWatchdogOnlineHosts.Text = "-- / --";
+            _lblWatchdogDrops.Text = "0 Drops";
+            Log("[WATCHDOG] Target list reset to pristine initial state (removed all custom session targets).");
+        };
+        actionToolbar.Children.Add(btnResetTargets);
+
         var btnToggleChime = new Button
         {
             Content = _watchdogAudioChimeEnabled ? " 🔔 Chime: Active " : " 🔕 Chime: MUTED ",
