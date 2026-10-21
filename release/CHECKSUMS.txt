@@ -1,22 +1,11 @@
-======================================================================
-SHREE VASU LOGISTICS LIMITED - IT SUPPORT WORKSTATION v5.6
-RELEASE SHA-256 CHECKSUMS MANIFEST
-Release Date: 2026-10-05
-Lead Engineer: Kunal Turkar
-======================================================================
+================================================================================
+SHREE VASU LOGISTICS LIMITED - SVLL IT SUPPORT WORKSTATION v6.0 CHECKSUMS
+================================================================================
+Generated: 2026-10-21 22:35:00 UTC
+Author:    Kunal Turkar
 
-FILE: SVLL-IT-Workstation-v5.6-Setup.exe
-SIZE: 67,064,260 bytes (63.96 MB)
-TYPE: Inno Setup Enterprise Installer (Windows 10 / 11 x64)
-SHA256: C161ABF682DAF8E5CB0A21CF0E09FA05658925C3A2D2D8CFA6606C1D118982DC
-
-FILE: SVLL-IT-Workstation.exe
-SIZE: 72,130,880 bytes (68.79 MB)
-TYPE: Standalone Single-File Portable Executable (.NET 8.0 self-contained win-x64)
-SHA256: 5B020B7B1433855E299064074C9B4533016B96138D5890D163D1458A9316507B
-
-======================================================================
-VERIFICATION INSTRUCTIONS (PowerShell):
-Get-FileHash -Path .\SVLL-IT-Workstation-v5.6-Setup.exe -Algorithm SHA256
-Get-FileHash -Path .\SVLL-IT-Workstation.exe -Algorithm SHA256
-======================================================================
+SHA-256 HASHES:
+--------------------------------------------------------------------------------
+C1E2CBA519F4E2FDAD2ECE64891216A7ED00287C1732095ABE7B239D564D05D3 *SVLL-IT-Workstation-v6.0-Setup.exe (64.08 MB)
+E3D3EA2137F9C32B205A78C08CAF03F9BF9897E7E0DA1895D3786DCC0ECC8079 *SVLL-IT-Workstation.exe (68.89 MB)
+================================================================================
