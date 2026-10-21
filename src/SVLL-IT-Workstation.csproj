@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>5.6.0</Version>
+    <Version>6.0.0</Version>
     <Authors>Kunal Turkar</Authors>
     <Company>Shree Vasu Logistics Limited</Company>
     <Product>SVLL IT Support Workstation</Product>
@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <PackageReference Include="QRCoder" Version="1.8.0" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
   </ItemGroup>

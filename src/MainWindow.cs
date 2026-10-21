@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "5.6";
+    public const string CurrentVersion = "6.0";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     private static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
@@ -150,6 +150,7 @@ public partial class MainWindow : Window
                 ("NetshSuite", "IPConfig & Netsh", "📋"),
                 ("Network", "Network & DNS Profiles", "🌐"),
                 ("SubnetScanner", "Subnet IP Scanner", "🔍"),
+                ("SocketInspector", "Bandwidth Hog Hunter", "📡"),
                 ("Wifi", "Wi-Fi Diagnostics", "📶"),
                 ("LanShares", "LAN File Shares", "📂")
             }
@@ -163,6 +164,7 @@ public partial class MainWindow : Window
             SubTools = new()
             {
                 ("TurboBooster", "RAM & CPU Booster", "⚡"),
+                ("SecurityDlp", "Endpoint Security & DLP", "🔒"),
                 ("WinUtilTweaks", "WinUtil Tweaks", "⚙️"),
                 ("Cleanup", "Disk & Temp Purge", "🧹"),
                 ("Disk", "Storage & TRIM", "💾"),
@@ -180,6 +182,8 @@ public partial class MainWindow : Window
             SubTools = new()
             {
                 ("Repair", "Windows OS Repair", "🩺"),
+                ("LogisticsDoctor", "Logistics Hardware Doctor", "🖨️"),
+                ("StorageSmart", "S.M.A.R.T. Drive Health", "💾"),
                 ("Printer", "Print Spooler Diagnostic", "🖨️"),
                 ("Services", "Services & Processes", "⚡"),
                 ("EventLog", "Event Log Analyzer", "⚠️"),
@@ -196,6 +200,7 @@ public partial class MainWindow : Window
             Glyph = "\uE82D",
             SubTools = new()
             {
+                ("ProvisioningWizard", "New PC Setup Wizard", "🚀"),
                 ("Library", "IT Command Playbook", "📖"),
                 ("UsbDepot", "USB Depot & Driver Finder", "🔌"),
                 ("WinGetSoftware", "WinGet Software", "📦"),
@@ -251,6 +256,15 @@ public partial class MainWindow : Window
             NavigateTo("Dashboard");
             Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Initial state verified.");
             await HandleCommandLineArgsAsync(args);
+        };
+
+        PreviewKeyDown += (s, e) =>
+        {
+            if ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control && e.Key == Key.K)
+            {
+                OpenCommandPalette();
+                e.Handled = true;
+            }
         };
 
         Closing += (s, e) =>
@@ -654,12 +668,96 @@ public partial class MainWindow : Window
         };
         rightStack.Children.Add(btnTurbo);
 
-        var btnQuickLog = new Button
+        // Fleet Health Score Pill
+        var healthPill = new Border
         {
-            Content = "📋 Device Audit Log",
-            FontSize = 10,
+            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
             Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = "🛡️ 98% Optimal",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52))
+            }
+        };
+        rightStack.Children.Add(healthPill);
+
+        // Pinned Shortcut 1: New PC Setup Wizard
+        var btnQuickSetup = new Button
+        {
+            Content = "🚀 New PC Setup",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(22, 163, 74)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnQuickSetup.Click += (s, e) => NavigateTo("ProvisioningWizard");
+        rightStack.Children.Add(btnQuickSetup);
+
+        // Pinned Shortcut 2: Zebra Doctor
+        var btnQuickZebra = new Button
+        {
+            Content = "🖨️ Zebra Doctor",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(147, 51, 234)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnQuickZebra.Click += (s, e) => NavigateTo("LogisticsDoctor");
+        rightStack.Children.Add(btnQuickZebra);
+
+        // Pinned Shortcut 3: USB DLP Lock
+        var btnQuickDlp = new Button
+        {
+            Content = "🔒 USB DLP",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(217, 119, 6)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnQuickDlp.Click += (s, e) => NavigateTo("SecurityDlp");
+        rightStack.Children.Add(btnQuickDlp);
+
+        // Command Palette (Ctrl+K)
+        var btnPalette = new Button
+        {
+            Content = "🔍 Search (Ctrl+K)",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnPalette.Click += (s, e) => OpenCommandPalette();
+        rightStack.Children.Add(btnPalette);
+
+        var btnQuickLog = new Button
+        {
+            Content = "📋 Audit Log",
+            FontSize = 10,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             Foreground = TextDark,
             BorderBrush = BorderMuted,
@@ -1048,6 +1146,11 @@ public partial class MainWindow : Window
             "Cleanup" => BuildCleanupView(),
             "ConfigManager" => BuildConfigManagerView(),
             "About" => BuildAboutView(),
+            "ProvisioningWizard" => BuildProvisioningWizardView(),
+            "LogisticsDoctor" => BuildLogisticsDoctorView(),
+            "StorageSmart" => BuildStorageSmartView(),
+            "SecurityDlp" => BuildSecurityDlpView(),
+            "SocketInspector" => BuildSocketInspectorView(),
             _ => BuildDashboardView()
         };
     }
@@ -1344,6 +1447,33 @@ public partial class MainWindow : Window
         }
 
         return sb.ToString();
+    }
+
+    public string ExecutePowerShellScript(string script)
+    {
+        try
+        {
+            using var p = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{script}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+            p.Start();
+            string output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(10000);
+            return output;
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 
     public void Log(string msg)

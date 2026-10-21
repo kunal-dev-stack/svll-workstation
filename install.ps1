@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $repo = "kunal-dev-stack/svll-workstation"
-$version = "v5.6"
+$version = "v6.0"
 $fallbackUrl = "https://github.com/$repo/releases/download/$version/SVLL-IT-Workstation-$version-Setup.exe"
 
 Write-Host "=========================================================" -ForegroundColor Cyan
