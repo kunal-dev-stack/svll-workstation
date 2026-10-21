@@ -7,6 +7,28 @@
 
 ---
 
+### 🎨 Windows 11 Fluent UI Modernization & Overlap Resolution
+
+1. **Top Status Bar Responsive 3-Column Architecture:**
+   - **Zero Overlap:** Completely resolved top navbar horizontal collision on all screen resolutions down to 980×600.
+   - **Compact Identity & Network Badges (Left Column):** Grouped Hostname & Username pill (`[ 💻 Hostname | 👤 Username ]`) and Live Network pill (`[ 🌐 IP • GW 🟢 ]`).
+   - **Integrated Telemetry & Action Dock (Right Column):** Grouped CPU/RAM vitals, 🛡️ 98% Optimal fleet health pill, ⚡ Turbo Boost button, and 🔍 Search (Ctrl+K).
+   - **⚡ Quick Launch ▾ Dropdown Menu:** Consolidated all primary workflow triggers into a sleek context dropdown:
+     - 🚀 Zero-Touch New PC Setup Wizard
+     - 🖨️ Zebra & TSC Hardware Doctor
+     - 🔒 Endpoint Security & USB DLP Lock
+     - 💾 S.M.A.R.T. Drive Health & Crash Predictor
+     - 📡 Bandwidth Hog & Socket Hunter
+     - 📋 Open Device Audit Action Log
+     - 🧹 Instant Flush DNS & ARP Cache
+
+2. **Enterprise Segmented Hub Navigation & Cards:**
+   - Color-coded Hub category badges (`HUB 1 • TRIAGE`, `HUB 2 • NOC`, `HUB 3 • OPTIMIZATION`, `HUB 4 • DIAGNOSTICS`, `HUB 5 • DEPLOYMENT`).
+   - Modern segmented pill tabs with subtle border outlines and active SVLL Blue state.
+   - Professional Windows 11 card containers with 4px vertical brand indicator bars, 10px rounded corners, and clear `[ ⚡ ACTION ]` badges on all tools.
+
+---
+
 ### 🚀 What's New in v6.0
 
 #### 1. 🚀 Zero-Touch New PC Setup Wizard (`Hub 5 -> ProvisioningWizard`)
@@ -39,10 +61,10 @@
 ---
 
 ### 📦 Checksums & Verification
-- **Enterprise Installer:** `SVLL-IT-Workstation-v6.0-Setup.exe` (64.08 MB)
-  - `SHA-256: C1E2CBA519F4E2FDAD2ECE64891216A7ED00287C1732095ABE7B239D564D05D3`
+- **Enterprise Installer:** `SVLL-IT-Workstation-v6.0-Setup.exe` (64.04 MB)
+  - `SHA-256: 1056F770D707206DCBEE8C09F2FBB659AE9AA6C58EE7BCD08DA71FF77E8F73F3`
 - **Portable Binary:** `SVLL-IT-Workstation.exe` (68.89 MB)
-  - `SHA-256: E3D3EA2137F9C32B205A78C08CAF03F9BF9897E7E0DA1895D3786DCC0ECC8079`
+  - `SHA-256: 78AE62B4A88FB585E7C89FC9DE4CF427814214A52F2ED7AEA45B567F20BCFD8D`
 
 ---
 

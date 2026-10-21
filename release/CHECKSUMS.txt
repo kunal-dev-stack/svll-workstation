@@ -1,11 +1,11 @@
 ================================================================================
 SHREE VASU LOGISTICS LIMITED - SVLL IT SUPPORT WORKSTATION v6.0 CHECKSUMS
 ================================================================================
-Generated: 2026-10-21 22:35:00 UTC
+Generated: 2026-10-21 23:12:00 UTC
 Author:    Kunal Turkar
 
 SHA-256 HASHES:
 --------------------------------------------------------------------------------
-C1E2CBA519F4E2FDAD2ECE64891216A7ED00287C1732095ABE7B239D564D05D3 *SVLL-IT-Workstation-v6.0-Setup.exe (64.08 MB)
-E3D3EA2137F9C32B205A78C08CAF03F9BF9897E7E0DA1895D3786DCC0ECC8079 *SVLL-IT-Workstation.exe (68.89 MB)
+1056F770D707206DCBEE8C09F2FBB659AE9AA6C58EE7BCD08DA71FF77E8F73F3 *SVLL-IT-Workstation-v6.0-Setup.exe (64.04 MB)
+78AE62B4A88FB585E7C89FC9DE4CF427814214A52F2ED7AEA45B567F20BCFD8D *SVLL-IT-Workstation.exe (68.89 MB)
 ================================================================================

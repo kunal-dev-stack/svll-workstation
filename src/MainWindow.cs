@@ -551,28 +551,44 @@ public partial class MainWindow : Window
             Background = BgCard,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(0, 0, 0, 1),
-            Padding = new Thickness(16, 7, 16, 7)
+            Padding = new Thickness(14, 6, 14, 6)
         };
 
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Col 0: Left Identity & Network Badges
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Col 1: Spacer
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Col 2: Telemetry & Actions Dock
 
-        // Left Info Stack
+        // ------------------ COL 0: LEFT IDENTITY & NETWORK BADGES ------------------
         var leftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
+        // Badge 1: Identity Pill [ 💻 Hostname | 👤 Username ]
+        var identityBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 3, 8, 3),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var identityStack = new StackPanel { Orientation = Orientation.Horizontal };
         _lblTopBarHost = new TextBlock
         {
             Text = $"💻 {Environment.MachineName}",
-            FontSize = 11.5,
+            FontSize = 11,
             FontWeight = FontWeights.Bold,
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
         };
-        leftStack.Children.Add(_lblTopBarHost);
-
-        leftStack.Children.Add(CreateStatusBarSeparator());
-
+        var idSep = new Border
+        {
+            Width = 1,
+            Height = 10,
+            Background = BorderMuted,
+            Margin = new Thickness(6, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
         _lblTopBarUser = new TextBlock
         {
             Text = $"👤 {Environment.UserName}",
@@ -580,37 +596,70 @@ public partial class MainWindow : Window
             Foreground = TextSubtle,
             VerticalAlignment = VerticalAlignment.Center
         };
-        leftStack.Children.Add(_lblTopBarUser);
+        identityStack.Children.Add(_lblTopBarHost);
+        identityStack.Children.Add(idSep);
+        identityStack.Children.Add(_lblTopBarUser);
+        identityBorder.Child = identityStack;
+        leftStack.Children.Add(identityBorder);
 
-        leftStack.Children.Add(CreateStatusBarSeparator());
-
+        // Badge 2: Network Pill [ 🌐 IP • GW 🟢 ]
+        var netBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 249, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(186, 230, 253)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(6, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var netStack = new StackPanel { Orientation = Orientation.Horizontal };
         _lblTopBarIp = new TextBlock
         {
-            Text = "🌐 Detecting IP...",
+            Text = "🌐 Detecting...",
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = SvllBlue,
             VerticalAlignment = VerticalAlignment.Center
         };
-        leftStack.Children.Add(_lblTopBarIp);
-
-        leftStack.Children.Add(CreateStatusBarSeparator());
-
-        _lblTopBarGateway = new TextBlock
+        var netSep = new Border
         {
-            Text = $"⚡ GW: {DetectLocalGatewayIp()} 🟢",
-            FontSize = 11,
-            Foreground = TextDark,
+            Width = 1,
+            Height = 10,
+            Background = new SolidColorBrush(Color.FromRgb(186, 230, 253)),
+            Margin = new Thickness(6, 0, 6, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
-        leftStack.Children.Add(_lblTopBarGateway);
+        _lblTopBarGateway = new TextBlock
+        {
+            Text = $"GW: {DetectLocalGatewayIp()} 🟢",
+            FontSize = 10.5,
+            Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        netStack.Children.Add(_lblTopBarIp);
+        netStack.Children.Add(netSep);
+        netStack.Children.Add(_lblTopBarGateway);
+        netBorder.Child = netStack;
+        leftStack.Children.Add(netBorder);
 
         Grid.SetColumn(leftStack, 0);
         grid.Children.Add(leftStack);
 
-        // Right Info Stack
+        // ------------------ COL 2: RIGHT TELEMETRY & ACTIONS DOCK ------------------
         var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
+        // Combined Telemetry Pill [ 🚀 CPU: --%  |  🧠 RAM: --% ]
+        var telemetryBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 3, 8, 3),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var telemetryStack = new StackPanel { Orientation = Orientation.Horizontal };
         _lblTopBarCpu = new TextBlock
         {
             Text = "🚀 CPU: --%",
@@ -619,9 +668,14 @@ public partial class MainWindow : Window
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
         };
-        var cpuPill = CreateStatusPill(_lblTopBarCpu);
-        rightStack.Children.Add(cpuPill);
-
+        var telemSep = new Border
+        {
+            Width = 1,
+            Height = 10,
+            Background = BorderMuted,
+            Margin = new Thickness(6, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
         _lblTopBarRam = new TextBlock
         {
             Text = "🧠 RAM: --%",
@@ -630,16 +684,40 @@ public partial class MainWindow : Window
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
         };
-        var ramPill = CreateStatusPill(_lblTopBarRam);
-        rightStack.Children.Add(ramPill);
+        telemetryStack.Children.Add(_lblTopBarCpu);
+        telemetryStack.Children.Add(telemSep);
+        telemetryStack.Children.Add(_lblTopBarRam);
+        telemetryBorder.Child = telemetryStack;
+        rightStack.Children.Add(telemetryBorder);
 
+        // Fleet Health Score Pill
+        var healthPill = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(6, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = "🛡️ 98% Optimal",
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52))
+            }
+        };
+        rightStack.Children.Add(healthPill);
+
+        // 1-Click Turbo Boost Button
         var btnTurbo = new Button
         {
-            Content = "⚡ 1-Click Turbo Boost",
-            FontSize = 10,
+            Content = "⚡ Turbo Boost",
+            FontSize = 10.5,
             FontWeight = FontWeights.Bold,
-            Padding = new Thickness(10, 2, 10, 2),
-            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(10, 3, 10, 3),
+            Margin = new Thickness(6, 0, 0, 0),
             Background = SvllBlue,
             Foreground = Brushes.White,
             BorderThickness = new Thickness(0),
@@ -663,86 +741,18 @@ public partial class MainWindow : Window
             finally
             {
                 btnTurbo.IsEnabled = true;
-                btnTurbo.Content = "⚡ 1-Click Turbo Boost";
+                btnTurbo.Content = "⚡ Turbo Boost";
             }
         };
         rightStack.Children.Add(btnTurbo);
-
-        // Fleet Health Score Pill
-        var healthPill = new Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock
-            {
-                Text = "🛡️ 98% Optimal",
-                FontSize = 10,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52))
-            }
-        };
-        rightStack.Children.Add(healthPill);
-
-        // Pinned Shortcut 1: New PC Setup Wizard
-        var btnQuickSetup = new Button
-        {
-            Content = "🚀 New PC Setup",
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(22, 163, 74)),
-            Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand
-        };
-        btnQuickSetup.Click += (s, e) => NavigateTo("ProvisioningWizard");
-        rightStack.Children.Add(btnQuickSetup);
-
-        // Pinned Shortcut 2: Zebra Doctor
-        var btnQuickZebra = new Button
-        {
-            Content = "🖨️ Zebra Doctor",
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(147, 51, 234)),
-            Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand
-        };
-        btnQuickZebra.Click += (s, e) => NavigateTo("LogisticsDoctor");
-        rightStack.Children.Add(btnQuickZebra);
-
-        // Pinned Shortcut 3: USB DLP Lock
-        var btnQuickDlp = new Button
-        {
-            Content = "🔒 USB DLP",
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(217, 119, 6)),
-            Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand
-        };
-        btnQuickDlp.Click += (s, e) => NavigateTo("SecurityDlp");
-        rightStack.Children.Add(btnQuickDlp);
 
         // Command Palette (Ctrl+K)
         var btnPalette = new Button
         {
             Content = "🔍 Search (Ctrl+K)",
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Padding = new Thickness(8, 2, 8, 2),
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(9, 3, 9, 3),
             Margin = new Thickness(6, 0, 0, 0),
             Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
             Foreground = Brushes.White,
@@ -752,18 +762,53 @@ public partial class MainWindow : Window
         btnPalette.Click += (s, e) => OpenCommandPalette();
         rightStack.Children.Add(btnPalette);
 
-        var btnQuickLog = new Button
+        // Modern Dropdown: Quick Launch ▾
+        var btnQuickMenu = new Button
         {
-            Content = "📋 Audit Log",
-            FontSize = 10,
-            Padding = new Thickness(8, 2, 8, 2),
+            Content = "⚡ Quick Launch ▾",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(10, 3, 10, 3),
             Margin = new Thickness(6, 0, 0, 0),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             Foreground = TextDark,
             BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
             Cursor = Cursors.Hand
         };
-        btnQuickLog.Click += (s, e) =>
+
+        var quickMenu = new ContextMenu
+        {
+            FontSize = 11.5,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1)
+        };
+
+        var itemSetup = new MenuItem { Header = "🚀  Zero-Touch New PC Setup Wizard", FontWeight = FontWeights.SemiBold };
+        itemSetup.Click += (s, e) => NavigateTo("ProvisioningWizard");
+        quickMenu.Items.Add(itemSetup);
+
+        var itemZebra = new MenuItem { Header = "🖨️  Zebra & TSC Hardware Doctor", FontWeight = FontWeights.SemiBold };
+        itemZebra.Click += (s, e) => NavigateTo("LogisticsDoctor");
+        quickMenu.Items.Add(itemZebra);
+
+        var itemDlp = new MenuItem { Header = "🔒  Endpoint Security & USB DLP Lock", FontWeight = FontWeights.SemiBold };
+        itemDlp.Click += (s, e) => NavigateTo("SecurityDlp");
+        quickMenu.Items.Add(itemDlp);
+
+        var itemSmart = new MenuItem { Header = "💾  S.M.A.R.T. Drive Health & Crash Predictor", FontWeight = FontWeights.SemiBold };
+        itemSmart.Click += (s, e) => NavigateTo("StorageSmart");
+        quickMenu.Items.Add(itemSmart);
+
+        var itemSocket = new MenuItem { Header = "📡  Bandwidth Hog & Socket Hunter", FontWeight = FontWeights.SemiBold };
+        itemSocket.Click += (s, e) => NavigateTo("SocketInspector");
+        quickMenu.Items.Add(itemSocket);
+
+        quickMenu.Items.Add(new Separator());
+
+        var itemAudit = new MenuItem { Header = "📋  Open Device Audit Action Log" };
+        itemAudit.Click += (s, e) =>
         {
             try
             {
@@ -780,9 +825,28 @@ public partial class MainWindow : Window
                 MessageBox.Show($"Could not open audit log: {ex.Message}", "Audit Log", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         };
-        rightStack.Children.Add(btnQuickLog);
+        quickMenu.Items.Add(itemAudit);
 
-        Grid.SetColumn(rightStack, 1);
+        var itemFlush = new MenuItem { Header = "🧹  Instant Flush DNS & ARP Cache" };
+        itemFlush.Click += async (s, e) =>
+        {
+            Log("[QUICK ACTION] Flushing DNS Resolver Cache and ARP entries...");
+            await ExecuteAsync("ipconfig.exe", "/flushdns");
+            await ExecuteAsync("netsh.exe", "interface ip delete arpcache");
+            MessageBox.Show("DNS resolver cache flushed and ARP cache cleared successfully!", "Quick Action", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        quickMenu.Items.Add(itemFlush);
+
+        btnQuickMenu.ContextMenu = quickMenu;
+        btnQuickMenu.Click += (s, e) =>
+        {
+            quickMenu.PlacementTarget = btnQuickMenu;
+            quickMenu.Placement = PlacementMode.Bottom;
+            quickMenu.IsOpen = true;
+        };
+        rightStack.Children.Add(btnQuickMenu);
+
+        Grid.SetColumn(rightStack, 2);
         grid.Children.Add(rightStack);
 
         bar.Child = grid;
@@ -947,7 +1011,7 @@ public partial class MainWindow : Window
             Background = BgCard,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(10),
             Padding = new Thickness(14, 10, 14, 8),
             Margin = new Thickness(0, 0, 0, 10)
         };
@@ -956,12 +1020,41 @@ public partial class MainWindow : Window
 
         // Hub Title & Description
         var headerRow = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+        string hubBadgeText = hub.Id switch
+        {
+            "Hub_Monitoring" => "HUB 1  •  TRIAGE",
+            "Hub_Network" => "HUB 2  •  NOC",
+            "Hub_Optimization" => "HUB 3  •  OPTIMIZATION",
+            "Hub_Diagnostics" => "HUB 4  •  DIAGNOSTICS",
+            "Hub_Playbook" => "HUB 5  •  DEPLOYMENT",
+            _ => "WORKSPACE"
+        };
+
+        var badge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = hubBadgeText,
+                FontSize = 9.5,
+                FontWeight = FontWeights.ExtraBold,
+                Foreground = SvllBlue
+            }
+        };
+
         var titleBlock = new TextBlock
         {
             Text = hub.Title,
             FontSize = 13,
             FontWeight = FontWeights.Bold,
-            Foreground = SvllBlue,
+            Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
         };
         var subBlock = new TextBlock
@@ -973,6 +1066,7 @@ public partial class MainWindow : Window
             Margin = new Thickness(8, 0, 0, 0)
         };
         var titleStack = new StackPanel { Orientation = Orientation.Horizontal };
+        titleStack.Children.Add(badge);
         titleStack.Children.Add(titleBlock);
         titleStack.Children.Add(subBlock);
         DockPanel.SetDock(titleStack, Dock.Left);
@@ -991,8 +1085,8 @@ public partial class MainWindow : Window
             var btnTab = new Button
             {
                 Content = $"{sub.Icon}  {sub.Label}",
-                Height = 29,
-                Padding = new Thickness(12, 0, 12, 0),
+                Height = 31,
+                Padding = new Thickness(13, 0, 13, 0),
                 Margin = new Thickness(0, 0, 6, 6),
                 FontSize = 11,
                 Cursor = Cursors.Hand,
@@ -1031,8 +1125,8 @@ public partial class MainWindow : Window
         foreach (var kvp in hubData.SubButtons)
         {
             bool isCurrent = kvp.Key == subTag;
-            kvp.Value.Background = isCurrent ? SvllBlue : new SolidColorBrush(Color.FromRgb(241, 245, 249));
-            kvp.Value.Foreground = isCurrent ? Brushes.White : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+            kvp.Value.Background = isCurrent ? SvllBlue : new SolidColorBrush(Color.FromRgb(248, 250, 252));
+            kvp.Value.Foreground = isCurrent ? Brushes.White : new SolidColorBrush(Color.FromRgb(51, 65, 85));
             kvp.Value.FontWeight = isCurrent ? FontWeights.Bold : FontWeights.Normal;
             kvp.Value.BorderBrush = isCurrent ? SvllBlue : BorderMuted;
         }
@@ -1508,22 +1602,33 @@ public partial class MainWindow : Window
             Background = BgCard,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(16),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16, 14, 16, 14),
             Margin = new Thickness(0, 0, 0, 14)
         };
 
         var sp = new StackPanel();
         if (!string.IsNullOrEmpty(title))
         {
-            sp.Children.Add(new TextBlock
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+            headerRow.Children.Add(new Border
+            {
+                Width = 4,
+                Height = 16,
+                Background = SvllBlue,
+                CornerRadius = new CornerRadius(2),
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            headerRow.Children.Add(new TextBlock
             {
                 Text = title,
-                FontSize = 13.5,
+                FontSize = 13,
                 FontWeight = FontWeights.Bold,
                 Foreground = SvllBlue,
-                Margin = new Thickness(0, 0, 0, 12)
+                VerticalAlignment = VerticalAlignment.Center
             });
+            sp.Children.Add(headerRow);
         }
         sp.Children.Add(content);
         border.Child = sp;
@@ -1537,8 +1642,8 @@ public partial class MainWindow : Window
             Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(7),
-            Padding = new Thickness(14, 11, 14, 11),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 10, 14, 10),
             Margin = new Thickness(0, 0, 0, 8)
         };
 
@@ -1549,13 +1654,22 @@ public partial class MainWindow : Window
         var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 3) };
 
-        titleRow.Children.Add(new TextBlock
+        titleRow.Children.Add(new Border
         {
-            Text = "⚡",
-            FontSize = 11,
-            Foreground = SvllBlue,
-            Margin = new Thickness(0, 0, 6, 0),
-            VerticalAlignment = VerticalAlignment.Center
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(5, 1, 5, 1),
+            Margin = new Thickness(0, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = "⚡ ACTION",
+                FontSize = 9,
+                FontWeight = FontWeights.Bold,
+                Foreground = SvllBlue
+            }
         });
 
         titleRow.Children.Add(new TextBlock
@@ -1582,7 +1696,7 @@ public partial class MainWindow : Window
         var btn = new Button
         {
             Content = $" {btnLabel} ",
-            Height = 32,
+            Height = 30,
             Padding = new Thickness(14, 0, 14, 0),
             FontSize = 11,
             FontWeight = FontWeights.Bold,
