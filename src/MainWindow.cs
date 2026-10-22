@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "6.0";
+    public const string CurrentVersion = "7.0";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     private static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
@@ -207,6 +207,32 @@ public partial class MainWindow : Window
                 ("AppUninstaller", "App Uninstaller & Force Purge", "🗑️"),
                 ("Users", "Local Users & Vault", "👤"),
                 ("About", "Updates & About", "ℹ️")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Remote",
+            Title = "REMOTE ACCESS & FLEET CONSOLE",
+            Subtitle = "AnyDesk Integration, Zero-Code Connect & Admin Fleet Management",
+            Glyph = "\uE896",
+            SubTools = new()
+            {
+                ("RemoteClient", "My Remote Client", "🔴"),
+                ("FleetAdminConsole", "Fleet Admin Console", "👑")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Complaints",
+            Title = "IT COMPLAINT & SERVICE DESK",
+            Subtitle = "AI Triage Assistant, Complaint Intake & Admin Ticket Desk",
+            Glyph = "\uE8BD",
+            SubTools = new()
+            {
+                ("SubmitComplaint", "Register Complaint", "📋"),
+                ("AiComplaintBot", "AI Diagnostic Assistant", "🤖"),
+                ("TicketAdminDesk", "Admin Service Desk", "👑"),
+                ("MyTickets", "Track My Tickets", "📂")
             }
         }
     };
@@ -762,6 +788,47 @@ public partial class MainWindow : Window
         btnPalette.Click += (s, e) => OpenCommandPalette();
         rightStack.Children.Add(btnPalette);
 
+        // Admin Mode Session Pill / Unlock Toggle
+        var btnAdminMode = new Button
+        {
+            Content = AdminAuthService.Instance.IsAdminMode ? "👑 ADMIN ACTIVE" : "🔒 Admin Locked",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(10, 3, 10, 3),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = AdminAuthService.Instance.IsAdminMode ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Foreground = AdminAuthService.Instance.IsAdminMode ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : TextSubtle,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+        AdminAuthService.Instance.AdminModeChanged += (isAdmin) =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                btnAdminMode.Content = isAdmin ? "👑 ADMIN ACTIVE" : "🔒 Admin Locked";
+                btnAdminMode.Background = isAdmin ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(241, 245, 249));
+                btnAdminMode.Foreground = isAdmin ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : TextSubtle;
+            });
+        };
+        btnAdminMode.Click += (s, e) =>
+        {
+            if (AdminAuthService.Instance.IsAdminMode)
+            {
+                var res = MessageBox.Show("Do you want to lock the IT Admin session?", "Lock Admin Session", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (res == MessageBoxResult.Yes)
+                {
+                    AdminAuthService.Instance.LockAdmin();
+                }
+            }
+            else
+            {
+                var dlg = new AdminPasswordDialog("Authenticate as IT Administrator to unlock fleet management and service desk consoles.") { Owner = this };
+                dlg.ShowDialog();
+            }
+        };
+        rightStack.Children.Add(btnAdminMode);
+
         // Modern Dropdown: Quick Launch ▾
         var btnQuickMenu = new Button
         {
@@ -804,6 +871,28 @@ public partial class MainWindow : Window
         var itemSocket = new MenuItem { Header = "📡  Bandwidth Hog & Socket Hunter", FontWeight = FontWeights.SemiBold };
         itemSocket.Click += (s, e) => NavigateTo("SocketInspector");
         quickMenu.Items.Add(itemSocket);
+
+        quickMenu.Items.Add(new Separator());
+
+        var itemRemote = new MenuItem { Header = "🔴  Remote Access & AnyDesk Status", FontWeight = FontWeights.SemiBold };
+        itemRemote.Click += (s, e) => NavigateTo("RemoteClient");
+        quickMenu.Items.Add(itemRemote);
+
+        var itemFleet = new MenuItem { Header = "👑  Fleet Device Admin Console (Locked)", FontWeight = FontWeights.SemiBold };
+        itemFleet.Click += (s, e) => NavigateTo("FleetAdminConsole");
+        quickMenu.Items.Add(itemFleet);
+
+        var itemComplaint = new MenuItem { Header = "📋  Register IT Support Complaint", FontWeight = FontWeights.SemiBold };
+        itemComplaint.Click += (s, e) => NavigateTo("SubmitComplaint");
+        quickMenu.Items.Add(itemComplaint);
+
+        var itemAi = new MenuItem { Header = "🤖  AI Diagnostic & Triage Assistant", FontWeight = FontWeights.SemiBold };
+        itemAi.Click += (s, e) => NavigateTo("AiComplaintBot");
+        quickMenu.Items.Add(itemAi);
+
+        var itemDesk = new MenuItem { Header = "👑  IT Service Desk Admin Panel (Locked)", FontWeight = FontWeights.SemiBold };
+        itemDesk.Click += (s, e) => NavigateTo("TicketAdminDesk");
+        quickMenu.Items.Add(itemDesk);
 
         quickMenu.Items.Add(new Separator());
 
@@ -1028,6 +1117,8 @@ public partial class MainWindow : Window
             "Hub_Optimization" => "HUB 3  •  OPTIMIZATION",
             "Hub_Diagnostics" => "HUB 4  •  DIAGNOSTICS",
             "Hub_Playbook" => "HUB 5  •  DEPLOYMENT",
+            "Hub_Remote" => "HUB 6  •  REMOTE FLEET",
+            "Hub_Complaints" => "HUB 7  •  SERVICE DESK",
             _ => "WORKSPACE"
         };
 
@@ -1245,6 +1336,12 @@ public partial class MainWindow : Window
             "StorageSmart" => BuildStorageSmartView(),
             "SecurityDlp" => BuildSecurityDlpView(),
             "SocketInspector" => BuildSocketInspectorView(),
+            "RemoteClient" => BuildRemoteClientView(),
+            "FleetAdminConsole" => BuildFleetAdminConsoleView(),
+            "SubmitComplaint" => BuildSubmitComplaintView(),
+            "AiComplaintBot" => BuildAiComplaintBotView(),
+            "TicketAdminDesk" => BuildTicketAdminDeskView(),
+            "MyTickets" => BuildMyTicketsView(),
             _ => BuildDashboardView()
         };
     }

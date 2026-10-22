@@ -330,6 +330,16 @@ public partial class MainWindow
             new() { Title = "Local Users & Windows Vault Manager", Subtitle = "Audit local user accounts, reset passwords and query credential vault", Category = "SECURITY", Icon = "👤", TargetTag = "Users" },
             new() { Title = "Updates & About SVLL Workstation", Subtitle = "View build info, check for latest releases on GitHub", Category = "SYSTEM", Icon = "ℹ️", TargetTag = "About" },
 
+            // Hub 6: Remote Access & Fleet Console
+            new() { Title = "My Remote Access Client & AnyDesk Status", Subtitle = "Inspect local AnyDesk ID, toggle RDP and launch Quick Assist", Category = "REMOTE", Icon = "🔴", TargetTag = "RemoteClient" },
+            new() { Title = "Fleet Device Management & Admin Console", Subtitle = "Live monitor and 1-click AnyDesk connection to all fleet workstations", Category = "REMOTE", Icon = "👑", TargetTag = "FleetAdminConsole" },
+
+            // Hub 7: IT Complaints & AI Service Desk
+            new() { Title = "Register IT Support Complaint Ticket", Subtitle = "Log workstation, printer, or network incidents with auto-diagnostics", Category = "HELPDESK", Icon = "📋", TargetTag = "SubmitComplaint" },
+            new() { Title = "AI Intelligent IT Diagnostic & Intake Assistant", Subtitle = "Interactive conversational triage bot with clarifying questions & quick fixes", Category = "HELPDESK", Icon = "🤖", TargetTag = "AiComplaintBot" },
+            new() { Title = "Central IT Service Desk Admin Panel", Subtitle = "Admin dashboard to manage, update, and resolve incident tickets", Category = "HELPDESK", Icon = "👑", TargetTag = "TicketAdminDesk" },
+            new() { Title = "Track My Submitted Complaints", Subtitle = "View real-time resolution progress and technician notes for this PC", Category = "HELPDESK", Icon = "📂", TargetTag = "MyTickets" },
+
             // Fast Instant Actions
             new() {
                 Title = "Quick Action: Flush DNS Resolver Cache",
