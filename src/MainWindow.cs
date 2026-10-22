@@ -164,7 +164,6 @@ public partial class MainWindow : Window
             SubTools = new()
             {
                 ("TurboBooster", "RAM & CPU Booster", "⚡"),
-                ("SecurityDlp", "Endpoint Security & DLP", "🔒"),
                 ("WinUtilTweaks", "WinUtil Tweaks", "⚙️"),
                 ("Cleanup", "Disk & Temp Purge", "🧹"),
                 ("Disk", "Storage & TRIM", "💾"),
@@ -182,7 +181,6 @@ public partial class MainWindow : Window
             SubTools = new()
             {
                 ("Repair", "Windows OS Repair", "🩺"),
-                ("LogisticsDoctor", "Logistics Hardware Doctor", "🖨️"),
                 ("StorageSmart", "S.M.A.R.T. Drive Health", "💾"),
                 ("Printer", "Print Spooler Diagnostic", "🖨️"),
                 ("Services", "Services & Processes", "⚡"),
@@ -233,6 +231,22 @@ public partial class MainWindow : Window
                 ("AiComplaintBot", "AI Diagnostic Assistant", "🤖"),
                 ("TicketAdminDesk", "Admin Service Desk", "👑"),
                 ("MyTickets", "Track My Tickets", "📂")
+            }
+        },
+        new HubInfo
+        {
+            Id = "Hub_Security",
+            Title = "ENDPOINT THREAT DEFENSE & SECURITY HARDENING",
+            Subtitle = "Zero-Trust Process Shield, CIS Benchmark, DLP & Socket Hunter",
+            Glyph = "\uE72E",
+            SubTools = new()
+            {
+                ("ProcessShield", "Process & Ransomware Shield", "🛡️"),
+                ("SecurityHardening", "CIS Security Hardening", "⚡"),
+                ("UsbDlpGuardian", "USB Endpoint DLP Guardian", "🔒"),
+                ("PortThreatHunter", "Socket & Port Threat Hunter", "📡"),
+                ("ForensicsCollector", "Incident Forensics Collector", "📦"),
+                ("CertHealthInspector", "SSL/TLS & Domain Health", "🌐")
             }
         }
     };
@@ -856,12 +870,16 @@ public partial class MainWindow : Window
         itemSetup.Click += (s, e) => NavigateTo("ProvisioningWizard");
         quickMenu.Items.Add(itemSetup);
 
-        var itemZebra = new MenuItem { Header = "🖨️  Zebra & TSC Hardware Doctor", FontWeight = FontWeights.SemiBold };
-        itemZebra.Click += (s, e) => NavigateTo("LogisticsDoctor");
-        quickMenu.Items.Add(itemZebra);
+        var itemProcessShield = new MenuItem { Header = "🛡️  Zero-Trust Process & Ransomware Shield", FontWeight = FontWeights.SemiBold };
+        itemProcessShield.Click += (s, e) => NavigateTo("ProcessShield");
+        quickMenu.Items.Add(itemProcessShield);
 
-        var itemDlp = new MenuItem { Header = "🔒  Endpoint Security & USB DLP Lock", FontWeight = FontWeights.SemiBold };
-        itemDlp.Click += (s, e) => NavigateTo("SecurityDlp");
+        var itemHardening = new MenuItem { Header = "⚡  CIS Windows Security Hardening", FontWeight = FontWeights.SemiBold };
+        itemHardening.Click += (s, e) => NavigateTo("SecurityHardening");
+        quickMenu.Items.Add(itemHardening);
+
+        var itemDlp = new MenuItem { Header = "🔒  USB Endpoint DLP & Device Guardian", FontWeight = FontWeights.SemiBold };
+        itemDlp.Click += (s, e) => NavigateTo("UsbDlpGuardian");
         quickMenu.Items.Add(itemDlp);
 
         var itemSmart = new MenuItem { Header = "💾  S.M.A.R.T. Drive Health & Crash Predictor", FontWeight = FontWeights.SemiBold };
@@ -871,6 +889,18 @@ public partial class MainWindow : Window
         var itemSocket = new MenuItem { Header = "📡  Bandwidth Hog & Socket Hunter", FontWeight = FontWeights.SemiBold };
         itemSocket.Click += (s, e) => NavigateTo("SocketInspector");
         quickMenu.Items.Add(itemSocket);
+
+        var itemLogSheet = new MenuItem { Header = "📊  Open Complaint Log Sheet (.CSV)", FontWeight = FontWeights.SemiBold };
+        itemLogSheet.Click += (s, e) =>
+        {
+            try
+            {
+                string csvPath = ComplaintTicketService.GetActiveCsvPath();
+                Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
+            }
+            catch { }
+        };
+        quickMenu.Items.Add(itemLogSheet);
 
         quickMenu.Items.Add(new Separator());
 
@@ -934,6 +964,34 @@ public partial class MainWindow : Window
             quickMenu.IsOpen = true;
         };
         rightStack.Children.Add(btnQuickMenu);
+
+        // Direct Top Status Bar Complaint Sheet Button
+        var btnTopCsv = new Button
+        {
+            Content = "📑 CSV Sheet",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(9, 3, 9, 3),
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+        btnTopCsv.Click += (s, e) =>
+        {
+            try
+            {
+                string csvPath = ComplaintTicketService.GetActiveCsvPath();
+                Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open CSV log sheet: {ex.Message}", "CSV Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        rightStack.Children.Add(btnTopCsv);
 
         Grid.SetColumn(rightStack, 2);
         grid.Children.Add(rightStack);
@@ -1119,6 +1177,7 @@ public partial class MainWindow : Window
             "Hub_Playbook" => "HUB 5  •  DEPLOYMENT",
             "Hub_Remote" => "HUB 6  •  REMOTE FLEET",
             "Hub_Complaints" => "HUB 7  •  SERVICE DESK",
+            "Hub_Security" => "HUB 8  •  SECURITY HARDENING",
             _ => "WORKSPACE"
         };
 
@@ -1332,9 +1391,8 @@ public partial class MainWindow : Window
             "ConfigManager" => BuildConfigManagerView(),
             "About" => BuildAboutView(),
             "ProvisioningWizard" => BuildProvisioningWizardView(),
-            "LogisticsDoctor" => BuildLogisticsDoctorView(),
             "StorageSmart" => BuildStorageSmartView(),
-            "SecurityDlp" => BuildSecurityDlpView(),
+            "SecurityDlp" => BuildUsbDlpGuardianView(),
             "SocketInspector" => BuildSocketInspectorView(),
             "RemoteClient" => BuildRemoteClientView(),
             "FleetAdminConsole" => BuildFleetAdminConsoleView(),
@@ -1342,6 +1400,12 @@ public partial class MainWindow : Window
             "AiComplaintBot" => BuildAiComplaintBotView(),
             "TicketAdminDesk" => BuildTicketAdminDeskView(),
             "MyTickets" => BuildMyTicketsView(),
+            "ProcessShield" => BuildProcessShieldView(),
+            "SecurityHardening" => BuildSecurityHardeningView(),
+            "UsbDlpGuardian" => BuildUsbDlpGuardianView(),
+            "PortThreatHunter" => BuildPortThreatHunterView(),
+            "ForensicsCollector" => BuildForensicsCollectorView(),
+            "CertHealthInspector" => BuildCertHealthInspectorView(),
             _ => BuildDashboardView()
         };
     }

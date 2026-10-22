@@ -20,7 +20,9 @@ public partial class MainWindow
     private ComboBox _cmbComplaintCategory = null!;
     private ComboBox _cmbComplaintPriority = null!;
     private TextBox _txtComplaintContact = null!;
-    private TextBox _txtComplaintBranch = null!;
+    private TextBox _txtComplainerName = null!;
+    private TextBox _txtComplainerEmail = null!;
+    private ComboBox _cmbComplaintDepot = null!;
 
     // AI Chat Elements
     private AiComplaintSession _aiSession = null!;
@@ -55,7 +57,7 @@ public partial class MainWindow
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(16),
-            Margin = new Thickness(0, 0, 0, 12)
+            Margin = new Thickness(0, 0, 0, 10)
         };
         var headerGrid = new Grid();
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -65,7 +67,7 @@ public partial class MainWindow
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
         titleRow.Children.Add(new TextBlock
         {
-            Text = "📋 Register IT Support Complaint & Service Ticket",
+            Text = "📋 Register IT Support Complaint & Service Incident",
             FontSize = 16,
             FontWeight = FontWeights.ExtraBold,
             Foreground = TextDark
@@ -80,10 +82,20 @@ public partial class MainWindow
             Margin = new Thickness(10, 0, 0, 0),
             Child = new TextBlock { Text = "HUB 7 • SERVICE DESK", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
         });
+        titleRow.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(6, 0, 0, 0),
+            Child = new TextBlock { Text = "🟢 LIVE SYNC: Complain Log sheet IT - New Complaint.csv", FontSize = 9.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
+        });
         headerLeft.Children.Add(titleRow);
         headerLeft.Children.Add(new TextBlock
         {
-            Text = "Submit technical workstation, logistics hardware, ERP, or network issues directly to the SVLL IT Support team with automated system diagnostics.",
+            Text = "Submit technical workstation, ERP client, network, or hardware issues directly to the SVLL IT Support team with automated diagnostics and direct synchronization to the enterprise CSV log sheet and Admin Console.",
             FontSize = 11,
             Foreground = TextSubtle,
             Margin = new Thickness(0, 4, 0, 0)
@@ -91,26 +103,139 @@ public partial class MainWindow
         Grid.SetColumn(headerLeft, 0);
         headerGrid.Children.Add(headerLeft);
 
+        var headerRight = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var btnOpenCsvHeader = new Button
+        {
+            Content = "📊 Open Log Sheet (.CSV)",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Foreground = TextDark,
+            Padding = new Thickness(12, 6, 12, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnOpenCsvHeader.Click += (s, e) =>
+        {
+            try
+            {
+                string csvPath = ComplaintTicketService.GetActiveCsvPath();
+                Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open CSV log sheet: {ex.Message}", "CSV Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        headerRight.Children.Add(btnOpenCsvHeader);
+
+        var btnOpenFolderHeader = new Button
+        {
+            Content = "📁 Open Folder",
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Foreground = TextDark,
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnOpenFolderHeader.Click += (s, e) =>
+        {
+            try
+            {
+                string dir = Directory.Exists(@"c:\IT PROJECTS\svll-workstation") ? @"c:\IT PROJECTS\svll-workstation" : AppDomain.CurrentDomain.BaseDirectory;
+                Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+            }
+            catch { }
+        };
+        headerRight.Children.Add(btnOpenFolderHeader);
+
         var btnAiAssist = new Button
         {
-            Content = "🤖 Use AI Diagnostic Intake",
+            Content = "🤖 AI Diagnostic Intake",
             FontSize = 11,
             FontWeight = FontWeights.Bold,
             Background = SvllBlue,
             Foreground = Brushes.White,
             Padding = new Thickness(14, 6, 14, 6),
             BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand,
-            VerticalAlignment = VerticalAlignment.Center
+            Cursor = Cursors.Hand
         };
         btnAiAssist.Click += (s, e) => SwitchHubSubTool("Hub_Complaints", "AiComplaintBot");
-        Grid.SetColumn(btnAiAssist, 1);
-        headerGrid.Children.Add(btnAiAssist);
+        headerRight.Children.Add(btnAiAssist);
+
+        Grid.SetColumn(headerRight, 1);
+        headerGrid.Children.Add(headerRight);
 
         headerBorder.Child = headerGrid;
         root.Children.Add(headerBorder);
 
-        // 2. Form Grid (Left: Form Inputs, Right: Auto-Attached Diagnostics)
+        // 2. 1-Click Common Problem Presets Card
+        var presetsCard = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 10, 12, 10),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        var presetsStack = new StackPanel();
+        presetsStack.Children.Add(new TextBlock
+        {
+            Text = "⚡ 1-CLICK COMMON PROBLEM PRESETS (CLICK TO AUTO-POPULATE INCIDENT REPORT):",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            Margin = new Thickness(0, 0, 0, 6)
+        });
+
+        var presetChips = new WrapPanel();
+
+        void AddPresetChip(string icon, string label, string catName, string title, string desc)
+        {
+            var btn = new Button
+            {
+                Content = $"{icon} {label}",
+                FontSize = 10.5,
+                Padding = new Thickness(10, 4, 10, 4),
+                Margin = new Thickness(0, 0, 6, 6),
+                Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                BorderBrush = BorderMuted,
+                Cursor = Cursors.Hand
+            };
+            btn.Click += (s, e) =>
+            {
+                for (int i = 0; i < _cmbComplaintCategory.Items.Count; i++)
+                {
+                    if (_cmbComplaintCategory.Items[i].ToString()!.Contains(catName))
+                    {
+                        _cmbComplaintCategory.SelectedIndex = i;
+                        break;
+                    }
+                }
+                _txtComplaintTitle.Text = title;
+                _txtComplaintDesc.Text = desc;
+            };
+            presetChips.Children.Add(btn);
+        }
+
+        AddPresetChip("🏢", "Boss ERP Session Hang", "Boss Not Working", "Boss ERP Client Session Timeout During Dispatch", "When processing LR and dispatch bills in Boss ERP, client terminates unexpectedly. Intermittent connectivity issue to dispatch database.");
+        AddPresetChip("🖨️", "Laser Printer Spooler Stuck", "Printer Not Work", "Department Laser Printer Queue Stuck & Spooler Locked", "Print jobs sent to department network laser printer are locked with status 'Deleting - Printing'. Print spooler service restart and queue cleanup required.");
+        AddPresetChip("⚡", "Workstation Freezing", "IT PC / LAPTOP WORKING SLOW", "Workstation Freezing with High CPU / Memory Saturation", "System responsiveness is severely degraded; applications freeze intermittently. Requires performance triage and process audit.");
+        AddPresetChip("🌐", "Depot Gateway Drops", "IT INERNET CONNECTIVITY PROBLEM", "Network Gateway Latency and Packet Loss Flapping", "Intermittent ping drops observed to corporate gateway and subnet switches. Branch file transfers timing out.");
+        AddPresetChip("📧", "Outlook Send/Receive Error", "IT OUTLOOK MAIL ISSUE", "Corporate Outlook Mail Sync & Delivery Failure", "Outlook client shows disconnected or send/receive error. Mail synchronization failing on department mailbox.");
+        AddPresetChip("🔒", "USB Pen Drive DLP Access", "USB DLP Access", "Temporary USB Storage Access Request for Customs Manifest", "Requesting temporary 4-hour USB DLP write authorization to transfer signed vehicle dispatch bills-of-lading to driver pen drive.");
+
+        presetsStack.Children.Add(presetChips);
+        presetsCard.Child = presetsStack;
+        root.Children.Add(presetsCard);
+
+        // 3. Form Grid (Left: Form Inputs, Right: Auto-Attached Diagnostics)
         var formGrid = new Grid();
         formGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.2, GridUnitType.Star) });
         formGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.8, GridUnitType.Star) });
@@ -128,20 +253,23 @@ public partial class MainWindow
         var formPanel = new StackPanel();
 
         // Row 1: Category & Priority
-        var catRow = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        var catRow = new Grid { Margin = new Thickness(0, 0, 0, 10) };
         catRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         catRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var catStack = new StackPanel { Margin = new Thickness(0, 0, 6, 0) };
-        catStack.Children.Add(new TextBlock { Text = "Issue Category *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        catStack.Children.Add(new TextBlock { Text = "Complaint Category *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
         _cmbComplaintCategory = new ComboBox { Height = 30, FontSize = 11 };
-        _cmbComplaintCategory.Items.Add("🖨️ Thermal / Barcode Printer (Zebra/TSC)");
-        _cmbComplaintCategory.Items.Add("🌐 Network / Internet / WMS Disconnect");
-        _cmbComplaintCategory.Items.Add("💻 Workstation Freeze / Slow Performance");
-        _cmbComplaintCategory.Items.Add("🔒 USB Pen Drive DLP Permission Block");
-        _cmbComplaintCategory.Items.Add("📧 Corporate Outlook / Email / Password");
-        _cmbComplaintCategory.Items.Add("🩺 Windows OS Crash / Blue Screen");
-        _cmbComplaintCategory.Items.Add("❓ General IT Assistance");
+        _cmbComplaintCategory.Items.Add("🏢 Boss Not Working (ERP / WMS)");
+        _cmbComplaintCategory.Items.Add("🖨️ Printer Not Work (Laser / Network)");
+        _cmbComplaintCategory.Items.Add("⚡ IT PC / LAPTOP WORKING SLOW");
+        _cmbComplaintCategory.Items.Add("🌐 IT INERNET CONNECTIVITY PROBLEM");
+        _cmbComplaintCategory.Items.Add("📧 IT OUTLOOK MAIL ISSUE");
+        _cmbComplaintCategory.Items.Add("🔧 IT COMPUTER REPAIRING & MAINTENANCE");
+        _cmbComplaintCategory.Items.Add("📦 New Software Installation");
+        _cmbComplaintCategory.Items.Add("📹 IT CAMERA DOWN");
+        _cmbComplaintCategory.Items.Add("🔒 USB DLP Access (Removable Media)");
+        _cmbComplaintCategory.Items.Add("❓ Other");
         _cmbComplaintCategory.SelectedIndex = 0;
         catStack.Children.Add(_cmbComplaintCategory);
         Grid.SetColumn(catStack, 0);
@@ -150,10 +278,8 @@ public partial class MainWindow
         var prioStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
         prioStack.Children.Add(new TextBlock { Text = "Urgency / Priority *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
         _cmbComplaintPriority = new ComboBox { Height = 30, FontSize = 11 };
-        _cmbComplaintPriority.Items.Add("Critical (Warehouse / Dispatch Halted)");
-        _cmbComplaintPriority.Items.Add("High (Shipment Output Delayed)");
-        _cmbComplaintPriority.Items.Add("Medium (Standard Incident)");
-        _cmbComplaintPriority.Items.Add("Low (General Inquiry)");
+        _cmbComplaintPriority.Items.Add("URGENT (Warehouse / Dispatch Operations Halted)");
+        _cmbComplaintPriority.Items.Add("NORMAL (Standard IT Support Request)");
         _cmbComplaintPriority.SelectedIndex = 1;
         prioStack.Children.Add(_cmbComplaintPriority);
         Grid.SetColumn(prioStack, 1);
@@ -161,75 +287,121 @@ public partial class MainWindow
 
         formPanel.Children.Add(catRow);
 
-        // Row 2: Subject
-        formPanel.Children.Add(new TextBlock { Text = "Complaint Summary / Title *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
-        _txtComplaintTitle = new TextBox
+        // Row 2: Complainer Name & Email
+        var userRow = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        userRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        userRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var nameStack = new StackPanel { Margin = new Thickness(0, 0, 6, 0) };
+        nameStack.Children.Add(new TextBlock { Text = "Complainer Full Name *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        _txtComplainerName = new TextBox
         {
-            Height = 32,
+            Height = 30,
             Padding = new Thickness(6, 4, 6, 4),
-            FontSize = 11.5,
+            FontSize = 11,
             BorderBrush = BorderMuted,
-            Margin = new Thickness(0, 0, 0, 12),
-            Text = "Zebra printer skipping labels during dispatch run"
+            Text = Environment.UserName
         };
-        formPanel.Children.Add(_txtComplaintTitle);
+        nameStack.Children.Add(_txtComplainerName);
+        Grid.SetColumn(nameStack, 0);
+        userRow.Children.Add(nameStack);
 
-        // Row 3: Description
-        formPanel.Children.Add(new TextBlock { Text = "Detailed Description *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
-        _txtComplaintDesc = new TextBox
+        var emailStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
+        emailStack.Children.Add(new TextBlock { Text = "Official Email Address *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        _txtComplainerEmail = new TextBox
         {
-            Height = 110,
-            TextWrapping = TextWrapping.Wrap,
-            AcceptsReturn = true,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Padding = new Thickness(8),
-            FontSize = 11.5,
+            Height = 30,
+            Padding = new Thickness(6, 4, 6, 4),
+            FontSize = 11,
             BorderBrush = BorderMuted,
-            Margin = new Thickness(0, 0, 0, 12),
-            Text = "When sending batch shipping manifests, the Zebra ZD421 prints one label and skips two blanks. Amber warning light blinks on the sensor bar."
+            Text = $"{Environment.UserName.ToLowerInvariant()}@shreevasulogistics.com"
         };
-        formPanel.Children.Add(_txtComplaintDesc);
+        emailStack.Children.Add(_txtComplainerEmail);
+        Grid.SetColumn(emailStack, 1);
+        userRow.Children.Add(emailStack);
 
-        // Row 4: Contact & Branch
-        var contactRow = new Grid { Margin = new Thickness(0, 0, 0, 16) };
+        formPanel.Children.Add(userRow);
+
+        // Row 3: Contact & Branch/Depot
+        var contactRow = new Grid { Margin = new Thickness(0, 0, 0, 10) };
         contactRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         contactRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var contStack = new StackPanel { Margin = new Thickness(0, 0, 6, 0) };
-        contStack.Children.Add(new TextBlock { Text = "Contact Phone / Extension *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        contStack.Children.Add(new TextBlock { Text = "Contact Phone / Mobile Number *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
         _txtComplaintContact = new TextBox
         {
             Height = 30,
             Padding = new Thickness(6, 4, 6, 4),
             FontSize = 11,
             BorderBrush = BorderMuted,
-            Text = "+91 98200 12345 (Ext 102)"
+            Text = "7,000,681,500"
         };
         contStack.Children.Add(_txtComplaintContact);
         Grid.SetColumn(contStack, 0);
         contactRow.Children.Add(contStack);
 
         var brStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
-        brStack.Children.Add(new TextBlock { Text = "Branch / Warehouse Location *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
-        _txtComplaintBranch = new TextBox
-        {
-            Height = 30,
-            Padding = new Thickness(6, 4, 6, 4),
-            FontSize = 11,
-            BorderBrush = BorderMuted,
-            Text = "Mumbai Central Hub"
-        };
-        brStack.Children.Add(_txtComplaintBranch);
+        brStack.Children.Add(new TextBlock { Text = "Depo / Department Name *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        _cmbComplaintDepot = new ComboBox { Height = 30, FontSize = 11, IsEditable = true };
+        _cmbComplaintDepot.Items.Add("IT");
+        _cmbComplaintDepot.Items.Add("ACCOUNT");
+        _cmbComplaintDepot.Items.Add("ADMIN");
+        _cmbComplaintDepot.Items.Add("MDO");
+        _cmbComplaintDepot.Items.Add("HR");
+        _cmbComplaintDepot.Items.Add("OPERATIONS TENDUA");
+        _cmbComplaintDepot.Items.Add("GRASIM INDUSTRIES LIMITED");
+        _cmbComplaintDepot.Items.Add("DABUR INDIA LIMITED");
+        _cmbComplaintDepot.Items.Add("ORIENT DEPOT");
+        _cmbComplaintDepot.Items.Add("PBPL RAIPUR");
+        _cmbComplaintDepot.Items.Add("AMARA RAJA BATTERIES LIMITED");
+        _cmbComplaintDepot.Items.Add("JK TYRE & INDUSTRIES LIMITED");
+        _cmbComplaintDepot.Items.Add("NUVOCO VISTAS CORPORATION LTD");
+        _cmbComplaintDepot.Items.Add("RECKITT BENCKISER INDIA LTD.-(HEALTH)");
+        _cmbComplaintDepot.Items.Add("SYNGENTA");
+        _cmbComplaintDepot.Items.Add("POLYCAB INDIA LIMITED");
+        _cmbComplaintDepot.Items.Add("NEW HOLLAND");
+        _cmbComplaintDepot.SelectedIndex = 0;
+        brStack.Children.Add(_cmbComplaintDepot);
         Grid.SetColumn(brStack, 1);
         contactRow.Children.Add(brStack);
 
         formPanel.Children.Add(contactRow);
 
+        // Row 4: Subject
+        formPanel.Children.Add(new TextBlock { Text = "Complaint Title / Summary *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        _txtComplaintTitle = new TextBox
+        {
+            Height = 32,
+            Padding = new Thickness(6, 4, 6, 4),
+            FontSize = 11.5,
+            BorderBrush = BorderMuted,
+            Margin = new Thickness(0, 0, 0, 10),
+            Text = "Boss ERP Client Session Timeout During Dispatch"
+        };
+        formPanel.Children.Add(_txtComplaintTitle);
+
+        // Row 5: Description
+        formPanel.Children.Add(new TextBlock { Text = "Detailed Description of Problem *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
+        _txtComplaintDesc = new TextBox
+        {
+            Height = 90,
+            TextWrapping = TextWrapping.Wrap,
+            AcceptsReturn = true,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Padding = new Thickness(8),
+            FontSize = 11.5,
+            BorderBrush = BorderMuted,
+            Margin = new Thickness(0, 0, 0, 14),
+            Text = "When processing LR and dispatch bills in Boss ERP, client terminates unexpectedly. Intermittent connectivity issue to dispatch database."
+        };
+        formPanel.Children.Add(_txtComplaintDesc);
+
         // Submit Button
         var btnSubmit = new Button
         {
-            Content = "📤 Submit IT Complaint Ticket",
-            Height = 38,
+            Content = "🚀 Register Complaint & Append to Central Log Sheet",
+            Height = 40,
             FontSize = 12.5,
             FontWeight = FontWeights.Bold,
             Background = SvllBlue,
@@ -242,7 +414,9 @@ public partial class MainWindow
             string title = _txtComplaintTitle.Text.Trim();
             string desc = _txtComplaintDesc.Text.Trim();
             string contact = _txtComplaintContact.Text.Trim();
-            string branch = _txtComplaintBranch.Text.Trim();
+            string branch = _cmbComplaintDepot.Text.Trim();
+            string name = _txtComplainerName.Text.Trim();
+            string email = _txtComplainerEmail.Text.Trim();
 
             if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(desc))
             {
@@ -250,31 +424,51 @@ public partial class MainWindow
                 return;
             }
 
-            string catRaw = _cmbComplaintCategory.SelectedItem?.ToString() ?? "General";
-            string category = catRaw.Contains("Printer") ? "ThermalPrinter" :
-                              catRaw.Contains("Network") ? "Network" :
-                              catRaw.Contains("Freeze") ? "Hardware" :
-                              catRaw.Contains("USB") ? "UsbDlp" :
-                              catRaw.Contains("Outlook") ? "EmailCredentials" : "General";
+            string catRaw = _cmbComplaintCategory.SelectedItem?.ToString() ?? "Other";
+            string category = "Other";
+            if (catRaw.Contains("Boss")) category = "Boss Not Working";
+            else if (catRaw.Contains("Printer")) category = "Printer Not Work";
+            else if (catRaw.Contains("SLOW")) category = "IT PC / LAPTOP WORKING SLOW";
+            else if (catRaw.Contains("INERNET")) category = "IT INERNET CONNECTIVITY PROBLEM";
+            else if (catRaw.Contains("OUTLOOK")) category = "IT OUTLOOK MAIL ISSUE";
+            else if (catRaw.Contains("REPAIRING")) category = "IT COMPUTER REPAIRING & MAINTENANCE";
+            else if (catRaw.Contains("Installation")) category = "New Software Installation";
+            else if (catRaw.Contains("CAMERA")) category = "IT CAMERA DOWN";
+            else if (catRaw.Contains("DLP")) category = "USB DLP Access";
 
-            string prioRaw = _cmbComplaintPriority.SelectedItem?.ToString() ?? "Medium";
-            string priority = prioRaw.Contains("Critical") ? "Critical" :
-                              prioRaw.Contains("High") ? "High" :
-                              prioRaw.Contains("Low") ? "Low" : "Medium";
+            string prioRaw = _cmbComplaintPriority.SelectedItem?.ToString() ?? "NORMAL";
+            string priority = prioRaw.Contains("URGENT") ? "URGENT" : "NORMAL";
 
             var ticket = ComplaintTicketService.Instance.CreateTicket(
-                title, desc, category, priority, contact, branch, filedViaAi: false);
+                title, desc, category, priority, contact, branch,
+                filedViaAi: false,
+                complainerName: name,
+                complainerEmail: email);
 
-            Log($"[SERVICE DESK] Complaint ticket {ticket.TicketId} successfully registered by {ticket.CreatedBy} on {ticket.Hostname}.");
+            Log($"[SERVICE DESK] Complaint ticket {ticket.TicketId} successfully registered & logged to {ComplaintTicketService.RealSheetName}.");
 
-            MessageBox.Show(
+            var res = MessageBox.Show(
                 $"🎉 Complaint Ticket Successfully Registered!\n\n" +
-                $"• Ticket ID: {ticket.TicketId}\n" +
+                $"• Complaint No: {ticket.TicketId}\n" +
                 $"• Category: {ticket.Category}\n" +
+                $"• Depo / Dept: {ticket.BranchLocation}\n" +
+                $"• Complainer: {ticket.CreatedBy} ({ticket.UserContact})\n" +
                 $"• Priority: {ticket.Priority}\n" +
                 $"• Assigned To: {ticket.AssignedTechnician}\n\n" +
-                $"Hardware diagnostics have been attached. You can track status under 'Track My Submitted Tickets'.",
-                "Ticket Submitted", MessageBoxButton.OK, MessageBoxImage.Information);
+                $"• Central Sheet: Automatically written & appended to '{ComplaintTicketService.RealSheetName}' in project folder\n" +
+                $"• Admin Desk: LIVE reflection on Central IT Helpdesk Admin Console (no restart required)\n\n" +
+                $"Would you like to open the CSV log sheet in Excel now?",
+                "Ticket Submitted & Synchronized", MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+            if (res == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    string csvPath = ComplaintTicketService.GetActiveCsvPath();
+                    Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
+                }
+                catch { }
+            }
 
             // Navigate to my tickets
             SwitchHubSubTool("Hub_Complaints", "MyTickets");
@@ -331,28 +525,83 @@ public partial class MainWindow
         diagBox.Child = diagList;
         diagPanel.Children.Add(diagBox);
 
-        // Helpful Box
-        var tipBox = new Border
+        // CSV Log Sheet Direct Buttons Card
+        var csvCard = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12),
             Margin = new Thickness(0, 14, 0, 0)
         };
-        var tipStack = new StackPanel();
-        tipStack.Children.Add(new TextBlock { Text = "💡 Tip: Need immediate troubleshooting?", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = SvllBlue });
-        tipStack.Children.Add(new TextBlock
+        var csvStack = new StackPanel();
+        csvStack.Children.Add(new TextBlock { Text = "📊 Central Complaint Log Sheet (.CSV)", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) });
+        csvStack.Children.Add(new TextBlock
         {
-            Text = "Try clicking 'AI Diagnostic Intake' above! The AI assistant can guide you through interactive diagnostics and self-healing fixes in under 60 seconds.",
+            Text = "All registered complaints on this system and network are continuously logged to 'complaints_log_sheet.csv' in the project folder.",
             FontSize = 10.5,
             Foreground = TextDark,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 3, 0, 0)
+            Margin = new Thickness(0, 3, 0, 8)
         });
-        tipBox.Child = tipStack;
-        diagPanel.Children.Add(tipBox);
+
+        var csvBtnRow = new Grid();
+        csvBtnRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        csvBtnRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var btnOpenCsv = new Button
+        {
+            Content = "📑 Open CSV File",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0, 0, 4, 0),
+            Background = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            Cursor = Cursors.Hand
+        };
+        btnOpenCsv.Click += (s, e) =>
+        {
+            try
+            {
+                string csvPath = ComplaintTicketService.GetActiveCsvPath();
+                Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open CSV: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        Grid.SetColumn(btnOpenCsv, 0);
+        csvBtnRow.Children.Add(btnOpenCsv);
+
+        var btnOpenFolder = new Button
+        {
+            Content = "📁 Open Folder",
+            FontSize = 10.5,
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(4, 0, 0, 0),
+            Background = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            Cursor = Cursors.Hand
+        };
+        btnOpenFolder.Click += (s, e) =>
+        {
+            try
+            {
+                string csvPath = ComplaintTicketService.GetActiveCsvPath();
+                string dir = Path.GetDirectoryName(csvPath) ?? @"c:\IT PROJECTS\svll-workstation";
+                Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+            }
+            catch { }
+        };
+        Grid.SetColumn(btnOpenFolder, 1);
+        csvBtnRow.Children.Add(btnOpenFolder);
+
+        csvStack.Children.Add(csvBtnRow);
+        csvCard.Child = csvStack;
+        diagPanel.Children.Add(csvCard);
 
         diagCard.Child = diagPanel;
         Grid.SetColumn(diagCard, 1);
@@ -822,6 +1071,17 @@ public partial class MainWindow
             });
         };
 
+        ComplaintTicketService.OnTicketsChanged += () =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (AdminAuthService.Instance.IsAdminMode)
+                {
+                    RefreshTicketAdminDeskContent(root);
+                }
+            });
+        };
+
         return root;
     }
 
@@ -877,6 +1137,46 @@ public partial class MainWindow
         headerGrid.Children.Add(headerLeft);
 
         var headerRight = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var btnOpenLogSheet = new Button
+        {
+            Content = "📊 Open Log Sheet (.CSV)",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(12, 6, 12, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnOpenLogSheet.Click += (s, e) =>
+        {
+            try
+            {
+                string path = ComplaintTicketService.GetActiveCsvPath();
+                Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not open CSV log sheet: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        headerRight.Children.Add(btnOpenLogSheet);
+
+        var btnRefreshAdmin = new Button
+        {
+            Content = "🔄 Refresh Live",
+            FontSize = 11,
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnRefreshAdmin.Click += (s, e) => RefreshTicketAdminDeskContent(root);
+        headerRight.Children.Add(btnRefreshAdmin);
+
         var btnExportCsv = new Button
         {
             Content = "📄 Export Tickets (CSV)",
@@ -1240,6 +1540,7 @@ public partial class MainWindow
             ticket.Status = newStatus;
             ticket.AdminNotes = txtNotes.Text.Trim();
             ComplaintTicketService.Instance.SaveTickets();
+            ComplaintTicketService.NotifyTicketsChanged();
             MessageBox.Show($"Ticket [{ticket.TicketId}] status updated to '{newStatus}'.", "Ticket Updated", MessageBoxButton.OK, MessageBoxImage.Information);
         };
         actionStack.Children.Add(btnSaveNotes);

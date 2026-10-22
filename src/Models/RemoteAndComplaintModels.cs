@@ -30,7 +30,7 @@ public class ComplaintTicket
     public string TicketId { get; set; } = "SVLL-TKT-" + DateTime.Now.ToString("yyMMdd-HHmmss");
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
-    public string Category { get; set; } = "General"; // ThermalPrinter, Network, Hardware, SoftwareWms, EmailCredentials, UsbDlp, Other
+    public string Category { get; set; } = "General"; // Network, Hardware, SoftwareWms, PrinterSpooler, EmailCredentials, UsbDlp, Other
     public string Priority { get; set; } = "Medium"; // Critical, High, Medium, Low
     public string Status { get; set; } = "Open"; // Open, In Progress, Resolved, Closed
     public DateTime CreatedAt { get; set; } = DateTime.Now;

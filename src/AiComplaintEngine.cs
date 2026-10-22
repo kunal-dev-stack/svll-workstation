@@ -35,7 +35,7 @@ public class AiComplaintEngine
                    "What problem are you experiencing right now?",
             QuickReplies = new List<string>
             {
-                "🖨️ Thermal Printer / Zebra Skipping",
+                "🖨️ Office Printer & Spooler Stuck",
                 "🌐 WMS or Internet Disconnected",
                 "⚡ Workstation Freezing or Slow",
                 "🔒 USB Flash Drive Blocked by DLP",
@@ -92,25 +92,25 @@ public class AiComplaintEngine
         if (session.ConversationStep == 0)
         {
             // Domain identification
-            if (lower.Contains("print") || lower.Contains("zebra") || lower.Contains("tsc") || lower.Contains("label") || lower.Contains("barcode") || lower.Contains("spool"))
+            if (lower.Contains("print") || lower.Contains("spool") || lower.Contains("paper") || lower.Contains("queue") || lower.Contains("laser"))
             {
-                session.Category = "ThermalPrinter";
+                session.Category = "PrinterSpooler";
                 session.Priority = "High";
-                session.IdentifiedProblem = "Zebra / Thermal Printer Malfunction";
+                session.IdentifiedProblem = "Office Printer & Print Spooler Lockup";
                 session.ConversationStep = 1;
 
                 return new AiChatMessage
                 {
                     Sender = "AI",
-                    Text = "🔍 I've identified a **Logistics Thermal / Barcode Printer** issue.\n\n" +
+                    Text = "🔍 I've identified an **Office Printer & Print Spooler** issue.\n\n" +
                            "To help IT diagnose the root cause immediately:\n" +
-                           "1. Is the printer status LED **Solid Green**, **Blinking Red/Amber**, or completely off?\n" +
-                           "2. Is the print job stuck in the Windows spooler, or are blank labels feeding out?",
+                           "1. Is the printer status **Ready/Online**, showing **Offline / Error**, or out of paper?\n" +
+                           "2. Is the document locked in the Windows print queue with status 'Deleting' or 'Error'?",
                     QuickReplies = new List<string>
                     {
-                        "🔴 Blinking Red / Paper Jam Light",
-                        "📄 Ejecting Blank / Misaligned Labels",
                         "⏳ Stuck in Windows Print Queue",
+                        "🚫 Printer Status Shows Offline",
+                        "📄 Paper Jam / Hardware Error",
                         "⚡ Printer Not Powering On"
                     },
                     ActionCommand = "FLUSH_SPOOLER",
@@ -265,7 +265,7 @@ public class AiComplaintEngine
                     Text = "Session reset. Please describe the problem you are experiencing.",
                     QuickReplies = new List<string>
                     {
-                        "🖨️ Thermal Printer / Zebra Skipping",
+                        "🖨️ Office Printer & Spooler Stuck",
                         "🌐 WMS or Internet Disconnected",
                         "⚡ Workstation Freezing or Slow"
                     }

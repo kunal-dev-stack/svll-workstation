@@ -286,9 +286,8 @@ public partial class MainWindow
         {
             // Core v6.0 Advanced Tools
             new() { Title = "1-Click RAM & CPU Turbo Booster", Subtitle = "Flush working sets, kill telemetry & activate Ultimate Performance", Category = "OPTIMIZATION", Icon = "⚡", TargetTag = "TurboBooster" },
-            new() { Title = "Zero-Touch New PC Provisioning Wizard", Subtitle = "1-click automated commissioning pipeline for new PCs", Category = "PROVISIONING", Icon = "🚀", TargetTag = "ProvisioningWizard" },
-            new() { Title = "Logistics Hardware Doctor (Thermal & Serial)", Subtitle = "Zebra/TSC direct RAW ZPL injection & RS-232 serial sniffer", Category = "LOGISTICS", Icon = "🖨️", TargetTag = "LogisticsDoctor" },
-            new() { Title = "Endpoint Security, DLP & USB Port Lockdown", Subtitle = "Read-Only USB storage policies, Defender hygiene & LAPS vault", Category = "SECURITY", Icon = "🔒", TargetTag = "SecurityDlp" },
+            new() { Title = "Zero-Trust Process & Ransomware Shield", Subtitle = "Heuristic memory scanner, temp binary termination & hash lookup", Category = "SECURITY", Icon = "🛡️", TargetTag = "ProcessShield" },
+            new() { Title = "Endpoint Security, DLP & USB Port Lockdown", Subtitle = "Read-Only USB storage policies, Defender hygiene & LAPS vault", Category = "SECURITY", Icon = "🔒", TargetTag = "UsbDlpGuardian" },
             new() { Title = "S.M.A.R.T. Drive Health & Crash Predictor", Subtitle = "Inspect NVMe/SATA controller registers, SSD wear % & bad sectors", Category = "STORAGE", Icon = "💾", TargetTag = "StorageSmart" },
             new() { Title = "Active Ports & Bandwidth Hog Hunter", Subtitle = "Map active TCP connections to process binaries and terminate hogs", Category = "NETWORK", Icon = "📡", TargetTag = "SocketInspector" },
 
@@ -339,6 +338,14 @@ public partial class MainWindow
             new() { Title = "AI Intelligent IT Diagnostic & Intake Assistant", Subtitle = "Interactive conversational triage bot with clarifying questions & quick fixes", Category = "HELPDESK", Icon = "🤖", TargetTag = "AiComplaintBot" },
             new() { Title = "Central IT Service Desk Admin Panel", Subtitle = "Admin dashboard to manage, update, and resolve incident tickets", Category = "HELPDESK", Icon = "👑", TargetTag = "TicketAdminDesk" },
             new() { Title = "Track My Submitted Complaints", Subtitle = "View real-time resolution progress and technician notes for this PC", Category = "HELPDESK", Icon = "📂", TargetTag = "MyTickets" },
+
+            // Hub 8: Threat Defense & Security Hardening
+            new() { Title = "Zero-Trust Process & Ransomware Shield", Subtitle = "Scan memory, kill rogue Temp/AppData binaries & hash lookup", Category = "SECURITY", Icon = "🛡️", TargetTag = "ProcessShield" },
+            new() { Title = "CIS Windows Enterprise Security Hardening", Subtitle = "10 enterprise compliance benchmarks: UAC, SMBv1, LLMNR, Firewall", Category = "SECURITY", Icon = "⚡", TargetTag = "SecurityHardening" },
+            new() { Title = "USB Endpoint DLP & Device Guardian", Subtitle = "Hardware mass storage lock, Read-Only enforcement & pen drive audit", Category = "SECURITY", Icon = "🔒", TargetTag = "UsbDlpGuardian" },
+            new() { Title = "Active Socket & Network Port Threat Hunter", Subtitle = "Flag open SMB, RDP, RPC, reverse shells and block remote IPs", Category = "SECURITY", Icon = "📡", TargetTag = "PortThreatHunter" },
+            new() { Title = "Emergency Incident Forensics & Triage Collector", Subtitle = "1-click forensic package: processes, sockets, event logs, autoruns", Category = "SECURITY", Icon = "📦", TargetTag = "ForensicsCollector" },
+            new() { Title = "SSL/TLS & Corporate Domain Health Inspector", Subtitle = "Live certificate expiry, TLS protocol and latency for svll.in & APIs", Category = "SECURITY", Icon = "🌐", TargetTag = "CertHealthInspector" },
 
             // Fast Instant Actions
             new() {
