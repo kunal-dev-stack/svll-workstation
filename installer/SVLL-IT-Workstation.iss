@@ -25,7 +25,7 @@ OutputBaseFilename=SVLL-IT-Workstation-v7.0-Setup
 SetupIconFile=app_logo.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
-WizardStyle=modern
+WizardStyle=classic
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
 

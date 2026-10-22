@@ -37,10 +37,9 @@ $publishArgs = @(
     "$srcDir\SVLL-IT-Workstation.csproj",
     "-c", "Release",
     "-r", "win-x64",
-    "--self-contained",
+    "--no-self-contained",
     "-p:PublishSingleFile=true",
     "-p:IncludeNativeLibrariesForSelfExtract=true",
-    "-p:EnableCompressionInSingleFile=true",
     "-o", $publishDir
 )
 

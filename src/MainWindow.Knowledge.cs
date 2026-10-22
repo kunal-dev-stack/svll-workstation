@@ -1534,10 +1534,33 @@ public partial class MainWindow
                 string tempDir = Path.GetTempPath();
                 string targetPath = Path.Combine(tempDir, string.IsNullOrEmpty(updateFileName) ? "SVLL-Setup.exe" : updateFileName);
 
-                using var client = new HttpClient();
+                using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
                 client.DefaultRequestHeaders.Add("User-Agent", "SVLL-Workstation");
-                var bytes = await client.GetByteArrayAsync(downloadUrl);
-                await File.WriteAllBytesAsync(targetPath, bytes);
+
+                using (var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                {
+                    response.EnsureSuccessStatusCode();
+                    long? totalBytes = response.Content.Headers.ContentLength;
+                    using (var contentStream = await response.Content.ReadAsStreamAsync())
+                    using (var fileStream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                    {
+                        var buffer = new byte[81920];
+                        long totalRead = 0;
+                        int bytesRead;
+                        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            await fileStream.WriteAsync(buffer, 0, bytesRead);
+                            totalRead += bytesRead;
+                            if (totalBytes.HasValue && totalBytes.Value > 0)
+                            {
+                                double pct = (double)totalRead / totalBytes.Value * 100.0;
+                                double mbRead = totalRead / (1024.0 * 1024.0);
+                                double mbTotal = totalBytes.Value / (1024.0 * 1024.0);
+                                statusBlock.Text = $"Downloading update: {mbRead:F1} MB / {mbTotal:F1} MB ({pct:F0}%)...";
+                            }
+                        }
+                    }
+                }
 
                 statusBlock.Text = "Download complete! Launching silent installer and updating...";
                 Log($"[UPDATER] Downloaded update to {targetPath}. Launching installer.");
