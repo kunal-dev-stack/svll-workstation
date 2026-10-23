@@ -1535,22 +1535,23 @@ public partial class MainWindow
 
         var btnSaveNotes = new Button
         {
-            Content = "💾 Update",
+            Content = "💾 Update & Reply",
             FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
             Padding = new Thickness(10, 4, 10, 4),
             Margin = new Thickness(0, 0, 6, 0),
-            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
-            BorderBrush = BorderMuted,
-            Cursor = Cursors.Hand
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            Cursor = Cursors.Hand,
+            ToolTip = "Save status update and push reply to user workstation via cloud relay"
         };
         btnSaveNotes.Click += (s, e) =>
         {
             string newStatus = statusCombo.SelectedItem?.ToString() ?? ticket.Status;
-            ticket.Status = newStatus;
-            ticket.AdminNotes = txtNotes.Text.Trim();
-            ComplaintTicketService.Instance.SaveTickets();
-            ComplaintTicketService.NotifyTicketsChanged();
-            MessageBox.Show($"Ticket [{ticket.TicketId}] status updated to '{newStatus}'.", "Ticket Updated", MessageBoxButton.OK, MessageBoxImage.Information);
+            string notes = txtNotes.Text.Trim();
+            ComplaintTicketService.Instance.UpdateTicket(ticket.TicketId, newStatus, notes, ticket.AssignedTechnician, adminReply: notes);
+            MessageBox.Show($"Ticket [{ticket.TicketId}] updated to '{newStatus}' and reply synced to cloud relay.", "Ticket Updated & Synced", MessageBoxButton.OK, MessageBoxImage.Information);
         };
         actionStack.Children.Add(btnSaveNotes);
 
@@ -1757,7 +1758,41 @@ public partial class MainWindow
                     Margin = new Thickness(0, 0, 0, 8)
                 });
 
-                if (!string.IsNullOrEmpty(t.AdminNotes))
+                // v8.0: Display Official Admin Reply in green highlight
+                if (!string.IsNullOrEmpty(t.AdminReply))
+                {
+                    var replyBox = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+                        BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+                        BorderThickness = new Thickness(1.5),
+                        CornerRadius = new CornerRadius(6),
+                        Padding = new Thickness(10, 8, 10, 8),
+                        Margin = new Thickness(0, 6, 0, 0)
+                    };
+                    var replyStack = new StackPanel();
+                    replyStack.Children.Add(new TextBlock
+                    {
+                        Text = $"💬 Admin Reply: {t.AdminReply}",
+                        FontSize = 11,
+                        FontWeight = FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                    if (t.AdminReplyAt.HasValue)
+                    {
+                        replyStack.Children.Add(new TextBlock
+                        {
+                            Text = $"Replied by IT Support at {t.AdminReplyAt.Value:yyyy-MM-dd HH:mm}",
+                            FontSize = 9.5,
+                            Foreground = TextSubtle,
+                            Margin = new Thickness(0, 3, 0, 0)
+                        });
+                    }
+                    replyBox.Child = replyStack;
+                    p.Children.Add(replyBox);
+                }
+                else if (!string.IsNullOrEmpty(t.AdminNotes))
                 {
                     var noteBox = new Border
                     {

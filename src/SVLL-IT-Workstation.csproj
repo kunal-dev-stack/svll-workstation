@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- ================================================================
+       SVLL IT Workstation v8.0 - Dual Build Configuration
+       Admin Build:  dotnet publish -c AdminRelease  → BUILD_ADMIN defined
+       User Build:   dotnet publish -c UserRelease   → BUILD_USER defined
+       ================================================================ -->
+
   <PropertyGroup>
     <AssemblyName>SVLL-IT-Workstation</AssemblyName>
     <OutputType>WinExe</OutputType>
@@ -11,15 +17,38 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>7.1.0</Version>
-    <AssemblyVersion>7.1.0.0</AssemblyVersion>
-    <FileVersion>7.1.0.0</FileVersion>
+    <Version>8.0.0</Version>
+    <AssemblyVersion>8.0.0.0</AssemblyVersion>
+    <FileVersion>8.0.0.0</FileVersion>
     <Authors>Kunal Turkar</Authors>
     <Company>Shree Vasu Logistics Limited</Company>
     <Product>SVLL IT Support Workstation</Product>
     <Description>Enterprise IT Management, Diagnostics &amp; Automation Workstation for Shree Vasu Logistics Limited.</Description>
     <Copyright>Copyright © 2026 Shree Vasu Logistics Limited</Copyright>
   </PropertyGroup>
+
+  <!-- Admin Edition: Full feature set including Fleet Console, Admin Desk, Remote Control -->
+  <PropertyGroup Condition="'$(Configuration)'=='AdminRelease'">
+    <DefineConstants>BUILD_ADMIN;RELEASE</DefineConstants>
+    <Optimize>true</Optimize>
+    <AssemblyName>SVLL-IT-Workstation-Admin</AssemblyName>
+    <Product>SVLL IT Workstation - Admin Edition</Product>
+  </PropertyGroup>
+
+  <!-- User Edition: End-user tools only. No admin consoles, no fleet management. -->
+  <PropertyGroup Condition="'$(Configuration)'=='UserRelease'">
+    <DefineConstants>BUILD_USER;RELEASE</DefineConstants>
+    <Optimize>true</Optimize>
+    <AssemblyName>SVLL-IT-Workstation-User</AssemblyName>
+    <Product>SVLL IT Workstation - User Edition</Product>
+  </PropertyGroup>
+
+  <!-- Standard Release (legacy single-build, retains admin features) -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DefineConstants>BUILD_ADMIN;RELEASE</DefineConstants>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
 
   <ItemGroup>
     <PackageReference Include="QRCoder" Version="1.8.0" />

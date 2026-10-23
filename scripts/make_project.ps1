@@ -1,7 +1,7 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - Automated Project Builder & Packager
 # Developed by: Kunal Turkar
-# Compatible with PowerShell 5.1 and PowerShell 7+
+# Builds Dual Editions: Admin Edition & User Edition (v8.0)
 # =========================================================================
 
 $ErrorActionPreference = "Stop"
@@ -9,55 +9,84 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
 $srcDir = Join-Path $projectRoot "src"
-$publishDir = Join-Path $projectRoot "publish"
+$publishAdminDir = Join-Path $projectRoot "publish-admin"
+$publishUserDir = Join-Path $projectRoot "publish-user"
 $installerDir = Join-Path $projectRoot "installer"
 $releaseDir = Join-Path $projectRoot "release"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Building SVLL IT Support Workstation v7.1" -ForegroundColor Cyan
+Write-Host "  Building SVLL IT Support Workstation v8.0 (Dual Editions)" -ForegroundColor Cyan
 Write-Host "  Project Directory: $projectRoot" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
 # Terminate running instances if any to avoid file locks
-Get-Process -Name "SVLL-IT-Workstation" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # 1. Verify .NET SDK
-Write-Host "`n[1/4] Checking .NET SDK installation..." -ForegroundColor Yellow
+Write-Host "`n[1/5] Checking .NET SDK installation..." -ForegroundColor Yellow
 $dotnetVersion = & dotnet --version
 Write-Host "Detected .NET SDK version: $dotnetVersion" -ForegroundColor Green
 
-# 2. Compile & Publish Self-Contained Win-x64 Executable
-Write-Host "`n[2/4] Compiling and publishing self-contained binary..." -ForegroundColor Yellow
-if (Test-Path $publishDir) {
-    Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
+# 2. Compile & Publish Admin Edition
+Write-Host "`n[2/5] Compiling and publishing Admin Edition (BUILD_ADMIN)..." -ForegroundColor Yellow
+if (Test-Path $publishAdminDir) {
+    Remove-Item $publishAdminDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-$publishArgs = @(
+$publishAdminArgs = @(
     "publish",
     "$srcDir\SVLL-IT-Workstation.csproj",
-    "-c", "Release",
+    "-c", "AdminRelease",
     "-r", "win-x64",
     "--no-self-contained",
     "-p:PublishSingleFile=true",
     "-p:IncludeNativeLibrariesForSelfExtract=true",
-    "-o", $publishDir
+    "-o", $publishAdminDir
 )
 
-& dotnet @publishArgs
+& dotnet @publishAdminArgs
 if ($LASTEXITCODE -ne 0) {
-    throw "Dotnet publish failed with exit code $LASTEXITCODE"
+    throw "Admin publish failed with exit code $LASTEXITCODE"
 }
 
-$exePath = Join-Path $publishDir "SVLL-IT-Workstation.exe"
-if (-not (Test-Path $exePath)) {
-    throw "Compiled binary was not found at $exePath"
+$adminExePath = Join-Path $publishAdminDir "SVLL-IT-Workstation-Admin.exe"
+if (-not (Test-Path $adminExePath)) {
+    throw "Admin binary was not found at $adminExePath"
 }
-$exeSize = (Get-Item $exePath).Length / 1MB
-$exeMb = [Math]::Round($exeSize, 2)
-Write-Host "[OK] Published single-file executable successfully: $exeMb MB" -ForegroundColor Green
+$adminMb = [Math]::Round(((Get-Item $adminExePath).Length / 1MB), 2)
+Write-Host "[OK] Admin Edition published: $adminExePath ($adminMb MB)" -ForegroundColor Green
 
-# 3. Locate Inno Setup Compiler (ISCC.exe) across 32-bit, 64-bit and local AppData
-Write-Host "`n[3/4] Searching for Inno Setup Compiler (ISCC.exe)..." -ForegroundColor Yellow
+# 3. Compile & Publish User Edition
+Write-Host "`n[3/5] Compiling and publishing User Edition (BUILD_USER)..." -ForegroundColor Yellow
+if (Test-Path $publishUserDir) {
+    Remove-Item $publishUserDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+$publishUserArgs = @(
+    "publish",
+    "$srcDir\SVLL-IT-Workstation.csproj",
+    "-c", "UserRelease",
+    "-r", "win-x64",
+    "--no-self-contained",
+    "-p:PublishSingleFile=true",
+    "-p:IncludeNativeLibrariesForSelfExtract=true",
+    "-o", $publishUserDir
+)
+
+& dotnet @publishUserArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "User publish failed with exit code $LASTEXITCODE"
+}
+
+$userExePath = Join-Path $publishUserDir "SVLL-IT-Workstation-User.exe"
+if (-not (Test-Path $userExePath)) {
+    throw "User binary was not found at $userExePath"
+}
+$userMb = [Math]::Round(((Get-Item $userExePath).Length / 1MB), 2)
+Write-Host "[OK] User Edition published: $userExePath ($userMb MB)" -ForegroundColor Green
+
+# 4. Locate Inno Setup Compiler (ISCC.exe)
+Write-Host "`n[4/5] Searching for Inno Setup Compiler (ISCC.exe)..." -ForegroundColor Yellow
 
 $isccCandidates = @(
     "ISCC.exe",
@@ -83,28 +112,61 @@ foreach ($candidate in $isccCandidates) {
 
 if (-not $isccPath) {
     Write-Warning "ISCC.exe could not be found. Skipping installer package build."
-    Write-Host "Self-contained binary is ready in: $publishDir" -ForegroundColor Green
+    Write-Host "Self-contained binaries are ready in:" -ForegroundColor Green
+    Write-Host "  Admin: $publishAdminDir" -ForegroundColor Green
+    Write-Host "  User:  $publishUserDir" -ForegroundColor Green
     exit 0
 }
 
 Write-Host "Found Inno Setup Compiler at: $isccPath" -ForegroundColor Green
 
-# 4. Compile Inno Setup Installer Package
-Write-Host "`n[4/4] Building setup package with transparent icon..." -ForegroundColor Yellow
+# 5. Compile Inno Setup Installers
+Write-Host "`n[5/5] Building installer packages for Admin and User editions..." -ForegroundColor Yellow
 if (-not (Test-Path $releaseDir)) {
     New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 }
 
-$issFile = Join-Path $installerDir "SVLL-IT-Workstation.iss"
-& $isccPath $issFile
+# Compile Admin Setup
+$adminIss = Join-Path $installerDir "SVLL-IT-Workstation-Admin.iss"
+Write-Host "Compiling Admin setup ($adminIss)..." -ForegroundColor Cyan
+& $isccPath $adminIss
 if ($LASTEXITCODE -ne 0) {
-    throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
+    throw "Admin Inno Setup compilation failed with exit code $LASTEXITCODE"
 }
 
-$setupPath = Join-Path $releaseDir "SVLL-IT-Workstation-v7.1-Setup.exe"
-if (Test-Path $setupPath) {
-    $setupSize = (Get-Item $setupPath).Length / 1MB
-    $setupMb = [Math]::Round($setupSize, 2)
-    Write-Host "`n[OK] SETUP INSTALLER CREATED SUCCESSFULLY!" -ForegroundColor Green
-    Write-Host "Package: $setupPath - $setupMb MB" -ForegroundColor Green
+# Compile User Setup
+$userIss = Join-Path $installerDir "SVLL-IT-Workstation-User.iss"
+Write-Host "Compiling User setup ($userIss)..." -ForegroundColor Cyan
+& $isccPath $userIss
+if ($LASTEXITCODE -ne 0) {
+    throw "User Inno Setup compilation failed with exit code $LASTEXITCODE"
 }
+
+Write-Host "`n============================================================" -ForegroundColor Green
+Write-Host "  SVLL v8.0 DUAL BUILDS COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
+$adminPkg = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
+$userPkg = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.0-Setup.exe"
+if (Test-Path $adminPkg) {
+    $aMb = [Math]::Round(((Get-Item $adminPkg).Length / 1MB), 2)
+    Write-Host "  👑 Admin Package: $adminPkg ($aMb MB)" -ForegroundColor Green
+}
+if (Test-Path $userPkg) {
+    $uMb = [Math]::Round(((Get-Item $userPkg).Length / 1MB), 2)
+    Write-Host "  👤 User Package:  $userPkg ($uMb MB)" -ForegroundColor Green
+
+    # Create generic Setup alias for backward-compatible in-app updaters
+    $legacySetup = Join-Path $releaseDir "SVLL-IT-Workstation-v8.0-Setup.exe"
+    Copy-Item $userPkg $legacySetup -Force
+    Write-Host "  🔄 Legacy Updater Alias: $legacySetup" -ForegroundColor Cyan
+}
+
+# 6. Generate CHECKSUMS.txt
+$checksumsFile = Join-Path $releaseDir "CHECKSUMS.txt"
+$hashLines = @()
+Get-ChildItem -Path $releaseDir -Filter "*8.0*" | ForEach-Object {
+    $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+    $hashLines += "$hash  $($_.Name)"
+}
+$hashLines | Out-File -FilePath $checksumsFile -Encoding utf8
+Write-Host "Generated SHA256 checksums in $checksumsFile" -ForegroundColor Green

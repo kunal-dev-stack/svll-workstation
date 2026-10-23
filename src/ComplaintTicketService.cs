@@ -447,6 +447,21 @@ public class ComplaintTicketService
         // 3. Fire real-time notification so Admin Desk immediately updates
         NotifyTicketsChanged();
 
+        // v8.0: Push to Cloud Relay Server
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                string? cloudId = await CloudSyncService.Instance.SubmitTicketAsync(ticket);
+                if (!string.IsNullOrEmpty(cloudId))
+                {
+                    ticket.CloudTicketId = cloudId;
+                    SaveTickets();
+                }
+            }
+            catch { }
+        });
+
         // 4. Also save to shared folder if available
         try
         {
@@ -492,17 +507,35 @@ public class ComplaintTicketService
         catch { }
     }
 
-    public bool UpdateTicket(string ticketId, string status, string adminNotes, string assignedTechnician)
+    public bool UpdateTicket(string ticketId, string status, string adminNotes, string assignedTechnician, string? adminReply = null)
     {
         var ticket = _tickets.FirstOrDefault(t => t.TicketId == ticketId);
         if (ticket != null)
         {
             ticket.Status = status;
             ticket.AdminNotes = adminNotes;
+            if (!string.IsNullOrEmpty(adminReply))
+            {
+                ticket.AdminReply = adminReply;
+                ticket.AdminReplyAt = DateTime.Now;
+            }
             ticket.AssignedTechnician = assignedTechnician;
             ticket.UpdatedAt = DateTime.Now;
             SaveTickets();
             NotifyTicketsChanged();
+
+#if BUILD_ADMIN
+            // v8.0: Sync resolution & reply to cloud relay
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await CloudSyncService.Instance.ResolveTicketAsync(ticket.CloudTicketId ?? ticket.TicketId, status, ticket.AdminReply ?? adminNotes, adminNotes);
+                }
+                catch { }
+            });
+#endif
+
             return true;
         }
         return false;

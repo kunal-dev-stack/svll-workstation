@@ -102,10 +102,13 @@ public class AiComplaintEngine
                 return new AiChatMessage
                 {
                     Sender = "AI",
-                    Text = "🔍 I've identified an **Office Printer & Print Spooler** issue.\n\n" +
-                           "To help IT diagnose the root cause immediately:\n" +
-                           "1. Is the printer status **Ready/Online**, showing **Offline / Error**, or out of paper?\n" +
-                           "2. Is the document locked in the Windows print queue with status 'Deleting' or 'Error'?",
+                    Text = "🔍 **Office Printer & Print Spooler Diagnosis:**\n\n" +
+                           "**Recommended Step-by-Step Fix:**\n" +
+                           "• **Step 1:** Stop Print Spooler service (`Stop-Service Spooler`)\n" +
+                           "• **Step 2:** Purge locked files in `C:\\Windows\\System32\\spool\\PRINTERS`\n" +
+                           "• **Step 3:** Restart Print Spooler service (`Start-Service Spooler`)\n\n" +
+                           "💡 **Automated Tool:** Click below to run the spooler purge immediately!\n\n" +
+                           "If the issue persists, select the symptom below to prepare an IT support ticket:",
                     QuickReplies = new List<string>
                     {
                         "⏳ Stuck in Windows Print Queue",
@@ -127,10 +130,13 @@ public class AiComplaintEngine
                 return new AiChatMessage
                 {
                     Sender = "AI",
-                    Text = "🌐 I've identified a **Network / Logistics ERP Connectivity** issue.\n\n" +
-                           "Let's pinpoint where the connection is dropping:\n" +
-                           "1. Can you open general websites (e.g. google.com), or is all internet down?\n" +
-                           "2. Does the ERP display 'Connection Timed Out' or 'Host Unreachable'?",
+                    Text = "🌐 **Network & Logistics ERP Connectivity Diagnosis:**\n\n" +
+                           "**Recommended Step-by-Step Fix:**\n" +
+                           "• **Step 1:** Flush stale DNS cache (`ipconfig /flushdns`)\n" +
+                           "• **Step 2:** Renew IP address lease from the warehouse router\n" +
+                           "• **Step 3:** Test ICMP ping latency to gateway (8.8.8.8) and ERP server\n\n" +
+                           "💡 **Automated Tool:** Click below to flush DNS and renew IP socket resolver!\n\n" +
+                           "If you still cannot connect, select the specific issue below:",
                     QuickReplies = new List<string>
                     {
                         "🏢 Only WMS / Logistics Portal is Down",
@@ -152,10 +158,13 @@ public class AiComplaintEngine
                 return new AiChatMessage
                 {
                     Sender = "AI",
-                    Text = "⚡ I've identified a **System Slowness / Unresponsive Workstation** issue.\n\n" +
-                           "To triage hardware vs background bloat:\n" +
-                           "1. Does the freeze happen when opening specific software (e.g. Chrome, Excel), or continuously?\n" +
-                           "2. How long has this workstation been powered on without a reboot?",
+                    Text = "⚡ **System Slowness & High Resource Load Diagnosis:**\n\n" +
+                           "**Recommended Step-by-Step Fix:**\n" +
+                           "• **Step 1:** Trim working sets and release idle memory allocations\n" +
+                           "• **Step 2:** Clean Windows temporary files in `%TEMP%` and `C:\\Windows\\Temp`\n" +
+                           "• **Step 3:** Terminate non-critical background telemetry processes\n\n" +
+                           "💡 **Automated Tool:** Click below to trigger 1-Click Turbo Boost now!\n\n" +
+                           "If the machine remains unresponsive, select your symptom below:",
                     QuickReplies = new List<string>
                     {
                         "💻 Freeze when opening Chrome / ERP",

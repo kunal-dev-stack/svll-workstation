@@ -16,7 +16,11 @@ public class AdminAuthService
     private readonly string _configFilePath;
     private AdminSecurityConfig _config = new();
 
+#if BUILD_ADMIN
+    public bool IsAdminMode { get; private set; } = true;
+#else
     public bool IsAdminMode { get; private set; } = false;
+#endif
     public event Action<bool>? AdminModeChanged;
 
     private AdminAuthService()
@@ -129,4 +133,16 @@ public class AdminAuthService
         _config.SharedTicketDirectory = ticketDir;
         SaveConfig();
     }
+
+    /// <summary>v8.0: Update relay server and MeshCentral URLs</summary>
+    public void UpdateRelaySettings(string relayServerUrl, string meshCentralUrl = "")
+    {
+        _config.RelayServerUrl = relayServerUrl;
+        if (!string.IsNullOrEmpty(meshCentralUrl))
+            _config.MeshCentralUrl = meshCentralUrl;
+        SaveConfig();
+    }
+
+    public string GetRelayServerUrl() => !string.IsNullOrEmpty(_config.RelayServerUrl) ? _config.RelayServerUrl : BuildConstants.DefaultRelayUrl;
+    public string GetMeshCentralUrl() => !string.IsNullOrEmpty(_config.MeshCentralUrl) ? _config.MeshCentralUrl : BuildConstants.DefaultMeshCentralUrl;
 }

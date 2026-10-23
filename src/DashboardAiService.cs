@@ -106,10 +106,12 @@ public class DashboardAiService
         string os = Environment.OSVersion.VersionString;
 
         string systemPrompt =
-            $"You are the SVLL Workstation AI Copilot for Shree Vasu Logistics Limited. " +
-            $"Endpoint: '{host}', User: '{user}', OS: '{os}'. " +
-            "Provide helpful, accurate, polite, and concise answers (2 to 4 sentences). " +
-            "You assist with IT support, Windows, PC hardware, printers, logistics ERP, networking, and answer any general questions.";
+            $"You are the SVLL Workstation AI Diagnostic Copilot for Shree Vasu Logistics Limited. " +
+            $"Workstation: '{host}', User: '{user}', OS: '{os}'. " +
+            "Provide helpful, practical, step-by-step instructions. " +
+            "When explaining how to fix any issue or error, ALWAYS structure your answer with clear numbered steps: " +
+            "Step 1: [Action], Step 2: [Action], Step 3: [Action]. " +
+            "At the end of your explanation, explicitly suggest using the built-in 1-click SVLL tool if one exists (e.g., 1-Click Turbo Boost, Print Spooler Reset, Flush DNS, Temp Purge, S.M.A.R.T. Drive Health, USB Depot, Force Uninstaller, or Service Desk).";
 
         // Attempt JSON POST
         try
@@ -157,7 +159,11 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "⚡ **System Performance Diagnostics:** Workstation slowness is typically caused by working set memory fragmentation, background bloat tasks, or CPU power throttling. You can execute our automated **1-Click Turbo Boost** to immediately trim application memory, kill telemetry tasks, and activate the Ultimate Performance power scheme.",
+                Answer = "⚡ **System Performance Diagnostics & Step-by-Step Fix:**\n\n" +
+                         "• **Step 1:** Flush memory working sets and release idle cached memory\n" +
+                         "• **Step 2:** Terminate non-critical background telemetry and bloat processes\n" +
+                         "• **Step 3:** Switch power plan to Windows Ultimate Performance profile\n\n" +
+                         "💡 **Built-in Tool Available:** Click the button below to execute all 3 optimization steps automatically!",
                 ActionTag = "TurboBoost",
                 ActionTitle = "⚡ Execute 1-Click Turbo Boost Now",
                 ActionDescription = "Instantly releases idle RAM, trims background applications, and enables maximum CPU performance.",
@@ -170,7 +176,12 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "🖨️ **Print Subsystem Triage:** Print queue lockups occur when corrupted `.SPL` or `.SHD` spool files become locked in `C:\\Windows\\System32\\spool\\PRINTERS`. Our automated Print Spooler Fix cleanly terminates the Spooler service, purges all phantom locked queue files, and re-initializes the print subsystem.",
+                Answer = "🖨️ **Print Subsystem Lockup Diagnosis & Step-by-Step Fix:**\n\n" +
+                         "• **Step 1:** Stop the Windows Print Spooler service (`Stop-Service Spooler`)\n" +
+                         "• **Step 2:** Purge all locked phantom `.SPL` and `.SHD` queue files in `C:\\Windows\\System32\\spool\\PRINTERS`\n" +
+                         "• **Step 3:** Restart the Print Spooler service (`Start-Service Spooler`)\n" +
+                         "• **Step 4:** Re-send your logistics invoice or test page\n\n" +
+                         "💡 **Built-in Tool Available:** Click the button below to automatically purge the queue and reset the spooler service in 1 click!",
                 ActionTag = "FixPrintSpooler",
                 ActionTitle = "🖨️ Fix & Restart Print Spooler Service",
                 ActionDescription = "Stops spooler, purges locked job files in System32\\spool\\PRINTERS, and restarts the service.",
@@ -183,7 +194,12 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "🌐 **Network Connectivity Triage:** Network dropouts and DNS failures can be resolved by flushing stale resolver caches, renewing DHCP leases, or running continuous ICMP gateway latency diagnostics. Click below to flush DNS and test your warehouse gateway connection.",
+                Answer = "🌐 **Network & ERP Connectivity Diagnosis & Step-by-Step Fix:**\n\n" +
+                         "• **Step 1:** Clear the local DNS resolver cache (`ipconfig /flushdns`)\n" +
+                         "• **Step 2:** Renew the DHCP IP address lease from the warehouse router\n" +
+                         "• **Step 3:** Test ICMP echo ping latency to the local gateway (8.8.8.8 / ERP)\n" +
+                         "• **Step 4:** Verify Ethernet cable seating or reconnect Wi-Fi\n\n" +
+                         "💡 **Built-in Tool Available:** Click the button below to flush DNS and reset the resolver cache immediately!",
                 ActionTag = "FlushDns",
                 ActionTitle = "⚡ Flush DNS & Reset Resolver Cache",
                 ActionDescription = "Executes Clear-DnsClientCache and ipconfig /flushdns to clear stale host lookups.",
@@ -196,7 +212,12 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "🧹 **Storage Cleanup Diagnostics:** Accumulated Windows temp files in `%TEMP%`, prefetch caches, and orphaned crash dumps consume vital SSD storage and reduce system responsiveness. Click below to safely purge all temporary caches and empty the Recycle Bin.",
+                Answer = "🧹 **Storage & SSD Junk Cleanup Step-by-Step Fix:**\n\n" +
+                         "• **Step 1:** Delete user temporary cache files in `%TEMP%`\n" +
+                         "• **Step 2:** Clear Windows system temp caches in `C:\\Windows\\Temp`\n" +
+                         "• **Step 3:** Empty the Windows Recycle Bin across all drives\n" +
+                         "• **Step 4:** Reclaim disk headroom for pagefile and OS paging\n\n" +
+                         "💡 **Built-in Tool Available:** Click the button below to safely purge all temp caches and empty the Recycle Bin!",
                 ActionTag = "PurgeTemp",
                 ActionTitle = "🧹 Purge Temp Files & Empty Recycle Bin",
                 ActionDescription = "Safely deletes user temp files, system temp cache, and empties the Windows Recycle Bin.",

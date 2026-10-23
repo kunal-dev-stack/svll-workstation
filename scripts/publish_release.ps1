@@ -1,9 +1,21 @@
+# =========================================================================
+# Shree Vasu Logistics Limited - GitHub Release Publisher
+# Developed by: Kunal Turkar
+# Publishes Workstation v8.0 (Client) and Server v1.0 Releases to GitHub
+# =========================================================================
+
+param(
+    [string]$Target = "all" # "all", "client", "server"
+)
+
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
 $releaseDir = Join-Path $projectRoot "release"
-$publishDir = Join-Path $projectRoot "publish"
+$publishAdminDir = Join-Path $projectRoot "publish-admin"
+$publishUserDir = Join-Path $projectRoot "publish-user"
+$backendDir = Join-Path $projectRoot "backend\SvllRelayServer"
 
 Write-Host "Fetching GitHub credentials..." -ForegroundColor Cyan
 $pinfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -34,113 +46,167 @@ if (-not $token) {
 }
 
 $repo = "kunal-dev-stack/svll-workstation"
-$tag = if ($args.Count -gt 0) { $args[0] } else { "v7.1" }
-$releaseName = "SVLL IT Workstation v7.1 - AI Quick Support Copilot & Complaint Desk Update"
-$notesPath = Join-Path $releaseDir "RELEASE_NOTES_v7.1.md"
-$body = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath, [System.Text.Encoding]::UTF8) } else { "SVLL IT Support Workstation v7.1 Release" }
-
 $headers = @{
     "Authorization" = "token " + $token
     "User-Agent"    = "SVLL-Release-Script"
     "Accept"        = "application/vnd.github.v3+json"
 }
 
-# 1. Check if release already exists
-Write-Host "Checking if release '$tag' exists..." -ForegroundColor Yellow
-$release = $null
-try {
-    $existing = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/tags/$tag" -Headers $headers -Method Get
-    if ($existing -and $existing.id) {
-        $release = $existing
-        Write-Host ("Found existing release ID: " + $release.id) -ForegroundColor Green
-    }
-} catch {
-    # Not found
-}
+function Publish-GitHubRelease {
+    param(
+        [string]$Tag,
+        [string]$ReleaseName,
+        [string]$NotesPath,
+        [array]$Assets
+    )
 
-# 2. Create release if not found
-if (-not $release) {
-    Write-Host "Creating GitHub Release '$tag'..." -ForegroundColor Yellow
-    $payload = @{
-        tag_name         = $tag
-        target_commitish = "main"
-        name             = $releaseName
-        body             = $body
-        draft            = $false
-        prerelease       = $false
-    } | ConvertTo-Json
+    $body = if (Test-Path $NotesPath) { [System.IO.File]::ReadAllText($NotesPath, [System.Text.Encoding]::UTF8) } else { "$ReleaseName" }
 
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -Method Post -Body $payload -ContentType "application/json; charset=utf-8"
-    Write-Host ("Created Release ID: " + $release.id) -ForegroundColor Green
-} else {
-    Write-Host "Updating release notes on '$tag'..." -ForegroundColor Cyan
-    $patchPayload = @{
-        name = $releaseName
-        body = $body
-    } | ConvertTo-Json
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/$($release.id)" -Headers $headers -Method Patch -Body $patchPayload -ContentType "application/json; charset=utf-8"
-}
+    Write-Host "`n============================================================" -ForegroundColor Cyan
+    Write-Host "  Publishing GitHub Release: $Tag ($ReleaseName)" -ForegroundColor Cyan
+    Write-Host "============================================================" -ForegroundColor Cyan
 
-$releaseId = $release.id
-$uploadBase = "https://uploads.github.com/repos/" + $repo + "/releases/" + $releaseId + "/assets"
-
-# 3. Assets to upload
-$assets = @(
-    @{
-        Path = Join-Path $releaseDir "SVLL-IT-Workstation-v7.1-Setup.exe"
-        Name = "SVLL-IT-Workstation-v7.1-Setup.exe"
-        Type = "application/vnd.microsoft.portable-executable"
-    },
-    @{
-        Path = Join-Path $publishDir "SVLL-IT-Workstation.exe"
-        Name = "SVLL-IT-Workstation.exe"
-        Type = "application/vnd.microsoft.portable-executable"
-    },
-    @{
-        Path = Join-Path $releaseDir "CHECKSUMS.txt"
-        Name = "CHECKSUMS.txt"
-        Type = "text/plain"
-    }
-)
-
-# Fetch existing assets on the release
-$existingAssets = Invoke-RestMethod -Uri ("https://api.github.com/repos/" + $repo + "/releases/" + $releaseId + "/assets") -Headers $headers -Method Get
-
-foreach ($asset in $assets) {
-    $assetPath = $asset.Path
-    $assetName = $asset.Name
-    $assetType = $asset.Type
-
-    if (-not (Test-Path $assetPath)) {
-        Write-Warning ("Asset not found: " + $assetPath)
-        continue
-    }
-
-    $sizeMb = [Math]::Round(((Get-Item $assetPath).Length / 1MB), 2)
-
-    # If asset already exists, delete it first to replace with clean build
-    if ($existingAssets) {
-        $match = $existingAssets | Where-Object { $_.name -eq $assetName }
-        if ($match) {
-            Write-Host ("Deleting existing asset " + $match.name + "...") -ForegroundColor Yellow
-            Invoke-RestMethod -Uri ("https://api.github.com/repos/" + $repo + "/releases/assets/" + $match.id) -Headers $headers -Method Delete
+    # 1. Check if release already exists
+    Write-Host "Checking if release '$Tag' exists..." -ForegroundColor Yellow
+    $release = $null
+    try {
+        $existing = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/tags/$Tag" -Headers $headers -Method Get
+        if ($existing -and $existing.id) {
+            $release = $existing
+            Write-Host ("Found existing release ID: " + $release.id) -ForegroundColor Green
         }
+    } catch { }
+
+    # 2. Create release if not found
+    if (-not $release) {
+        Write-Host "Creating GitHub Release '$Tag'..." -ForegroundColor Yellow
+        $payload = @{
+            tag_name         = $Tag
+            target_commitish = "main"
+            name             = $ReleaseName
+            body             = $body
+            draft            = $false
+            prerelease       = $false
+        } | ConvertTo-Json
+
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -Method Post -Body $payload -ContentType "application/json; charset=utf-8"
+        Write-Host ("Created Release ID: " + $release.id) -ForegroundColor Green
+    } else {
+        Write-Host "Updating release notes on '$Tag'..." -ForegroundColor Cyan
+        $patchPayload = @{
+            name = $ReleaseName
+            body = $body
+        } | ConvertTo-Json
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/$($release.id)" -Headers $headers -Method Patch -Body $patchPayload -ContentType "application/json; charset=utf-8"
     }
 
-    Write-Host ("Uploading " + $assetName + " (" + $sizeMb + " MB)...") -ForegroundColor Cyan
-    $uploadUri = $uploadBase + "?name=" + $assetName
+    $releaseId = $release.id
+    $uploadBase = "https://uploads.github.com/repos/" + $repo + "/releases/" + $releaseId + "/assets"
 
-    $uploadHeaders = @{
-        "Authorization" = "token " + $token
-        "User-Agent"    = "SVLL-Release-Script"
-        "Content-Type"  = $assetType
+    # Fetch existing assets on the release
+    $existingAssets = Invoke-RestMethod -Uri ("https://api.github.com/repos/" + $repo + "/releases/" + $releaseId + "/assets") -Headers $headers -Method Get
+
+    foreach ($asset in $Assets) {
+        $assetPath = $asset.Path
+        $assetName = $asset.Name
+        $assetType = $asset.Type
+
+        if (-not (Test-Path $assetPath)) {
+            Write-Warning ("Asset not found: " + $assetPath)
+            continue
+        }
+
+        $sizeMb = [Math]::Round(((Get-Item $assetPath).Length / 1MB), 2)
+
+        # If asset already exists, delete it first to replace with clean build
+        if ($existingAssets) {
+            $match = $existingAssets | Where-Object { $_.name -eq $assetName }
+            if ($match) {
+                Write-Host ("Deleting existing asset " + $match.name + "...") -ForegroundColor Yellow
+                Invoke-RestMethod -Uri ("https://api.github.com/repos/" + $repo + "/releases/assets/" + $match.id) -Headers $headers -Method Delete
+            }
+        }
+
+        Write-Host ("Uploading " + $assetName + " (" + $sizeMb + " MB)...") -ForegroundColor Cyan
+        $uploadUri = $uploadBase + "?name=" + $assetName
+
+        $uploadHeaders = @{
+            "Authorization" = "token " + $token
+            "User-Agent"    = "SVLL-Release-Script"
+            "Content-Type"  = $assetType
+        }
+
+        $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $assetPath -TimeoutSec 1200
+        Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
     }
 
-    $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $assetPath -TimeoutSec 1200
-    Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
+    Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
 }
 
-Write-Host "============================================================" -ForegroundColor Green
-Write-Host "  GitHub Release Published Successfully!" -ForegroundColor Green
-Write-Host ("  URL: " + $release.html_url) -ForegroundColor Green
+# ── 1. Publish Workstation v8.0 Release ───────────────────────────────────────
+if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
+    $clientAssets = @(
+        @{
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.0-Setup.exe"
+            Name = "SVLL-IT-Workstation-User-v8.0-Setup.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+        @{
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
+            Name = "SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+        @{
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.0-Setup.exe"
+            Name = "SVLL-IT-Workstation-v8.0-Setup.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+        @{
+            Path = Join-Path $publishAdminDir "SVLL-IT-Workstation-Admin.exe"
+            Name = "SVLL-IT-Workstation-Admin.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+        @{
+            Path = Join-Path $publishUserDir "SVLL-IT-Workstation-User.exe"
+            Name = "SVLL-IT-Workstation-User.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+        @{
+            Path = Join-Path $releaseDir "CHECKSUMS.txt"
+            Name = "CHECKSUMS.txt"
+            Type = "text/plain"
+        }
+    )
+
+    Publish-GitHubRelease `
+        -Tag "v8.0" `
+        -ReleaseName "SVLL IT Support Workstation v8.0 (Dual Editions)" `
+        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.0.md") `
+        -Assets $clientAssets
+}
+
+# ── 2. Publish Server v1.0 Release ───────────────────────────────────────────
+if ($Target -eq "all" -or $Target -eq "server") {
+    $serverAssets = @(
+        @{
+            Path = Join-Path $releaseDir "SVLL-Relay-Server-v1.0-win-x64.zip"
+            Name = "SVLL-Relay-Server-v1.0-win-x64.zip"
+            Type = "application/zip"
+        },
+        @{
+            Path = Join-Path $backendDir "DEPLOY.md"
+            Name = "DEPLOY.md"
+            Type = "text/markdown"
+        }
+    )
+
+    Publish-GitHubRelease `
+        -Tag "server-v1.0" `
+        -ReleaseName "SVLL IT Relay Server v1.0" `
+        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_SERVER_v1.0.md") `
+        -Assets $serverAssets
+}
+
+Write-Host "`n============================================================" -ForegroundColor Green
+Write-Host "  ALL RELEASES PUBLISHED TO GITHUB SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green

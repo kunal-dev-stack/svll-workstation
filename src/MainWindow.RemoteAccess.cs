@@ -612,6 +612,40 @@ public partial class MainWindow
         };
         headerRight.Children.Add(btnExportCsv);
 
+        var btnMeshPortal = new Button
+        {
+            Content = "🌐 MeshCentral Portal",
+            FontSize = 11,
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            Cursor = Cursors.Hand,
+            ToolTip = "Open MeshCentral web console for fleet remote control"
+        };
+        btnMeshPortal.Click += (s, e) =>
+        {
+            string url = AdminAuthService.Instance.GetMeshCentralUrl();
+            if (string.IsNullOrEmpty(url)) url = "http://localhost:8086";
+            MeshAgentService.LaunchMeshDashboard(url);
+        };
+        headerRight.Children.Add(btnMeshPortal);
+
+        var btnServerSettings = new Button
+        {
+            Content = "⚙️ Server Settings",
+            FontSize = 11,
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand,
+            ToolTip = "Configure Relay Server URL and MeshCentral Server URL"
+        };
+        btnServerSettings.Click += (s, e) => ShowServerSettingsDialog();
+        headerRight.Children.Add(btnServerSettings);
+
         var btnLockSession = new Button
         {
             Content = "🔒 Lock Admin Session",
@@ -847,7 +881,7 @@ public partial class MainWindow
         Grid.SetColumn(col0, 0);
         grid.Children.Add(col0);
 
-        // Col 1: Telemetry, AnyDesk ID, User
+        // Col 1: Telemetry, AnyDesk ID, Hardware Vitals (v8.0)
         var col1 = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         var idRow = new StackPanel { Orientation = Orientation.Horizontal };
         idRow.Children.Add(new TextBlock { Text = "AnyDesk: ", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
@@ -859,15 +893,53 @@ public partial class MainWindow
             FontFamily = new FontFamily("Consolas, Courier New"),
             Foreground = SvllRed
         });
+
+        if (dev.MeshAgentRunning || !string.IsNullOrEmpty(dev.MeshNodeId))
+        {
+            var meshPill = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6, 1, 6, 1),
+                Margin = new Thickness(10, 0, 0, 0),
+                Child = new TextBlock { Text = "🌐 MESH AGENT READY", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
+            };
+            idRow.Children.Add(meshPill);
+        }
         col1.Children.Add(idRow);
 
+        // Telemetry Row 1: User, IP, MAC, Last Seen
         col1.Children.Add(new TextBlock
         {
-            Text = $"👤 User: {dev.LoggedInUser}  •  🌐 IP: {dev.IpAddress}  •  Last Seen: {dev.LastSeen:HH:mm:ss}",
+            Text = $"👤 User: {dev.LoggedInUser}  •  🌐 IP: {dev.IpAddress}  •  🏷️ MAC: {(string.IsNullOrEmpty(dev.MacAddress) ? "N/A" : dev.MacAddress)}  •  Seen: {dev.LastSeen:HH:mm:ss}",
             FontSize = 10.5,
             Foreground = TextDark,
             Margin = new Thickness(0, 2, 0, 0)
         });
+
+        // Telemetry Row 2: Serial Number, OS & Build (v8.0)
+        col1.Children.Add(new TextBlock
+        {
+            Text = $"🔢 S/N: {(string.IsNullOrEmpty(dev.SerialNumber) ? "N/A" : dev.SerialNumber)}  •  🪟 OS: {dev.OsVersion} (Build {(string.IsNullOrEmpty(dev.OsBuild) ? "N/A" : dev.OsBuild)})",
+            FontSize = 10,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+
+        // Telemetry Row 3: CPU, RAM, Disk Free (v8.0)
+        if (dev.CpuLoadPercent > 0 || dev.RamUsagePercent > 0 || dev.DiskFreePercent > 0)
+        {
+            col1.Children.Add(new TextBlock
+            {
+                Text = $"⚡ CPU: {dev.CpuLoadPercent}%  •  🧠 RAM: {dev.RamUsagePercent}%  •  💾 C: Free {dev.DiskFreePercent}%",
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromRgb(30, 64, 175)),
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+        }
 
         if (isRequested && !string.IsNullOrEmpty(dev.SupportRequestMessage))
         {
@@ -884,17 +956,59 @@ public partial class MainWindow
         Grid.SetColumn(col1, 1);
         grid.Children.Add(col1);
 
-        // Col 2: Action Buttons (Connect AnyDesk, Connect RDP, Ping)
+        // Col 2: Action Buttons (Zero-Password Mesh, AnyDesk, RDP, Ping)
         var col2 = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        // v8.0: Zero-Password Remote Control (MeshCentral)
+        var btnConnectMesh = new Button
+        {
+            Content = "🌐 Zero-Password Remote",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Background = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            Foreground = Brushes.White,
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 0, 6, 0),
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            ToolTip = "Connect over internet without remote password prompt via MeshCentral"
+        };
+        btnConnectMesh.Click += (s, e) =>
+        {
+            string meshUrl = AdminAuthService.Instance.GetMeshCentralUrl();
+            if (string.IsNullOrEmpty(meshUrl))
+            {
+                meshUrl = "http://localhost:8086";
+            }
+
+            if (!string.IsNullOrEmpty(dev.MeshNodeId))
+            {
+                MeshAgentService.LaunchRemoteControl(meshUrl, dev.MeshNodeId);
+                Log($"[REMOTE ACCESS] Admin launched Zero-Password remote control session to {dev.Hostname} (Node: {dev.MeshNodeId}).");
+            }
+            else
+            {
+                bool launched = MeshAgentService.LaunchMeshDashboard(meshUrl);
+                if (!launched)
+                {
+                    MessageBox.Show($"MeshCentral URL not configured or unreachable.\nConnecting via AnyDesk fallback...", "Remote Control", MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (!string.IsNullOrEmpty(dev.AnyDeskId) && dev.AnyDeskId != "Not Configured")
+                    {
+                        FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId);
+                    }
+                }
+            }
+        };
+        col2.Children.Add(btnConnectMesh);
 
         var btnConnectAnyDesk = new Button
         {
-            Content = "🚀 Connect AnyDesk",
-            FontSize = 11,
+            Content = "🚀 AnyDesk",
+            FontSize = 10.5,
             FontWeight = FontWeights.Bold,
             Background = SvllRed,
             Foreground = Brushes.White,
-            Padding = new Thickness(12, 6, 12, 6),
+            Padding = new Thickness(10, 6, 10, 6),
             Margin = new Thickness(0, 0, 6, 0),
             BorderThickness = new Thickness(0),
             Cursor = Cursors.Hand
@@ -914,8 +1028,8 @@ public partial class MainWindow
         var btnConnectRdp = new Button
         {
             Content = "💻 RDP",
-            FontSize = 11,
-            Padding = new Thickness(10, 6, 10, 6),
+            FontSize = 10.5,
+            Padding = new Thickness(8, 6, 8, 6),
             Margin = new Thickness(0, 0, 6, 0),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
@@ -1107,5 +1221,138 @@ public partial class MainWindow
         centerCard.Child = sp;
         outerBorder.Child = centerCard;
         return outerBorder;
+    }
+
+    private void ShowServerSettingsDialog()
+    {
+        var dlg = new Window
+        {
+            Title = "⚙️ SVLL Server Settings (Relay & MeshCentral)",
+            Width = 520,
+            Height = 360,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            ResizeMode = ResizeMode.NoResize,
+            Background = BgCard
+        };
+
+        var sp = new StackPanel { Margin = new Thickness(20) };
+
+        sp.Children.Add(new TextBlock
+        {
+            Text = "⚙️ Enterprise Server Configuration",
+            FontSize = 15,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = TextDark,
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+        sp.Children.Add(new TextBlock
+        {
+            Text = "Configure the central Relay Server and MeshCentral URLs for live telemetry reflection and remote control.",
+            FontSize = 10.5,
+            Foreground = TextSubtle,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 14)
+        });
+
+        // Relay Server URL
+        sp.Children.Add(new TextBlock { Text = "📡 SVLL Relay Server URL (Telemetry & Tickets):", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark });
+        var txtRelay = new TextBox
+        {
+            Text = AdminAuthService.Instance.GetRelayServerUrl(),
+            Height = 28,
+            FontSize = 11,
+            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(0, 4, 0, 12),
+            BorderBrush = BorderMuted
+        };
+        sp.Children.Add(txtRelay);
+
+        // MeshCentral URL
+        sp.Children.Add(new TextBlock { Text = "🌐 MeshCentral Server URL (Zero-Password Remote):", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark });
+        var txtMesh = new TextBox
+        {
+            Text = AdminAuthService.Instance.GetMeshCentralUrl(),
+            Height = 28,
+            FontSize = 11,
+            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(0, 4, 0, 16),
+            BorderBrush = BorderMuted
+        };
+        sp.Children.Add(txtMesh);
+
+        var lblStatus = new TextBlock { FontSize = 10.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) };
+        sp.Children.Add(lblStatus);
+
+        // Buttons
+        var btnRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+
+        var btnTest = new Button
+        {
+            Content = "⚡ Test Relay",
+            FontSize = 11,
+            Padding = new Thickness(14, 6, 14, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnTest.Click += async (s, e) =>
+        {
+            btnTest.IsEnabled = false;
+            lblStatus.Text = "⏳ Testing connection...";
+            lblStatus.Foreground = TextSubtle;
+            try
+            {
+                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                string testUrl = txtRelay.Text.Trim().TrimEnd('/') + "/api/health";
+                var res = await http.GetAsync(testUrl);
+                if (res.IsSuccessStatusCode)
+                {
+                    lblStatus.Text = "🟢 Relay Server is reachable and healthy!";
+                    lblStatus.Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52));
+                }
+                else
+                {
+                    lblStatus.Text = $"🔴 Relay Server returned error (HTTP {(int)res.StatusCode})";
+                    lblStatus.Foreground = SvllRed;
+                }
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = $"🔴 Connection failed: {ex.Message}";
+                lblStatus.Foreground = SvllRed;
+            }
+            finally
+            {
+                btnTest.IsEnabled = true;
+            }
+        };
+        btnRow.Children.Add(btnTest);
+
+        var btnSave = new Button
+        {
+            Content = "💾 Save & Apply",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(16, 6, 16, 6),
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnSave.Click += (s, e) =>
+        {
+            string relay = txtRelay.Text.Trim();
+            string mesh = txtMesh.Text.Trim();
+            AdminAuthService.Instance.UpdateRelaySettings(relay, mesh);
+            CloudSyncService.Instance.Start(relay);
+            dlg.Close();
+            MessageBox.Show("Server settings saved and applied successfully!\nCloud sync re-initialized.", "Settings Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        btnRow.Children.Add(btnSave);
+
+        sp.Children.Add(btnRow);
+        dlg.Content = sp;
+        dlg.ShowDialog();
     }
 }

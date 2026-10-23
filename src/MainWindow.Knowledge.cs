@@ -1478,14 +1478,39 @@ public partial class MainWindow
                 downloadUrl = "";
                 if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
                 {
+#if BUILD_ADMIN
+                    string editionKey = "Admin";
+#else
+                    string editionKey = "User";
+#endif
+                    // 1. Try to find edition-matched setup installer
                     foreach (var asset in assets.EnumerateArray())
                     {
                         string name = asset.GetProperty("name").GetString() ?? "";
-                        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && name.Contains("Setup", StringComparison.OrdinalIgnoreCase))
+                        if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                            name.Contains("Setup", StringComparison.OrdinalIgnoreCase) &&
+                            name.Contains(editionKey, StringComparison.OrdinalIgnoreCase))
                         {
                             downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
                             updateFileName = name;
                             break;
+                        }
+                    }
+
+                    // 2. Fallback to any client Setup.exe (excluding server assets)
+                    if (string.IsNullOrEmpty(downloadUrl))
+                    {
+                        foreach (var asset in assets.EnumerateArray())
+                        {
+                            string name = asset.GetProperty("name").GetString() ?? "";
+                            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                                name.Contains("Setup", StringComparison.OrdinalIgnoreCase) &&
+                                !name.Contains("Server", StringComparison.OrdinalIgnoreCase))
+                            {
+                                downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
+                                updateFileName = name;
+                                break;
+                            }
                         }
                     }
                 }

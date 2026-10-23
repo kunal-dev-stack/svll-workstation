@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "7.1";
+    public const string CurrentVersion = "8.0";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     private static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
@@ -216,7 +216,9 @@ public partial class MainWindow : Window
             SubTools = new()
             {
                 ("RemoteClient", "My Remote Client", "🔴"),
-                ("FleetAdminConsole", "Fleet Admin Console", "👑")
+#if BUILD_ADMIN
+                ("FleetAdminConsole", "Fleet Admin Console", "👑"),
+#endif
             }
         },
         new HubInfo
@@ -229,7 +231,9 @@ public partial class MainWindow : Window
             {
                 ("SubmitComplaint", "Register Complaint", "📋"),
                 ("AiComplaintBot", "AI Diagnostic Assistant", "🤖"),
+#if BUILD_ADMIN
                 ("TicketAdminDesk", "Admin Service Desk", "👑"),
+#endif
                 ("MyTickets", "Track My Tickets", "📂")
             }
         },
@@ -268,7 +272,11 @@ public partial class MainWindow : Window
 
     public MainWindow(string[] args)
     {
-        Title = $"SVLL IT Support Workstation v{CurrentVersion} - Enterprise Fleet Diagnostics";
+#if BUILD_ADMIN
+        Title = $"SVLL IT Support Workstation v{CurrentVersion} 👑 ADMIN EDITION - Enterprise Fleet Diagnostics";
+#else
+        Title = $"SVLL IT Support Workstation v{CurrentVersion} - User Edition";
+#endif
         WindowState = WindowState.Maximized;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Width = 1280;
@@ -294,8 +302,28 @@ public partial class MainWindow : Window
         Loaded += async (s, e) =>
         {
             NavigateTo("Dashboard");
-            Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Initial state verified.");
+            Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Build: {BuildConstants.BuildEdition}. Initial state verified.");
             await HandleCommandLineArgsAsync(args);
+
+            // v8.0: Start cloud sync (heartbeat + fleet poll + reply poll)
+            string relayUrl = AdminAuthService.Instance.GetRelayServerUrl();
+            if (!string.IsNullOrEmpty(relayUrl))
+            {
+                CloudSyncService.Instance.Start(relayUrl);
+                Log($"[CLOUD SYNC] Relay server configured: {relayUrl}. Heartbeat active.");
+            }
+            else
+            {
+                Log("[CLOUD SYNC] No relay server URL configured. Fleet sync inactive. Configure in Admin Security Settings.");
+            }
+
+            // v8.0: Subscribe to admin reply notifications
+            CloudSyncService.Instance.AdminReplyReceived += OnAdminReplyReceived;
+
+#if BUILD_ADMIN
+            // Admin build: subscribe to live fleet updates
+            CloudSyncService.Instance.FleetUpdated += OnCloudFleetUpdated;
+#endif
         };
 
         PreviewKeyDown += (s, e) =>
@@ -307,7 +335,7 @@ public partial class MainWindow : Window
             }
         };
 
-        Closing += (s, e) =>
+        Closing += async (s, e) =>
         {
             try
             {
@@ -315,6 +343,10 @@ public partial class MainWindow : Window
                 _watchdogTimer?.Stop();
                 _isWatchdogRunning = false;
                 _vitalsTimer?.Stop();
+
+                // v8.0: Send offline status to relay before closing
+                CloudSyncService.Instance.Stop();
+                await CloudSyncService.Instance.SendOfflineStatusAsync();
 
                 // Revert runtime watchdog state to clean factory baseline
                 InitializeDefaultWatchdogTargets();
@@ -327,6 +359,87 @@ public partial class MainWindow : Window
             catch { }
         };
     }
+
+    // -------------------------------------------------------------------------
+    // v8.0 Cloud sync event handlers
+    // -------------------------------------------------------------------------
+
+    private void OnAdminReplyReceived(SVLL_IT_Workstation.Models.ComplaintTicket ticket)
+    {
+        // Show Windows toast-style popup notification
+        try
+        {
+            var notif = new Window
+            {
+                Title = "SVLL IT — Ticket Reply",
+                Width = 400,
+                Height = 200,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Left = SystemParameters.PrimaryScreenWidth - 420,
+                Top = SystemParameters.PrimaryScreenHeight - 220,
+                WindowStyle = WindowStyle.ToolWindow,
+                ResizeMode = ResizeMode.NoResize,
+                Topmost = true,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 253, 244))
+            };
+            var sp = new System.Windows.Controls.StackPanel { Margin = new Thickness(16) };
+            sp.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = "✅ Admin Reply Received!",
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 101, 52)),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+            sp.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = $"Ticket: {ticket.Title}",
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(15, 23, 42)),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+            sp.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = ticket.AdminReply,
+                FontSize = 11,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 64, 175)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            });
+            var btnView = new System.Windows.Controls.Button
+            {
+                Content = "📂 View My Tickets",
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 163, 74)),
+                Foreground = System.Windows.Media.Brushes.White,
+                BorderThickness = new Thickness(0),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                FontWeight = FontWeights.Bold
+            };
+            btnView.Click += (s, e) => { NavigateTo("MyTickets"); notif.Close(); };
+            sp.Children.Add(btnView);
+            notif.Content = sp;
+            notif.Show();
+
+            // Auto-close after 12 seconds
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(12) };
+            timer.Tick += (s, e) => { timer.Stop(); try { notif.Close(); } catch { } };
+            timer.Start();
+        }
+        catch { }
+
+        // Also invalidate MyTickets view cache so it refreshes
+        _viewCache.Remove("MyTickets");
+    }
+
+#if BUILD_ADMIN
+    private void OnCloudFleetUpdated(List<SVLL_IT_Workstation.Models.RemoteDeviceItem> devices)
+    {
+        // Invalidate Fleet Admin Console view cache so it re-renders with fresh data
+        _viewCache.Remove("FleetAdminConsole");
+    }
+#endif
 
     private void BuildMainLayout()
     {
@@ -908,9 +1021,11 @@ public partial class MainWindow : Window
         itemRemote.Click += (s, e) => NavigateTo("RemoteClient");
         quickMenu.Items.Add(itemRemote);
 
-        var itemFleet = new MenuItem { Header = "👑  Fleet Device Admin Console (Locked)", FontWeight = FontWeights.SemiBold };
+#if BUILD_ADMIN
+        var itemFleet = new MenuItem { Header = "👑  Fleet Device Admin Console", FontWeight = FontWeights.SemiBold };
         itemFleet.Click += (s, e) => NavigateTo("FleetAdminConsole");
         quickMenu.Items.Add(itemFleet);
+#endif
 
         var itemComplaint = new MenuItem { Header = "📋  Register IT Support Complaint", FontWeight = FontWeights.SemiBold };
         itemComplaint.Click += (s, e) => NavigateTo("SubmitComplaint");
@@ -920,9 +1035,11 @@ public partial class MainWindow : Window
         itemAi.Click += (s, e) => NavigateTo("AiComplaintBot");
         quickMenu.Items.Add(itemAi);
 
-        var itemDesk = new MenuItem { Header = "👑  IT Service Desk Admin Panel (Locked)", FontWeight = FontWeights.SemiBold };
+#if BUILD_ADMIN
+        var itemDesk = new MenuItem { Header = "👑  IT Service Desk Admin Panel", FontWeight = FontWeights.SemiBold };
         itemDesk.Click += (s, e) => NavigateTo("TicketAdminDesk");
         quickMenu.Items.Add(itemDesk);
+#endif
 
         quickMenu.Items.Add(new Separator());
 

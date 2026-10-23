@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 using SVLL_IT_Workstation.Models;
 
 namespace SVLL_IT_Workstation;
@@ -144,6 +146,12 @@ public class FleetRegistryService
         string anyDeskId = DetectAnyDeskId();
         bool anyDeskInstalled = !string.IsNullOrEmpty(FindAnyDeskExe());
 
+        // v8.0: additional telemetry fields
+        string serial = GetBiosSerial();
+        string osBuild = GetOsBuildNumber();
+        double diskFree = GetCDriveFreePercent();
+        (bool meshRunning, string meshNodeId) = MeshAgentService.GetStatus();
+
         _localDevice = new RemoteDeviceItem
         {
             Id = "LOCAL-" + hostname,
@@ -158,9 +166,68 @@ public class FleetRegistryService
             QuickAssistAvailable = true,
             Status = "Online",
             OsVersion = Environment.OSVersion.ToString(),
+            OsBuild = osBuild,
+            SerialNumber = serial,
+            DiskFreePercent = diskFree,
+            MeshAgentRunning = meshRunning,
+            MeshNodeId = meshNodeId,
             LastSeen = DateTime.Now,
             IsLocalHost = true
         };
+    }
+
+    private static string GetBiosSerial()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                string? s = obj["SerialNumber"]?.ToString()?.Trim();
+                if (!string.IsNullOrEmpty(s) && s != "To be filled by O.E.M." && s != "Default string" && s.Length > 3)
+                    return s;
+            }
+        }
+        catch { }
+        // Fallback: Motherboard UUID
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT UUID FROM Win32_ComputerSystemProduct");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                string? uuid = obj["UUID"]?.ToString()?.Trim();
+                if (!string.IsNullOrEmpty(uuid) && uuid != "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")
+                    return "UUID:" + uuid;
+            }
+        }
+        catch { }
+        return "N/A";
+    }
+
+    private static string GetOsBuildNumber()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+            string? build = key?.GetValue("CurrentBuildNumber")?.ToString();
+            string? ubr = key?.GetValue("UBR")?.ToString();
+            if (!string.IsNullOrEmpty(build))
+                return ubr != null ? $"{build}.{ubr}" : build;
+        }
+        catch { }
+        return Environment.OSVersion.Version.Build.ToString();
+    }
+
+    private static double GetCDriveFreePercent()
+    {
+        try
+        {
+            var drive = new DriveInfo("C");
+            if (drive.IsReady)
+                return Math.Round((double)drive.AvailableFreeSpace / drive.TotalSize * 100, 1);
+        }
+        catch { }
+        return 0.0;
     }
 
     private string GetLocalIpv4()
@@ -401,6 +468,12 @@ public class FleetRegistryService
 
     public List<RemoteDeviceItem> GetAllDevices()
     {
+        // v8.0: If CloudSyncService has live devices from the relay, use them!
+        var cloudFleet = CloudSyncService.Instance.CachedFleet;
+        if (cloudFleet != null && cloudFleet.Count > 0)
+        {
+            return cloudFleet.ToList();
+        }
         return _devices.ToList();
     }
 

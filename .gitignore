@@ -3,5 +3,10 @@ obj/
 *.user
 *.suo
 publish/
+publish-admin/
+publish-user/
+publish-server/
 release/*.exe
+release/*.zip
+*.db
 !installer/app_transparent.ico
