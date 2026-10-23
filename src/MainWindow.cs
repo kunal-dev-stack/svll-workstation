@@ -211,13 +211,15 @@ public partial class MainWindow : Window
         {
             Id = "Hub_Remote",
             Title = "REMOTE ACCESS & FLEET CONSOLE",
-            Subtitle = "AnyDesk Integration, Zero-Code Connect & Admin Fleet Management",
+            Subtitle = "Dedicated Live Remote Access, 1-Click Desktop & Fleet Management",
             Glyph = "\uE896",
             SubTools = new()
             {
-                ("RemoteClient", "My Remote Client", "🔴"),
 #if BUILD_ADMIN
-                ("FleetAdminConsole", "Fleet Admin Console", "👑"),
+                ("FleetAdminConsole", "👑 Dedicated Remote Access Dashboard", "🖥️"),
+                ("RemoteClient", "My Local AnyDesk Client", "🔴"),
+#else
+                ("RemoteClient", "My Remote Client", "🔴"),
 #endif
             }
         },
@@ -452,6 +454,18 @@ public partial class MainWindow : Window
     {
         // Invalidate Fleet Admin Console view cache so it re-renders with fresh data
         _viewCache.Remove("FleetAdminConsole");
+        Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                if (_fleetDeviceListPanel != null)
+                {
+                    RenderFleetDeviceCards();
+                    UpdateFleetMetricCounters();
+                }
+            }
+            catch { }
+        });
     }
 #endif
 

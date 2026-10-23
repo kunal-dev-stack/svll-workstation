@@ -564,6 +564,51 @@ public class FleetRegistryService
         }
     }
 
+    public static bool LaunchFileExplorer(string hostOrIp)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $@"\\{hostOrIp}\c$",
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch { return false; }
+    }
+
+    public static bool LaunchRemoteShell(string hostOrIp)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoExit -Command \"Write-Host 'Connecting remote PowerShell session to {hostOrIp}...' -ForegroundColor Cyan; Enter-PSSession -ComputerName '{hostOrIp}'\"",
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch { return false; }
+    }
+
+    public static bool LaunchComputerManagement(string hostOrIp)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "compmgmt.msc",
+                Arguments = $"/computer:{hostOrIp}",
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch { return false; }
+    }
+
     public static bool LaunchQuickAssist()
     {
         try

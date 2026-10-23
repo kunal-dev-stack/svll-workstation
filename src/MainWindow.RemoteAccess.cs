@@ -25,6 +25,8 @@ public partial class MainWindow
     private TextBlock _lblFleetTotalCount = null!;
     private TextBlock _lblFleetOnlineCount = null!;
     private TextBlock _lblFleetRequestCount = null!;
+    private TextBlock _lblFleetOfflineCount = null!;
+    private static System.Windows.Threading.DispatcherTimer? _fleetAutoRefreshTimer;
     private TextBox _txtFleetSearch = null!;
     private ComboBox _cmbFleetBranchFilter = null!;
 
@@ -668,7 +670,190 @@ public partial class MainWindow
         headerBorder.Child = headerGrid;
         mainStack.Children.Add(headerBorder);
 
-        // 2. Metrics Bar (Total, Online, Support Requests, Offline)
+        // 2. Direct Fast Remote Connect Console
+        var fastConnectBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16, 12, 16, 12),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        var fastGrid = new Grid();
+        fastGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var fastLeft = new StackPanel();
+        var fastTitle = new StackPanel { Orientation = Orientation.Horizontal };
+        fastTitle.Children.Add(new TextBlock { Text = "⚡ Direct Fast Remote Connect", FontSize = 13, FontWeight = FontWeights.ExtraBold, Foreground = TextDark });
+        fastTitle.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6, 1, 6, 1),
+            Margin = new Thickness(8, 0, 0, 0),
+            Child = new TextBlock { Text = "INSTANT ACCESS", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
+        });
+        fastLeft.Children.Add(fastTitle);
+        fastLeft.Children.Add(new TextBlock
+        {
+            Text = "Enter any Target IP (e.g. 192.168.10.x), Computer Name, or AnyDesk ID to connect directly with 1 click:",
+            FontSize = 10.5,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 2, 0, 6)
+        });
+
+        var fastInputRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var txtDirectTarget = new TextBox
+        {
+            Width = 260,
+            Height = 30,
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            FontFamily = new FontFamily("Consolas, Courier New"),
+            Padding = new Thickness(8, 4, 8, 4),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            BorderBrush = BorderMuted
+        };
+        fastInputRow.Children.Add(txtDirectTarget);
+
+        var btnFastAnyDesk = new Button
+        {
+            Content = "🚀 AnyDesk",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = SvllRed,
+            Foreground = Brushes.White,
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(8, 0, 0, 0),
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnFastAnyDesk.Click += (s, e) =>
+        {
+            string target = txtDirectTarget.Text.Trim();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter an AnyDesk ID or IP address.", "Target Missing", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchAnyDesk(target);
+        };
+        fastInputRow.Children.Add(btnFastAnyDesk);
+
+        var btnFastRdp = new Button
+        {
+            Content = "💻 RDP Desktop",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = new SolidColorBrush(Color.FromRgb(30, 64, 175)),
+            Foreground = Brushes.White,
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(6, 0, 0, 0),
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        btnFastRdp.Click += (s, e) =>
+        {
+            string target = txtDirectTarget.Text.Trim();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter an IP address or hostname.", "Target Missing", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchRdp(target);
+        };
+        fastInputRow.Children.Add(btnFastRdp);
+
+        var btnFastShare = new Button
+        {
+            Content = "📁 Direct C$ Share",
+            FontSize = 11,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(10, 5, 10, 5),
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "Open \\\\IP\\c$ in Windows Explorer"
+        };
+        btnFastShare.Click += (s, e) =>
+        {
+            string target = txtDirectTarget.Text.Trim();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter an IP address or hostname.", "Target Missing", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchFileExplorer(target);
+        };
+        fastInputRow.Children.Add(btnFastShare);
+
+        var btnFastShell = new Button
+        {
+            Content = "📡 PowerShell Shell",
+            FontSize = 11,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(10, 5, 10, 5),
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "Open remote PowerShell interactive shell"
+        };
+        btnFastShell.Click += (s, e) =>
+        {
+            string target = txtDirectTarget.Text.Trim();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter an IP address or hostname.", "Target Missing", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchRemoteShell(target);
+        };
+        fastInputRow.Children.Add(btnFastShell);
+
+        var btnFastManage = new Button
+        {
+            Content = "⚙️ Manage",
+            FontSize = 11,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(10, 5, 10, 5),
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "Open Computer Management for remote computer"
+        };
+        btnFastManage.Click += (s, e) =>
+        {
+            string target = txtDirectTarget.Text.Trim();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter an IP address or hostname.", "Target Missing", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchComputerManagement(target);
+        };
+        fastInputRow.Children.Add(btnFastManage);
+
+        var btnFastPing = new Button
+        {
+            Content = "⚡ Ping",
+            FontSize = 11,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(10, 5, 10, 5),
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand
+        };
+        btnFastPing.Click += async (s, e) =>
+        {
+            string target = txtDirectTarget.Text.Trim();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter an IP address or hostname.", "Target Missing", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            btnFastPing.IsEnabled = false;
+            btnFastPing.Content = "⏳";
+            long ms = await FleetRegistryService.PingDeviceAsync(target);
+            btnFastPing.IsEnabled = true;
+            btnFastPing.Content = "⚡ Ping";
+            if (ms >= 0)
+            {
+                MessageBox.Show($"Reply from {target}: latency = {ms} ms 🟢", "Ping Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show($"Request timed out for {target} 🔴", "Ping Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        };
+        fastInputRow.Children.Add(btnFastPing);
+
+        fastLeft.Children.Add(fastInputRow);
+        Grid.SetColumn(fastLeft, 0);
+        fastGrid.Children.Add(fastLeft);
+
+        fastConnectBorder.Child = fastGrid;
+        mainStack.Children.Add(fastConnectBorder);
+
+        // 3. Metrics Bar (Total, Online, Support Requests, Offline)
         var metricsGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
         metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -684,16 +869,16 @@ public partial class MainWindow
         _lblFleetTotalCount = new TextBlock { Text = totalDevs.ToString(), FontSize = 20, FontWeight = FontWeights.ExtraBold, Foreground = SvllBlue };
         _lblFleetOnlineCount = new TextBlock { Text = onlineDevs.ToString(), FontSize = 20, FontWeight = FontWeights.ExtraBold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) };
         _lblFleetRequestCount = new TextBlock { Text = requestDevs.ToString(), FontSize = 20, FontWeight = FontWeights.ExtraBold, Foreground = SvllRed };
-        var lblOffline = new TextBlock { Text = offlineDevs.ToString(), FontSize = 20, FontWeight = FontWeights.ExtraBold, Foreground = TextSubtle };
+        _lblFleetOfflineCount = new TextBlock { Text = offlineDevs.ToString(), FontSize = 20, FontWeight = FontWeights.ExtraBold, Foreground = TextSubtle };
 
         metricsGrid.Children.Add(BuildMetricCard("🖥️ TOTAL ENDPOINTS", _lblFleetTotalCount, "Managed Workstations", 0));
         metricsGrid.Children.Add(BuildMetricCard("🟢 ONLINE & READY", _lblFleetOnlineCount, "Reachable via AnyDesk", 1));
         metricsGrid.Children.Add(BuildMetricCard("🚨 SUPPORT REQUESTED", _lblFleetRequestCount, "Immediate Action Needed", 2));
-        metricsGrid.Children.Add(BuildMetricCard("⚪ OFFLINE / SLEEP", lblOffline, "Not seen > 1 hr", 3));
+        metricsGrid.Children.Add(BuildMetricCard("⚪ OFFLINE / SLEEP", _lblFleetOfflineCount, "Not seen > 1 hr", 3));
 
         mainStack.Children.Add(metricsGrid);
 
-        // 3. Filter & Search Controls
+        // 4. Filter & Search Controls
         var filterCard = new Border
         {
             Background = BgCard,
@@ -706,6 +891,7 @@ public partial class MainWindow
         var filterGrid = new Grid();
         filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Search
         filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) }); // Branch
+        filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Live status pill
         filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Refresh
 
         var searchPanel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -741,6 +927,20 @@ public partial class MainWindow
         Grid.SetColumn(_cmbFleetBranchFilter, 1);
         filterGrid.Children.Add(_cmbFleetBranchFilter);
 
+        var autoSyncPill = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = "🟢 Live Auto-Sync: 4s", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
+        };
+        Grid.SetColumn(autoSyncPill, 2);
+        filterGrid.Children.Add(autoSyncPill);
+
         var btnRefreshFleet = new Button
         {
             Content = "🔄 Refresh Fleet",
@@ -754,20 +954,60 @@ public partial class MainWindow
         {
             FleetRegistryService.Instance.LoadFleet();
             RenderFleetDeviceCards();
+            UpdateFleetMetricCounters();
         };
-        Grid.SetColumn(btnRefreshFleet, 2);
+        Grid.SetColumn(btnRefreshFleet, 3);
         filterGrid.Children.Add(btnRefreshFleet);
 
         filterCard.Child = filterGrid;
         mainStack.Children.Add(filterCard);
 
-        // 4. Device Cards Container
+        // 5. Device Cards Container
         _fleetDeviceListPanel = new StackPanel();
         RenderFleetDeviceCards();
         mainStack.Children.Add(_fleetDeviceListPanel);
 
+        // Start auto-refresh timer to automatically reflect newly installed devices
+        StartFleetAutoRefresh();
+
         scroll.Content = mainStack;
         root.Children.Add(scroll);
+    }
+
+    private void StartFleetAutoRefresh()
+    {
+        if (_fleetAutoRefreshTimer == null)
+        {
+            _fleetAutoRefreshTimer = new System.Windows.Threading.DispatcherTimer();
+            _fleetAutoRefreshTimer.Interval = TimeSpan.FromSeconds(4);
+            _fleetAutoRefreshTimer.Tick += async (s, e) =>
+            {
+                try
+                {
+                    await CloudSyncService.Instance.PollFleetAsync();
+                    RenderFleetDeviceCards();
+                    UpdateFleetMetricCounters();
+                }
+                catch { }
+            };
+        }
+        if (!_fleetAutoRefreshTimer.IsEnabled)
+        {
+            _fleetAutoRefreshTimer.Start();
+        }
+    }
+
+    private void UpdateFleetMetricCounters()
+    {
+        try
+        {
+            var devices = FleetRegistryService.Instance.GetAllDevices();
+            if (_lblFleetTotalCount != null) _lblFleetTotalCount.Text = devices.Count.ToString();
+            if (_lblFleetOnlineCount != null) _lblFleetOnlineCount.Text = devices.Count(d => d.Status == "Online").ToString();
+            if (_lblFleetRequestCount != null) _lblFleetRequestCount.Text = devices.Count(d => d.Status == "SupportRequested").ToString();
+            if (_lblFleetOfflineCount != null) _lblFleetOfflineCount.Text = devices.Count(d => d.Status == "Offline").ToString();
+        }
+        catch { }
     }
 
     private void RenderFleetDeviceCards()
@@ -795,7 +1035,9 @@ public partial class MainWindow
                              dev.LoggedInUser.ToLowerInvariant().Contains(query) ||
                              dev.IpAddress.ToLowerInvariant().Contains(query) ||
                              dev.AnyDeskId.ToLowerInvariant().Contains(query) ||
-                             dev.BranchLocation.ToLowerInvariant().Contains(query);
+                             dev.BranchLocation.ToLowerInvariant().Contains(query) ||
+                             (!string.IsNullOrEmpty(dev.SerialNumber) && dev.SerialNumber.ToLowerInvariant().Contains(query)) ||
+                             (!string.IsNullOrEmpty(dev.MacAddress) && dev.MacAddress.ToLowerInvariant().Contains(query));
                 if (!match) continue;
             }
 
@@ -1041,6 +1283,42 @@ public partial class MainWindow
             Log($"[REMOTE ACCESS] Admin launched 1-click RDP session to {dev.Hostname} ({dev.IpAddress}).");
         };
         col2.Children.Add(btnConnectRdp);
+
+        var btnShare = new Button
+        {
+            Content = "📁 C$ Files",
+            FontSize = 10.5,
+            Padding = new Thickness(8, 6, 8, 6),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand,
+            ToolTip = $"Open \\\\{dev.IpAddress}\\c$ directly in Windows Explorer"
+        };
+        btnShare.Click += (s, e) =>
+        {
+            FleetRegistryService.LaunchFileExplorer(dev.IpAddress);
+            Log($"[REMOTE ACCESS] Admin opened C$ share for {dev.Hostname} ({dev.IpAddress}).");
+        };
+        col2.Children.Add(btnShare);
+
+        var btnShell = new Button
+        {
+            Content = "📡 Shell",
+            FontSize = 10.5,
+            Padding = new Thickness(8, 6, 8, 6),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand,
+            ToolTip = $"Open Remote PowerShell session to {dev.Hostname}"
+        };
+        btnShell.Click += (s, e) =>
+        {
+            FleetRegistryService.LaunchRemoteShell(dev.IpAddress);
+            Log($"[REMOTE ACCESS] Admin launched PowerShell remote session to {dev.Hostname} ({dev.IpAddress}).");
+        };
+        col2.Children.Add(btnShell);
 
         var btnPing = new Button
         {
