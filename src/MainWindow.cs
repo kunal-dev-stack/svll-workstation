@@ -29,7 +29,7 @@ namespace SVLL_IT_Workstation;
 public partial class MainWindow : Window
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    private class MEMORYSTATUSEX
+    public class MEMORYSTATUSEX
     {
         public uint dwLength;
         public uint dwMemoryLoad;
@@ -49,7 +49,7 @@ public partial class MainWindow : Window
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX lpBuffer);
+    public static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX lpBuffer);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -64,19 +64,29 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "8.0";
+    public const string CurrentVersion = "8.1";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
-    private static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
-    private static readonly SolidColorBrush SvllLightBlue = new SolidColorBrush(Color.FromRgb(37, 99, 235));
-    private static readonly SolidColorBrush SvllRed = new SolidColorBrush(Color.FromRgb(225, 45, 45));
-    private static readonly SolidColorBrush BgApp = new SolidColorBrush(Color.FromRgb(248, 250, 252));
-    private static readonly SolidColorBrush BgSidebar = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-    private static readonly SolidColorBrush BgCard = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-    private static readonly SolidColorBrush BorderMuted = new SolidColorBrush(Color.FromRgb(226, 232, 240));
-    private static readonly SolidColorBrush TextDark = new SolidColorBrush(Color.FromRgb(15, 23, 42));
-    private static readonly SolidColorBrush TextSubtle = new SolidColorBrush(Color.FromRgb(100, 116, 139));
-    private static readonly SolidColorBrush TerminalBg = new SolidColorBrush(Color.FromRgb(15, 23, 42));
+    public static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
+    public static readonly SolidColorBrush SvllLightBlue = new SolidColorBrush(Color.FromRgb(37, 99, 235));
+    public static readonly SolidColorBrush SvllRed = new SolidColorBrush(Color.FromRgb(225, 45, 45));
+    public static readonly SolidColorBrush BgApp = new SolidColorBrush(Color.FromRgb(248, 250, 252));
+    public static readonly SolidColorBrush BgSidebar = new SolidColorBrush(Color.FromRgb(255, 255, 255));
+    public static readonly SolidColorBrush BgCard = new SolidColorBrush(Color.FromRgb(255, 255, 255));
+    public static readonly SolidColorBrush BorderMuted = new SolidColorBrush(Color.FromRgb(226, 232, 240));
+    public static readonly SolidColorBrush TextDark = new SolidColorBrush(Color.FromRgb(15, 23, 42));
+    public static readonly SolidColorBrush TextSubtle = new SolidColorBrush(Color.FromRgb(100, 116, 139));
+    public static readonly SolidColorBrush TerminalBg = new SolidColorBrush(Color.FromRgb(15, 23, 42));
+
+    // Dark Mode Theme Engine & Telemetry Accessors
+    public static bool IsDarkMode { get; private set; } = false;
+    public static double LastCpuPercentage { get; set; } = 0.0;
+    public static bool GetMemoryStatus(MEMORYSTATUSEX mem) => GlobalMemoryStatusEx(mem);
+
+    private ContentControl? _topStatusBarContainer;
+    private ContentControl? _devCardContainer;
+    private Button? _btnThemeToggle;
+    private string _currentRoute = "Dashboard";
 
     private static readonly FontFamily IconFont = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI Symbol");
 
@@ -277,6 +287,23 @@ public partial class MainWindow : Window
         }
         catch { }
 
+        // Load Dark Mode Preference
+        try
+        {
+            string prefPath = System.IO.Path.Combine(AuditLogDirectory, "theme.pref");
+            if (File.Exists(prefPath) && File.ReadAllText(prefPath).Trim().Equals("dark", StringComparison.OrdinalIgnoreCase))
+            {
+                IsDarkMode = true;
+                BgApp.Color = Color.FromRgb(15, 23, 42);
+                BgSidebar.Color = Color.FromRgb(30, 41, 59);
+                BgCard.Color = Color.FromRgb(30, 41, 59);
+                BorderMuted.Color = Color.FromRgb(51, 65, 85);
+                TextDark.Color = Color.FromRgb(248, 250, 252);
+                TextSubtle.Color = Color.FromRgb(148, 163, 184);
+            }
+        }
+        catch { }
+
         InitializeSoftwareLibrary();
         InitializeDefaultWatchdogTargets();
         InitializeCommandLibrary();
@@ -288,10 +315,6 @@ public partial class MainWindow : Window
         Loaded += async (s, e) =>
         {
             NavigateTo("Dashboard");
-#if BUILD_ADMIN
-            // Admin Edition always opens to the Command Center first
-            NavigateTo("AdminCommandCenter");
-#endif
             Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Build: {BuildConstants.BuildEdition}. Initial state verified.");
             await HandleCommandLineArgsAsync(args);
 
@@ -423,9 +446,9 @@ public partial class MainWindow : Window
         sidebarGrid.Children.Add(navScroll);
 
         // 3. Bottom Developer Attribution Card
-        var devCard = BuildDeveloperAttributionCard();
-        Grid.SetRow(devCard, 2);
-        sidebarGrid.Children.Add(devCard);
+        _devCardContainer = new ContentControl { Content = BuildDeveloperAttributionCard() };
+        Grid.SetRow(_devCardContainer, 2);
+        sidebarGrid.Children.Add(_devCardContainer);
 
         sidebarBorder.Child = sidebarGrid;
         Grid.SetColumn(sidebarBorder, 0);
@@ -437,9 +460,9 @@ public partial class MainWindow : Window
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Row 1: Dynamic Page Host
         mainGrid.RowDefinitions.Add(_terminalRow); // Row 2: Embedded Interactive Terminal
 
-        var topStatusBar = BuildTopStatusBar();
-        Grid.SetRow(topStatusBar, 0);
-        mainGrid.Children.Add(topStatusBar);
+        _topStatusBarContainer = new ContentControl { Content = BuildTopStatusBar() };
+        Grid.SetRow(_topStatusBarContainer, 0);
+        mainGrid.Children.Add(_topStatusBarContainer);
 
         _pageHost = new ContentControl { Margin = new Thickness(14, 10, 14, 6) };
         Grid.SetRow(_pageHost, 1);
@@ -650,7 +673,7 @@ public partial class MainWindow : Window
             Background = BgCard,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(0, 0, 0, 1),
-            Padding = new Thickness(14, 6, 14, 6)
+            Padding = new Thickness(10, 4, 10, 4)
         };
 
         var grid = new Grid();
@@ -664,18 +687,18 @@ public partial class MainWindow : Window
         // Badge 1: Identity Pill [ 💻 Hostname | 👤 Username ]
         var identityBorder = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 3, 8, 3),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(6, 2, 6, 2),
             VerticalAlignment = VerticalAlignment.Center
         };
         var identityStack = new StackPanel { Orientation = Orientation.Horizontal };
         _lblTopBarHost = new TextBlock
         {
             Text = $"💻 {Environment.MachineName}",
-            FontSize = 11,
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
@@ -683,15 +706,15 @@ public partial class MainWindow : Window
         var idSep = new Border
         {
             Width = 1,
-            Height = 10,
+            Height = 9,
             Background = BorderMuted,
-            Margin = new Thickness(6, 0, 6, 0),
+            Margin = new Thickness(5, 0, 5, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         _lblTopBarUser = new TextBlock
         {
             Text = $"👤 {Environment.UserName}",
-            FontSize = 11,
+            FontSize = 10,
             Foreground = TextSubtle,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -704,19 +727,19 @@ public partial class MainWindow : Window
         // Badge 2: Network Pill [ 🌐 IP • GW 🟢 ]
         var netBorder = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(240, 249, 255)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(186, 230, 253)),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(15, 23, 42)) : new SolidColorBrush(Color.FromRgb(240, 249, 255)),
+            BorderBrush = IsDarkMode ? BorderMuted : new SolidColorBrush(Color.FromRgb(186, 230, 253)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 3, 8, 3),
-            Margin = new Thickness(6, 0, 0, 0),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(4, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         var netStack = new StackPanel { Orientation = Orientation.Horizontal };
         _lblTopBarIp = new TextBlock
         {
             Text = "🌐 Detecting...",
-            FontSize = 11,
+            FontSize = 10,
             FontWeight = FontWeights.SemiBold,
             Foreground = SvllBlue,
             VerticalAlignment = VerticalAlignment.Center
@@ -724,16 +747,16 @@ public partial class MainWindow : Window
         var netSep = new Border
         {
             Width = 1,
-            Height = 10,
-            Background = new SolidColorBrush(Color.FromRgb(186, 230, 253)),
-            Margin = new Thickness(6, 0, 6, 0),
+            Height = 9,
+            Background = IsDarkMode ? BorderMuted : new SolidColorBrush(Color.FromRgb(186, 230, 253)),
+            Margin = new Thickness(5, 0, 5, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         _lblTopBarGateway = new TextBlock
         {
             Text = $"GW: {DetectLocalGatewayIp()} 🟢",
-            FontSize = 10.5,
-            Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161)),
+            FontSize = 9.5,
+            Foreground = IsDarkMode ? new SolidColorBrush(Color.FromRgb(56, 189, 248)) : new SolidColorBrush(Color.FromRgb(3, 105, 161)),
             VerticalAlignment = VerticalAlignment.Center
         };
         netStack.Children.Add(_lblTopBarIp);
@@ -746,23 +769,23 @@ public partial class MainWindow : Window
         grid.Children.Add(leftStack);
 
         // ------------------ COL 2: RIGHT TELEMETRY & ACTIONS DOCK ------------------
-        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
 
         // Combined Telemetry Pill [ 🚀 CPU: --%  |  🧠 RAM: --% ]
         var telemetryBorder = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 3, 8, 3),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(6, 2, 6, 2),
             VerticalAlignment = VerticalAlignment.Center
         };
         var telemetryStack = new StackPanel { Orientation = Orientation.Horizontal };
         _lblTopBarCpu = new TextBlock
         {
             Text = "🚀 CPU: --%",
-            FontSize = 10.5,
+            FontSize = 9.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
@@ -770,15 +793,15 @@ public partial class MainWindow : Window
         var telemSep = new Border
         {
             Width = 1,
-            Height = 10,
+            Height = 9,
             Background = BorderMuted,
-            Margin = new Thickness(6, 0, 6, 0),
+            Margin = new Thickness(5, 0, 5, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         _lblTopBarRam = new TextBlock
         {
             Text = "🧠 RAM: --%",
-            FontSize = 10.5,
+            FontSize = 9.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
@@ -792,19 +815,20 @@ public partial class MainWindow : Window
         // Fleet Health Score Pill
         var healthPill = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(20, 83, 45)) : new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+            BorderBrush = IsDarkMode ? new SolidColorBrush(Color.FromRgb(34, 197, 94)) : new SolidColorBrush(Color.FromRgb(134, 239, 172)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 3, 8, 3),
-            Margin = new Thickness(6, 0, 0, 0),
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(4, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "System Health: 98% Optimal",
             Child = new TextBlock
             {
-                Text = "🛡️ 98% Optimal",
-                FontSize = 10.5,
+                Text = "🛡️ 98%",
+                FontSize = 9.5,
                 FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52))
+                Foreground = IsDarkMode ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(22, 101, 52))
             }
         };
         rightStack.Children.Add(healthPill);
@@ -812,20 +836,21 @@ public partial class MainWindow : Window
         // 1-Click Turbo Boost Button
         var btnTurbo = new Button
         {
-            Content = "⚡ Turbo Boost",
-            FontSize = 10.5,
+            Content = "⚡ Boost",
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Padding = new Thickness(10, 3, 10, 3),
-            Margin = new Thickness(6, 0, 0, 0),
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(4, 0, 0, 0),
             Background = SvllBlue,
             Foreground = Brushes.White,
             BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ToolTip = "1-Click Turbo Boost: Flush RAM & Purge Bloat Tasks"
         };
         btnTurbo.Click += async (s, e) =>
         {
             btnTurbo.IsEnabled = false;
-            btnTurbo.Content = "⏳ Boosting...";
+            btnTurbo.Content = "⏳ ...";
             try
             {
                 var res = await ExecuteTurboBoostAsync();
@@ -840,7 +865,7 @@ public partial class MainWindow : Window
             finally
             {
                 btnTurbo.IsEnabled = true;
-                btnTurbo.Content = "⚡ Turbo Boost";
+                btnTurbo.Content = "⚡ Boost";
             }
         };
         rightStack.Children.Add(btnTurbo);
@@ -848,15 +873,16 @@ public partial class MainWindow : Window
         // Command Palette (Ctrl+K)
         var btnPalette = new Button
         {
-            Content = "🔍 Search (Ctrl+K)",
-            FontSize = 10.5,
+            Content = "🔍 Ctrl+K",
+            FontSize = 10,
             FontWeight = FontWeights.SemiBold,
-            Padding = new Thickness(9, 3, 9, 3),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(4, 0, 0, 0),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(51, 65, 85)) : new SolidColorBrush(Color.FromRgb(15, 23, 42)),
             Foreground = Brushes.White,
             BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ToolTip = "Global Command Palette & Search (Ctrl+K)"
         };
         btnPalette.Click += (s, e) => OpenCommandPalette();
         rightStack.Children.Add(btnPalette);
@@ -864,24 +890,33 @@ public partial class MainWindow : Window
         // Admin Mode Session Pill / Unlock Toggle
         var btnAdminMode = new Button
         {
-            Content = AdminAuthService.Instance.IsAdminMode ? "👑 ADMIN ACTIVE" : "🔒 Admin Locked",
-            FontSize = 10.5,
+            Content = AdminAuthService.Instance.IsAdminMode ? "👑 Admin" : "🔒 Locked",
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Padding = new Thickness(10, 3, 10, 3),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = AdminAuthService.Instance.IsAdminMode ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
-            Foreground = AdminAuthService.Instance.IsAdminMode ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : TextSubtle,
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(4, 0, 0, 0),
+            Background = AdminAuthService.Instance.IsAdminMode 
+                ? (IsDarkMode ? new SolidColorBrush(Color.FromRgb(20, 83, 45)) : new SolidColorBrush(Color.FromRgb(220, 252, 231))) 
+                : (IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : new SolidColorBrush(Color.FromRgb(241, 245, 249))),
+            Foreground = AdminAuthService.Instance.IsAdminMode 
+                ? (IsDarkMode ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(22, 101, 52))) 
+                : TextSubtle,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ToolTip = "Admin Session Authentication State"
         };
         AdminAuthService.Instance.AdminModeChanged += (isAdmin) =>
         {
             Dispatcher.Invoke(() =>
             {
-                btnAdminMode.Content = isAdmin ? "👑 ADMIN ACTIVE" : "🔒 Admin Locked";
-                btnAdminMode.Background = isAdmin ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(241, 245, 249));
-                btnAdminMode.Foreground = isAdmin ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : TextSubtle;
+                btnAdminMode.Content = isAdmin ? "👑 Admin" : "🔒 Locked";
+                btnAdminMode.Background = isAdmin 
+                    ? (IsDarkMode ? new SolidColorBrush(Color.FromRgb(20, 83, 45)) : new SolidColorBrush(Color.FromRgb(220, 252, 231))) 
+                    : (IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)));
+                btnAdminMode.Foreground = isAdmin 
+                    ? (IsDarkMode ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(22, 101, 52))) 
+                    : TextSubtle;
             });
         };
         btnAdminMode.Click += (s, e) =>
@@ -902,25 +937,44 @@ public partial class MainWindow : Window
         };
         rightStack.Children.Add(btnAdminMode);
 
+        // Dark Mode Toggle Button
+        _btnThemeToggle = new Button
+        {
+            Content = IsDarkMode ? "☀️ Light" : "🌙 Dark",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(4, 0, 0, 0),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(51, 65, 85)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Foreground = IsDarkMode ? Brushes.White : TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = "Toggle Dark Mode / Light Mode Theme"
+        };
+        _btnThemeToggle.Click += (s, e) => ApplyTheme(!IsDarkMode);
+        rightStack.Children.Add(_btnThemeToggle);
+
         // Modern Dropdown: Quick Launch ▾
         var btnQuickMenu = new Button
         {
-            Content = "⚡ Quick Launch ▾",
-            FontSize = 10.5,
+            Content = "⚡ Quick ▾",
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Padding = new Thickness(10, 3, 10, 3),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(4, 0, 0, 0),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             Foreground = TextDark,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ToolTip = "Quick Launch Menu"
         };
 
         var quickMenu = new ContextMenu
         {
             FontSize = 11.5,
-            Background = Brushes.White,
+            Background = BgCard,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1)
         };
@@ -1006,19 +1060,20 @@ public partial class MainWindow : Window
         };
         rightStack.Children.Add(btnQuickMenu);
 
-        // Direct Top Status Bar Task Manager Button
+        // Direct Top Status Bar Task Manager Button - Clean Margin so it never hits right wall!
         var btnTopTask = new Button
         {
-            Content = "⚡ Task Manager",
-            FontSize = 10.5,
+            Content = "⚡ Task Mgr",
+            FontSize = 10,
             FontWeight = FontWeights.Bold,
-            Padding = new Thickness(9, 3, 9, 3),
-            Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
-            Foreground = SvllBlue,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(4, 0, 8, 0),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 58, 138)) : new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            Foreground = IsDarkMode ? Brushes.White : SvllBlue,
+            BorderBrush = IsDarkMode ? new SolidColorBrush(Color.FromRgb(59, 130, 246)) : new SolidColorBrush(Color.FromRgb(191, 219, 254)),
             BorderThickness = new Thickness(1),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ToolTip = "Interactive Task Manager & Processes"
         };
         btnTopTask.Click += (s, e) => NavigateTo("TaskManager");
         rightStack.Children.Add(btnTopTask);
@@ -1142,7 +1197,7 @@ public partial class MainWindow : Window
     {
         var card = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(15, 23, 42)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
@@ -1323,6 +1378,8 @@ public partial class MainWindow : Window
 
     public void NavigateTo(string tag)
     {
+        _currentRoute = tag;
+
         // 1. Determine target Hub and SubTool
         HubInfo? targetHub = null;
         string targetSubTag = "";
@@ -1364,7 +1421,9 @@ public partial class MainWindow : Window
         {
             bool isCurrent = kvp.Key == targetHub.Id;
             var btn = kvp.Value;
-            btn.Background = isCurrent ? new SolidColorBrush(Color.FromRgb(239, 246, 255)) : Brushes.Transparent;
+            btn.Background = isCurrent 
+                ? (IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 58, 138)) : new SolidColorBrush(Color.FromRgb(239, 246, 255))) 
+                : Brushes.Transparent;
             if (btn.Content is Grid g && g.Children.Count >= 2)
             {
                 if (g.Children[0] is TextBlock icon)
@@ -1372,9 +1431,9 @@ public partial class MainWindow : Window
                 if (g.Children[1] is StackPanel sp && sp.Children.Count >= 2)
                 {
                     if (sp.Children[0] is TextBlock title)
-                        title.Foreground = isCurrent ? SvllBlue : TextDark;
+                        title.Foreground = isCurrent ? (IsDarkMode ? Brushes.White : SvllBlue) : TextDark;
                     if (sp.Children[1] is TextBlock sub)
-                        sub.Foreground = isCurrent ? new SolidColorBrush(Color.FromRgb(3, 105, 161)) : TextSubtle;
+                        sub.Foreground = isCurrent ? (IsDarkMode ? new SolidColorBrush(Color.FromRgb(96, 165, 250)) : new SolidColorBrush(Color.FromRgb(3, 105, 161))) : TextSubtle;
                 }
             }
         }
@@ -1384,6 +1443,55 @@ public partial class MainWindow : Window
         _pageHost.Content = hubView;
 
         SwitchHubSubTool(targetHub.Id, targetSubTag);
+    }
+
+    public void ApplyTheme(bool isDark)
+    {
+        IsDarkMode = isDark;
+        if (isDark)
+        {
+            BgApp.Color = Color.FromRgb(15, 23, 42);          // Slate 900 #0F172A
+            BgSidebar.Color = Color.FromRgb(30, 41, 59);      // Slate 800 #1E293B
+            BgCard.Color = Color.FromRgb(30, 41, 59);         // Slate 800 #1E293B
+            BorderMuted.Color = Color.FromRgb(51, 65, 85);    // Slate 700 #334155
+            TextDark.Color = Color.FromRgb(248, 250, 252);    // Slate 50 #F8FAFC
+            TextSubtle.Color = Color.FromRgb(148, 163, 184);  // Slate 400 #94A3B8
+        }
+        else
+        {
+            BgApp.Color = Color.FromRgb(248, 250, 252);       // #F8FAFC
+            BgSidebar.Color = Color.FromRgb(255, 255, 255);   // White
+            BgCard.Color = Color.FromRgb(255, 255, 255);      // White
+            BorderMuted.Color = Color.FromRgb(226, 232, 240); // Slate 200 #E2E8F0
+            TextDark.Color = Color.FromRgb(15, 23, 42);       // Slate 900 #0F172A
+            TextSubtle.Color = Color.FromRgb(100, 116, 139);  // Slate 500 #64748B
+        }
+        Background = BgApp;
+
+        try
+        {
+            if (!Directory.Exists(AuditLogDirectory)) Directory.CreateDirectory(AuditLogDirectory);
+            File.WriteAllText(System.IO.Path.Combine(AuditLogDirectory, "theme.pref"), isDark ? "dark" : "light");
+        }
+        catch { }
+
+        if (_topStatusBarContainer != null)
+        {
+            _topStatusBarContainer.Content = BuildTopStatusBar();
+        }
+
+        if (_devCardContainer != null)
+        {
+            _devCardContainer.Content = BuildDeveloperAttributionCard();
+        }
+
+        _hubViews.Clear();
+        _viewCache.Clear();
+
+        if (!string.IsNullOrEmpty(_currentRoute))
+        {
+            NavigateTo(_currentRoute);
+        }
     }
 
     private UIElement CreateViewByTag(string tag)

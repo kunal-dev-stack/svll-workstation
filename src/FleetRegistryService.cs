@@ -200,8 +200,12 @@ public class FleetRegistryService
         };
     }
 
+    private static string? _cachedSerial;
+
     private static string GetBiosSerial()
     {
+        if (_cachedSerial != null) return _cachedSerial;
+
         try
         {
             using var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
@@ -209,7 +213,10 @@ public class FleetRegistryService
             {
                 string? s = obj["SerialNumber"]?.ToString()?.Trim();
                 if (!string.IsNullOrEmpty(s) && s != "To be filled by O.E.M." && s != "Default string" && s.Length > 3)
-                    return s;
+                {
+                    _cachedSerial = s;
+                    return _cachedSerial;
+                }
             }
         }
         catch { }
@@ -221,11 +228,16 @@ public class FleetRegistryService
             {
                 string? uuid = obj["UUID"]?.ToString()?.Trim();
                 if (!string.IsNullOrEmpty(uuid) && uuid != "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")
-                    return "UUID:" + uuid;
+                {
+                    _cachedSerial = "UUID:" + uuid;
+                    return _cachedSerial;
+                }
             }
         }
         catch { }
-        return "N/A";
+
+        _cachedSerial = "N/A";
+        return _cachedSerial;
     }
 
     private static string GetOsBuildNumber()

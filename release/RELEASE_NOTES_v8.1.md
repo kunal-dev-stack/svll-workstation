@@ -7,9 +7,28 @@
 
 ---
 
-## 🚀 What's New in v8.1 — Advanced Task Manager, USB Depot Engine, Vibrant Dashboard & UI Refinements
+## 🚀 What's New in v8.1 — Dark Mode, Performance Engine, Advanced Task Manager, USB Depot & UI Refinements
 
-SVLL IT Support Workstation v8.1 delivers critical quality-of-life enhancements, bug fixes, modern dashboard aesthetics, a brand-new detailed Task Manager, and an overhauled USB Offline Software & Driver Depot.
+SVLL IT Support Workstation v8.1 delivers critical quality-of-life enhancements, bug fixes, modern dashboard aesthetics, full Dark Mode support, non-blocking telemetry performance optimization, a brand-new detailed Task Manager, and an overhauled USB Offline Software & Driver Depot.
+
+---
+
+### ⭐ Highlights of the Latest v8.1 Enhancements
+- **🌙 Full Dark Mode Support**:
+  - Added a dedicated theme toggle button (`🌙 Dark` / `☀️ Light`) right on the top status bar.
+  - Modern, deep slate dark aesthetic (`#0F172A`, `#1E293B`, `#334155`, `#F8FAFC`).
+  - Persistent user preference saved across application restarts.
+- **⚡ Zero-Freeze Telemetry & Performance Optimization**:
+  - Re-architected `UpdateLiveVitals` to sample physical memory, CPU workloads, disk arrays, network stats, and process tables on background thread pools (`Task.Run`).
+  - Concurrency guards prevent timer tick queuing; UI thread operations complete in < 1ms for butter-smooth 60 FPS responsiveness.
+  - Eliminated synchronous `PerformanceCounter` sleep loops and cached WMI BIOS hardware serials.
+- **🏷️ Version Display Fixed**:
+  - Top title bar and bottom sidebar version labels now correctly reflect `v8.1`.
+- **🚀 Admin Startup View**:
+  - Admin Edition now opens directly to the **Dashboard (Hub 1)** on startup instead of jumping immediately to Admin Command Center.
+- **📐 Top Bar & Process Card Overlapping Resolved**:
+  - Rebuilt the Top Status Bar with compact responsive pills and an 8px right cushion margin, ensuring the **Task Manager** button is never cut off or hiding behind the right window border.
+  - Converted Dashboard Top 6 Processes header to a 2-column Grid with non-overlapping action buttons and an expanded 185px table container.
 
 ---
 

@@ -514,98 +514,122 @@ public partial class MainWindow
         return mainGrid;
     }
 
-    private void RefreshTaskManagerProcesses()
+    private static int _isTaskMgrSampling = 0;
+    private static readonly Dictionary<int, string> _taskMgrExeCache = new Dictionary<int, string>();
+
+    private async void RefreshTaskManagerProcesses()
     {
         if (_listTaskMgrProcesses == null) return;
+        if (Interlocked.CompareExchange(ref _isTaskMgrSampling, 1, 0) != 0) return;
 
         try
         {
             // IMPORTANT: Remember selected PID so auto-refresh NEVER deselects!
             int? selectedPid = (_listTaskMgrProcesses.SelectedItem as DetailedProcessItem)?.Id;
 
-            // Compute total RAM
-            double totalRamGb = 8.0;
-            try
+            var result = await Task.Run(() =>
             {
-                var mem = new MEMORYSTATUSEX();
-                GlobalMemoryStatusEx(mem);
-                totalRamGb = mem.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
-            }
-            catch { }
-
-            var rawProcs = Process.GetProcesses();
-            var items = new List<DetailedProcessItem>(rawProcs.Length);
-            int totalThreads = 0;
-            double topMemMb = 0;
-            string topConsumer = "None";
-
-            foreach (var p in rawProcs)
-            {
+                double totalRamGb = 8.0;
                 try
                 {
-                    double mb = 0;
-                    try { mb = p.WorkingSet64 / (1024.0 * 1024.0); } catch { }
-
-                    string title = "";
-                    try { title = p.MainWindowTitle; } catch { }
-
-                    int threads = 0;
-                    try { threads = p.Threads.Count; } catch { }
-                    totalThreads += threads;
-
-                    string priority = "Normal";
-                    try { priority = p.PriorityClass.ToString(); } catch { }
-
-                    bool responding = true;
-                    try { responding = p.Responding; } catch { }
-
-                    string? exePath = null;
-                    try { exePath = p.MainModule?.FileName; } catch { }
-
-                    if (mb > topMemMb)
-                    {
-                        topMemMb = mb;
-                        topConsumer = $"{p.ProcessName} ({mb:F0} MB)";
-                    }
-
-                    items.Add(new DetailedProcessItem
-                    {
-                        Id = p.Id,
-                        Name = p.ProcessName,
-                        Title = string.IsNullOrWhiteSpace(title) ? (exePath != null ? Path.GetFileName(exePath) : "") : title,
-                        MemoryMb = mb,
-                        MemoryPercent = totalRamGb > 0 ? (mb / (totalRamGb * 1024.0)) * 100.0 : 0,
-                        ThreadCount = threads,
-                        Status = responding ? "🟢 Running" : "⚠️ Not Responding",
-                        Priority = priority,
-                        ExecutablePath = exePath,
-                        HasWindow = !string.IsNullOrWhiteSpace(title)
-                    });
+                    var mem = new MEMORYSTATUSEX();
+                    GlobalMemoryStatusEx(mem);
+                    totalRamGb = mem.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
                 }
                 catch { }
-            }
+
+                var rawProcs = Process.GetProcesses();
+                var items = new List<DetailedProcessItem>(rawProcs.Length);
+                int totalThreads = 0;
+                double topMemMb = 0;
+                string topConsumer = "None";
+
+                foreach (var p in rawProcs)
+                {
+                    try
+                    {
+                        double mb = 0;
+                        try { mb = p.WorkingSet64 / (1024.0 * 1024.0); } catch { }
+
+                        string title = "";
+                        try { title = p.MainWindowTitle; } catch { }
+
+                        int threads = 0;
+                        try { threads = p.Threads.Count; } catch { }
+                        totalThreads += threads;
+
+                        string priority = "Normal";
+                        try { priority = p.PriorityClass.ToString(); } catch { }
+
+                        bool responding = true;
+                        if (p.MainWindowHandle != IntPtr.Zero)
+                        {
+                            try { responding = p.Responding; } catch { }
+                        }
+
+                        string? exePath = null;
+                        if (!_taskMgrExeCache.TryGetValue(p.Id, out exePath))
+                        {
+                            if (p.Id > 4)
+                            {
+                                try { exePath = p.MainModule?.FileName; } catch { }
+                            }
+                            if (exePath != null) _taskMgrExeCache[p.Id] = exePath;
+                        }
+
+                        if (mb > topMemMb)
+                        {
+                            topMemMb = mb;
+                            topConsumer = $"{p.ProcessName} ({mb:F0} MB)";
+                        }
+
+                        items.Add(new DetailedProcessItem
+                        {
+                            Id = p.Id,
+                            Name = p.ProcessName,
+                            Title = string.IsNullOrWhiteSpace(title) ? (exePath != null ? Path.GetFileName(exePath) : "") : title,
+                            MemoryMb = mb,
+                            MemoryPercent = totalRamGb > 0 ? (mb / (totalRamGb * 1024.0)) * 100.0 : 0,
+                            ThreadCount = threads,
+                            Status = responding ? "🟢 Running" : "⚠️ Not Responding",
+                            Priority = priority,
+                            ExecutablePath = exePath,
+                            HasWindow = !string.IsNullOrWhiteSpace(title)
+                        });
+                    }
+                    catch { }
+                }
+
+                if (_taskMgrExeCache.Count > 1000) _taskMgrExeCache.Clear();
+
+                return (items, totalThreads, topConsumer, totalRamGb);
+            });
 
             // Update KPI cards
-            if (_lblTaskMgrTotalProc != null) _lblTaskMgrTotalProc.Text = $"{items.Count} Running";
-            if (_lblTaskMgrTotalThreads != null) _lblTaskMgrTotalThreads.Text = $"{totalThreads:N0} Threads";
-            if (_lblTaskMgrTopConsumer != null) _lblTaskMgrTopConsumer.Text = topConsumer;
+            if (_lblTaskMgrTotalProc != null) _lblTaskMgrTotalProc.Text = $"{result.items.Count} Running";
+            if (_lblTaskMgrTotalThreads != null) _lblTaskMgrTotalThreads.Text = $"{result.totalThreads:N0} Threads";
+            if (_lblTaskMgrTopConsumer != null) _lblTaskMgrTopConsumer.Text = result.topConsumer;
 
             try
             {
                 var mem = new MEMORYSTATUSEX();
                 GlobalMemoryStatusEx(mem);
                 double usedGb = (mem.ullTotalPhys - mem.ullAvailPhys) / (1024.0 * 1024.0 * 1024.0);
-                if (_lblTaskMgrTotalRam != null) _lblTaskMgrTotalRam.Text = $"{usedGb:F1} / {totalRamGb:F1} GB ({mem.dwMemoryLoad}%)";
+                if (_lblTaskMgrTotalRam != null) _lblTaskMgrTotalRam.Text = $"{usedGb:F1} / {result.totalRamGb:F1} GB ({mem.dwMemoryLoad}%)";
             }
             catch { }
 
             _allProcessesCache.Clear();
-            _allProcessesCache.AddRange(items.OrderByDescending(x => x.MemoryMb));
+            _allProcessesCache.AddRange(result.items.OrderByDescending(x => x.MemoryMb));
 
             // Apply filter and restore selection!
             ApplyTaskMgrFilter(selectedPid);
         }
         catch { }
+        finally
+        {
+            Interlocked.Exchange(ref _isTaskMgrSampling, 0);
+        }
     }
 
     private void ApplyTaskMgrFilter(int? restoreSelectedPid = null)

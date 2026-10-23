@@ -390,17 +390,20 @@ public partial class MainWindow
             BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(16),
+            Padding = new Thickness(14),
             Margin = new Thickness(8, 0, 0, 0)
         };
         var spProcs = new StackPanel();
-        var procHeader = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+
+        var procHeader = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+        procHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        procHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var procLeft = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         procLeft.Children.Add(new TextBlock
         {
-            Text = "TOP 6 ACTIVE RESOURCE-INTENSIVE PROCESSES",
-            FontSize = 11,
+            Text = "TOP 6 ACTIVE PROCESSES",
+            FontSize = 10.5,
             FontWeight = FontWeights.Bold,
             Foreground = SvllBlue,
             VerticalAlignment = VerticalAlignment.Center
@@ -411,23 +414,24 @@ public partial class MainWindow
             BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(6, 1, 6, 1),
-            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(5, 1, 5, 1),
+            Margin = new Thickness(6, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = "⚡ 6 HIGH-LOAD", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = SvllRed }
+            Child = new TextBlock { Text = "⚡ 6 HIGH-LOAD", FontSize = 8.5, FontWeight = FontWeights.Bold, Foreground = SvllRed }
         };
         procLeft.Children.Add(countBadge);
+        Grid.SetColumn(procLeft, 0);
         procHeader.Children.Add(procLeft);
 
-        var procButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var procButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
 
         var btnOpenTaskMgrCard = new Button
         {
-            Content = "⚡ Detailed Task Manager ➔",
-            FontSize = 10,
+            Content = "⚡ Task Mgr ➔",
+            FontSize = 9.5,
             FontWeight = FontWeights.SemiBold,
-            Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(0, 0, 6, 0),
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(0, 0, 4, 0),
             Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
             Foreground = SvllBlue,
             BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
@@ -439,9 +443,9 @@ public partial class MainWindow
         var btnKillProc = new Button
         {
             Content = "❌ Close Task",
-            FontSize = 10,
+            FontSize = 9.5,
             FontWeight = FontWeights.Bold,
-            Padding = new Thickness(10, 2, 10, 2),
+            Padding = new Thickness(8, 2, 8, 2),
             Background = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
             Foreground = SvllRed,
             BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
@@ -450,23 +454,26 @@ public partial class MainWindow
         btnKillProc.Click += (s, e) => TerminateSelectedProcess();
         procButtons.Children.Add(btnKillProc);
 
-        DockPanel.SetDock(procButtons, Dock.Right);
+        Grid.SetColumn(procButtons, 1);
         procHeader.Children.Add(procButtons);
         spProcs.Children.Add(procHeader);
 
         _listTopProcesses = new ListView
         {
-            Height = 155,
-            FontSize = 11,
+            Height = 185,
+            FontSize = 10.5,
             BorderBrush = BorderMuted,
-            BorderThickness = new Thickness(1)
+            BorderThickness = new Thickness(1),
+            Background = BgCard
         };
+        ScrollViewer.SetHorizontalScrollBarVisibility(_listTopProcesses, ScrollBarVisibility.Disabled);
+        ScrollViewer.SetVerticalScrollBarVisibility(_listTopProcesses, ScrollBarVisibility.Auto);
         var gvProc = new GridView();
-        gvProc.Columns.Add(new GridViewColumn { Header = "PID", Width = 55, DisplayMemberBinding = new Binding("Id") });
-        gvProc.Columns.Add(new GridViewColumn { Header = "Process Name", Width = 150, DisplayMemberBinding = new Binding("Name") });
-        gvProc.Columns.Add(new GridViewColumn { Header = "RAM Usage", Width = 95, DisplayMemberBinding = new Binding("MemoryFormatted") });
+        gvProc.Columns.Add(new GridViewColumn { Header = "PID", Width = 48, DisplayMemberBinding = new Binding("Id") });
+        gvProc.Columns.Add(new GridViewColumn { Header = "Process Name", Width = 135, DisplayMemberBinding = new Binding("Name") });
+        gvProc.Columns.Add(new GridViewColumn { Header = "RAM Usage", Width = 80, DisplayMemberBinding = new Binding("MemoryFormatted") });
 
-        var barCol = new GridViewColumn { Header = "% of RAM", Width = 110 };
+        var barCol = new GridViewColumn { Header = "% of RAM", Width = 95 };
         var barFactory = new FrameworkElementFactory(typeof(ProgressBar));
         barFactory.SetValue(ProgressBar.MinimumProperty, 0.0);
         barFactory.SetValue(ProgressBar.MaximumProperty, 20.0); // 20% max scale
@@ -479,7 +486,7 @@ public partial class MainWindow
         _listTopProcesses.View = gvProc;
 
         // Context menu & double click to close
-        var pMenu = new ContextMenu();
+        var pMenu = new ContextMenu { Background = BgCard, BorderBrush = BorderMuted };
         var menuClose = new MenuItem { Header = "❌  Close Task (Terminate Process)", FontWeight = FontWeights.Bold };
         menuClose.Click += (s, e) => TerminateSelectedProcess();
         pMenu.Items.Add(menuClose);
@@ -718,9 +725,48 @@ public partial class MainWindow
         return valBlock;
     }
 
+    private static int _isVitalsSampling = 0;
+
+    private class DriveBarItem
+    {
+        public string DriveName { get; set; } = "";
+        public string VolumeLabel { get; set; } = "";
+        public string TypeTag { get; set; } = "";
+        public double TotalGb { get; set; }
+        public double FreeGb { get; set; }
+        public double UsedGb { get; set; }
+        public int Pct { get; set; }
+    }
+
+    private class DashboardVitalsSnapshot
+    {
+        public uint RamLoadPct { get; set; }
+        public double TotalRamGb { get; set; }
+        public double AvailRamGb { get; set; }
+        public double UsedRamGb { get; set; }
+        public double PageTotalGb { get; set; }
+        public double PageAvailGb { get; set; }
+        public double CpuPct { get; set; }
+        public int ProcessCount { get; set; }
+        public int ThreadPoolCount { get; set; }
+        public int CurrentHandleCount { get; set; }
+        public List<DriveBarItem> Drives { get; set; } = new();
+        public string NetIp { get; set; } = "Disconnected";
+        public string NetGw { get; set; } = "None";
+        public string NetMac { get; set; } = "Virtual Adapter";
+        public string NetSubnet { get; set; } = "255.255.255.0";
+        public string NetDns { get; set; } = "";
+        public double RxKb { get; set; }
+        public double TxKb { get; set; }
+        public bool HasNetTraffic { get; set; }
+        public List<TopProcessItem> TopProcesses { get; set; } = new();
+        public int HealthScore { get; set; } = 100;
+        public TimeSpan Uptime { get; set; }
+    }
+
     private void InitVitalsEngine()
     {
-        _vitalsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        _vitalsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.0) };
         _vitalsTimer.Tick += (s, e) => UpdateLiveVitals();
         _vitalsTimer.Start();
         UpdateLiveVitals();
@@ -729,147 +775,73 @@ public partial class MainWindow
     private async void UpdateLiveVitals()
     {
         if (_lblCpuVal == null || _lblRamVal == null) return;
+        if (Interlocked.CompareExchange(ref _isVitalsSampling, 1, 0) != 0) return;
 
         try
         {
-            // 1. RAM Utilization & Available Headroom
-            double totalRamGb = 16.0;
-            var mem = new MEMORYSTATUSEX();
-            if (GlobalMemoryStatusEx(mem))
-            {
-                double totalGb = Math.Round((double)mem.ullTotalPhys / (1024 * 1024 * 1024), 1);
-                double availGb = Math.Round((double)mem.ullAvailPhys / (1024 * 1024 * 1024), 1);
-                double usedGb = Math.Round(totalGb - availGb, 1);
-                uint loadPct = mem.dwMemoryLoad;
-                totalRamGb = totalGb;
-
-                _lblRamVal.Text = $"{loadPct}%";
-                _lblRamSub.Text = $"{usedGb} / {totalGb} GB";
-                if (_lblTopBarRam != null) _lblTopBarRam.Text = $"🧠 RAM: {loadPct}%";
-
-                if (_lblSpecRam != null)
-                {
-                    double pageTotal = Math.Round((double)mem.ullTotalPageFile / (1024 * 1024 * 1024), 1);
-                    double pageAvail = Math.Round((double)mem.ullAvailPageFile / (1024 * 1024 * 1024), 1);
-                    _lblSpecRam.Text = $"{totalGb} GB Physical Installed | {availGb} GB Available Headroom ({100 - loadPct}% Free) | Commit: {Math.Round(pageTotal - pageAvail, 1)}/{pageTotal} GB";
-                }
-
-                if (_ramCanvas != null && _ramLine != null && _ramFill != null)
-                {
-                    RenderSparkline(_ramCanvas, _ramLine, _ramFill, _ramHistory, loadPct);
-                }
-            }
-
-            // 2. CPU Live Workload Sampling
-            double cpuPct = await Task.Run(() => SampleCpuPercentage());
-            _lblCpuVal.Text = $"{Math.Round(cpuPct)}%";
-            if (_lblTopBarCpu != null) _lblTopBarCpu.Text = $"🚀 CPU: {Math.Round(cpuPct)}%";
-            if (_cpuCanvas != null && _cpuLine != null && _cpuFill != null)
-            {
-                RenderSparkline(_cpuCanvas, _cpuLine, _cpuFill, _cpuHistory, cpuPct);
-            }
-
-            // 3. System Processes & Threads Count
-            int procCount = Process.GetProcesses().Length;
-            if (_lblSpecTasks != null)
-            {
-                _lblSpecTasks.Text = $"{procCount} Active Processes | {ThreadPool.ThreadCount} ThreadPool Workers | Handles: {Process.GetCurrentProcess().HandleCount}";
-            }
-
-            // 4. Multi-Drive Storage Capacity Bars
-            UpdateDriveBars();
-
-            // 5. Active Real IPv4 & Real-Time Network I/O Bandwidth
-            UpdateNetworkStats();
-
-            // 6. Top 5 High-Memory Processes
-            UpdateTopProcesses(totalRamGb);
-
-            // 7. System Live Uptime
-            var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
-            if (_lblUptimeVal != null)
-                _lblUptimeVal.Text = $"Uptime: {uptime.Days}d {uptime.Hours}h {uptime.Minutes}m {uptime.Seconds}s";
-
-            // 8. Overall Stability Score & Circular Gauge
-            int healthScore = 100;
-            if (mem.dwMemoryLoad > 85) healthScore -= 15;
-            var cDrive = new DriveInfo("C");
-            if (cDrive.IsReady && ((double)cDrive.AvailableFreeSpace / cDrive.TotalSize) < 0.15) healthScore -= 15;
-            if (cpuPct > 90) healthScore -= 10;
-            UpdateCircularGauge(Math.Max(30, healthScore));
+            var snap = await Task.Run(() => CollectDashboardSnapshot());
+            ApplyDashboardSnapshot(snap);
         }
-        catch
+        catch { }
+        finally
         {
-            // Suppress runtime vitals polling transient exceptions
+            Interlocked.Exchange(ref _isVitalsSampling, 0);
         }
     }
 
-    private void UpdateDriveBars()
+    private DashboardVitalsSnapshot CollectDashboardSnapshot()
     {
-        if (_panelDriveBars == null) return;
-        _panelDriveBars.Children.Clear();
+        var snap = new DashboardVitalsSnapshot();
 
-        var drives = DriveInfo.GetDrives().Where(d => d.IsReady).ToList();
-        foreach (var d in drives)
+        // 1. RAM Utilization
+        var mem = new MEMORYSTATUSEX();
+        if (GlobalMemoryStatusEx(mem))
         {
-            double total = Math.Round((double)d.TotalSize / (1024 * 1024 * 1024), 1);
-            double free = Math.Round((double)d.AvailableFreeSpace / (1024 * 1024 * 1024), 1);
-            double used = Math.Round(total - free, 1);
-            int pct = (int)Math.Round(((total - free) / total) * 100);
-
-            string typeTag = d.DriveType == DriveType.Removable ? "🔌 USB" : (d.DriveType == DriveType.Fixed ? "💾 FIXED" : "📁 " + d.DriveType);
-            string volName = string.IsNullOrWhiteSpace(d.VolumeLabel) ? "Local Disk" : d.VolumeLabel;
-
-            var sp = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
-            var labelGrid = new DockPanel { Margin = new Thickness(0, 0, 0, 2) };
-
-            var titleSp = new StackPanel { Orientation = Orientation.Horizontal };
-            titleSp.Children.Add(new TextBlock
-            {
-                Text = $"[{d.Name.TrimEnd('\\')}] {volName}",
-                FontSize = 10.5,
-                FontWeight = FontWeights.Bold,
-                Foreground = TextDark
-            });
-            var typeBadge = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
-                BorderBrush = BorderMuted,
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(4, 1, 4, 1),
-                Margin = new Thickness(6, 0, 0, 0),
-                Child = new TextBlock { Text = typeTag, FontSize = 8.5, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
-            };
-            titleSp.Children.Add(typeBadge);
-            labelGrid.Children.Add(titleSp);
-
-            var statSp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            statSp.Children.Add(new TextBlock
-            {
-                Text = $"{used} / {total} GB ({pct}% Used  |  {free} GB Free)",
-                FontSize = 10,
-                Foreground = pct >= 85 ? SvllRed : TextSubtle,
-                FontWeight = pct >= 85 ? FontWeights.Bold : FontWeights.Normal
-            });
-            labelGrid.Children.Add(statSp);
-            sp.Children.Add(labelGrid);
-
-            var bar = new ProgressBar
-            {
-                Height = 7,
-                Minimum = 0,
-                Maximum = 100,
-                Value = pct,
-                Foreground = pct >= 90 ? SvllRed : (pct >= 75 ? new SolidColorBrush(Color.FromRgb(217, 119, 6)) : new SolidColorBrush(Color.FromRgb(16, 185, 129)))
-            };
-            sp.Children.Add(bar);
-            _panelDriveBars.Children.Add(sp);
+            snap.TotalRamGb = Math.Round((double)mem.ullTotalPhys / (1024 * 1024 * 1024), 1);
+            snap.AvailRamGb = Math.Round((double)mem.ullAvailPhys / (1024 * 1024 * 1024), 1);
+            snap.UsedRamGb = Math.Round(snap.TotalRamGb - snap.AvailRamGb, 1);
+            snap.RamLoadPct = mem.dwMemoryLoad;
+            snap.PageTotalGb = Math.Round((double)mem.ullTotalPageFile / (1024 * 1024 * 1024), 1);
+            snap.PageAvailGb = Math.Round((double)mem.ullAvailPageFile / (1024 * 1024 * 1024), 1);
         }
-    }
 
-    private void UpdateNetworkStats()
-    {
+        // 2. CPU Workload
+        snap.CpuPct = SampleCpuPercentage();
+        LastCpuPercentage = snap.CpuPct;
+
+        // 3. Process & Thread pool counts
+        var allProcs = Process.GetProcesses();
+        snap.ProcessCount = allProcs.Length;
+        snap.ThreadPoolCount = ThreadPool.ThreadCount;
+        try { snap.CurrentHandleCount = Process.GetCurrentProcess().HandleCount; } catch { }
+
+        // 4. Drives (Queried off-thread)
+        try
+        {
+            foreach (var d in DriveInfo.GetDrives().Where(d => d.IsReady))
+            {
+                double total = Math.Round((double)d.TotalSize / (1024 * 1024 * 1024), 1);
+                double free = Math.Round((double)d.AvailableFreeSpace / (1024 * 1024 * 1024), 1);
+                double used = Math.Round(total - free, 1);
+                int pct = total > 0 ? (int)Math.Round(((total - free) / total) * 100) : 0;
+                string typeTag = d.DriveType == DriveType.Removable ? "🔌 USB" : (d.DriveType == DriveType.Fixed ? "💾 FIXED" : "📁 " + d.DriveType);
+                string volName = string.IsNullOrWhiteSpace(d.VolumeLabel) ? "Local Disk" : d.VolumeLabel;
+
+                snap.Drives.Add(new DriveBarItem
+                {
+                    DriveName = d.Name.TrimEnd('\\'),
+                    VolumeLabel = volName,
+                    TypeTag = typeTag,
+                    TotalGb = total,
+                    FreeGb = free,
+                    UsedGb = used,
+                    Pct = pct
+                });
+            }
+        }
+        catch { }
+
+        // 5. Network Interface & I/O (Queried off-thread)
         try
         {
             var activeInterface = NetworkInterface.GetAllNetworkInterfaces()
@@ -888,23 +860,18 @@ public partial class MainWindow
                                          && !u.Address.ToString().StartsWith("127.")
                                          && !u.Address.ToString().StartsWith("169.254"));
 
-                string ip = ipv4Unicast?.Address.ToString() ?? "DHCP Discovering...";
-                string subnet = ipv4Unicast?.IPv4Mask.ToString() ?? "255.255.255.0";
+                snap.NetIp = ipv4Unicast?.Address.ToString() ?? "DHCP Discovering...";
+                snap.NetSubnet = ipv4Unicast?.IPv4Mask.ToString() ?? "255.255.255.0";
 
                 var gateway = ipProps.GatewayAddresses
                     .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
-                string gw = gateway != null ? gateway.Address.ToString() : "None";
+                snap.NetGw = gateway != null ? gateway.Address.ToString() : "None";
 
                 byte[] macBytes = activeInterface.GetPhysicalAddress().GetAddressBytes();
-                string mac = macBytes.Length == 6
+                snap.NetMac = macBytes.Length == 6
                     ? string.Join(":", macBytes.Select(b => b.ToString("X2")))
                     : "Virtual Adapter";
 
-                _lblNetVal.Text = ip;
-                if (_lblTopBarIp != null) _lblTopBarIp.Text = $"🌐 {ip}";
-                if (_lblTopBarGateway != null && gw != "None") _lblTopBarGateway.Text = $"⚡ GW: {gw} 🟢";
-
-                // Live Network Bandwidth I/O Throughput
                 var stats = activeInterface.GetIPv4Statistics();
                 long rx = stats.BytesReceived;
                 long tx = stats.BytesSent;
@@ -915,38 +882,191 @@ public partial class MainWindow
                     double dt = (now - _prevNetTime).TotalSeconds;
                     if (dt > 0.5)
                     {
-                        double rxKb = Math.Max(0, (rx - _prevBytesRx) / dt / 1024.0);
-                        double txKb = Math.Max(0, (tx - _prevBytesTx) / dt / 1024.0);
-
-                        _lblNetIoVal.Text = $"⬇ {rxKb:F1} KB/s  ⬆ {txKb:F1} KB/s";
-
-                        if (_netCanvas != null && _netRxLine != null && _netRxFill != null && _netTxLine != null)
-                        {
-                            RenderNetworkSparklines(_netCanvas, _netRxLine, _netRxFill, _netTxLine, _netRxHistory, _netTxHistory, rxKb, txKb);
-                        }
+                        snap.RxKb = Math.Max(0, (rx - _prevBytesRx) / dt / 1024.0);
+                        snap.TxKb = Math.Max(0, (tx - _prevBytesTx) / dt / 1024.0);
+                        snap.HasNetTraffic = true;
                     }
                 }
-
                 _prevBytesRx = rx;
                 _prevBytesTx = tx;
                 _prevNetTime = now;
 
-                if (_lblSpecMac != null) _lblSpecMac.Text = mac;
-                if (_lblSpecGw != null)
-                {
-                    string dnsServers = string.Join(", ", ipProps.DnsAddresses.Where(d => d.AddressFamily == AddressFamily.InterNetwork).Take(2));
-                    _lblSpecGw.Text = $"Gateway: {gw}  |  Subnet: {subnet}  |  DNS: {dnsServers}";
-                }
-            }
-            else
-            {
-                _lblNetVal.Text = "Disconnected";
-                _lblNetIoVal.Text = "No active connection";
+                snap.NetDns = string.Join(", ", ipProps.DnsAddresses.Where(d => d.AddressFamily == AddressFamily.InterNetwork).Take(2));
             }
         }
-        catch
+        catch { }
+
+        // 6. Top 6 Active Processes by Memory (Sorted off-thread)
+        try
         {
-            _lblNetVal.Text = "Network Offline";
+            snap.TopProcesses = allProcs
+                .OrderByDescending(p =>
+                {
+                    try { return p.WorkingSet64; } catch { return 0L; }
+                })
+                .Take(6)
+                .Select(p =>
+                {
+                    double mb = 0;
+                    try { mb = p.WorkingSet64 / (1024.0 * 1024.0); } catch { }
+                    return new TopProcessItem
+                    {
+                        Id = p.Id,
+                        Name = p.ProcessName,
+                        MemoryMb = mb,
+                        MemoryPercent = snap.TotalRamGb > 0 ? (mb / (snap.TotalRamGb * 1024.0)) * 100.0 : 0
+                    };
+                })
+                .ToList();
+        }
+        catch { }
+
+        // 7. System Uptime
+        snap.Uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
+
+        // 8. Overall Stability Score
+        int health = 100;
+        if (snap.RamLoadPct > 85) health -= 15;
+        var primaryDrive = snap.Drives.FirstOrDefault(d => d.DriveName.StartsWith("C", StringComparison.OrdinalIgnoreCase));
+        if (primaryDrive != null && primaryDrive.Pct > 85) health -= 15;
+        if (snap.CpuPct > 90) health -= 10;
+        snap.HealthScore = Math.Max(30, health);
+
+        return snap;
+    }
+
+    private void ApplyDashboardSnapshot(DashboardVitalsSnapshot snap)
+    {
+        // 1. RAM Utilization & Sparkline
+        _lblRamVal.Text = $"{snap.RamLoadPct}%";
+        _lblRamSub.Text = $"{snap.UsedRamGb} / {snap.TotalRamGb} GB";
+        if (_lblTopBarRam != null) _lblTopBarRam.Text = $"🧠 RAM: {snap.RamLoadPct}%";
+
+        if (_lblSpecRam != null)
+        {
+            _lblSpecRam.Text = $"{snap.TotalRamGb} GB Physical Installed | {snap.AvailRamGb} GB Available Headroom ({100 - snap.RamLoadPct}% Free) | Commit: {Math.Round(snap.PageTotalGb - snap.PageAvailGb, 1)}/{snap.PageTotalGb} GB";
+        }
+
+        if (_ramCanvas != null && _ramLine != null && _ramFill != null)
+        {
+            RenderSparkline(_ramCanvas, _ramLine, _ramFill, _ramHistory, snap.RamLoadPct);
+        }
+
+        // 2. CPU Workload & Sparkline
+        _lblCpuVal.Text = $"{Math.Round(snap.CpuPct)}%";
+        if (_lblTopBarCpu != null) _lblTopBarCpu.Text = $"🚀 CPU: {Math.Round(snap.CpuPct)}%";
+        if (_cpuCanvas != null && _cpuLine != null && _cpuFill != null)
+        {
+            RenderSparkline(_cpuCanvas, _cpuLine, _cpuFill, _cpuHistory, snap.CpuPct);
+        }
+
+        // 3. System Tasks & Threads
+        if (_lblSpecTasks != null)
+        {
+            _lblSpecTasks.Text = $"{snap.ProcessCount} Active Processes | {snap.ThreadPoolCount} ThreadPool Workers | Handles: {snap.CurrentHandleCount}";
+        }
+
+        // 4. Drive Storage Capacity Bars
+        RenderDriveBars(snap.Drives);
+
+        // 5. Network Stats & Sparkline
+        _lblNetVal.Text = snap.NetIp;
+        if (_lblTopBarIp != null) _lblTopBarIp.Text = $"🌐 {snap.NetIp}";
+        if (_lblTopBarGateway != null && snap.NetGw != "None") _lblTopBarGateway.Text = $"⚡ GW: {snap.NetGw} 🟢";
+
+        if (snap.HasNetTraffic)
+        {
+            _lblNetIoVal.Text = $"⬇ {snap.RxKb:F1} KB/s  ⬆ {snap.TxKb:F1} KB/s";
+            if (_netCanvas != null && _netRxLine != null && _netRxFill != null && _netTxLine != null)
+            {
+                RenderNetworkSparklines(_netCanvas, _netRxLine, _netRxFill, _netTxLine, _netRxHistory, _netTxHistory, snap.RxKb, snap.TxKb);
+            }
+        }
+
+        if (_lblSpecMac != null) _lblSpecMac.Text = snap.NetMac;
+        if (_lblSpecGw != null)
+        {
+            _lblSpecGw.Text = $"Gateway: {snap.NetGw}  |  Subnet: {snap.NetSubnet}  |  DNS: {snap.NetDns}";
+        }
+
+        // 6. Top 6 Processes List (Preserve selection!)
+        int? selectedPid = (_listTopProcesses.SelectedItem as TopProcessItem)?.Id;
+        _topProcesses.Clear();
+        _topProcesses.AddRange(snap.TopProcesses);
+        _listTopProcesses.ItemsSource = null;
+        _listTopProcesses.ItemsSource = _topProcesses;
+
+        if (selectedPid.HasValue)
+        {
+            var match = _topProcesses.FirstOrDefault(x => x.Id == selectedPid.Value);
+            if (match != null)
+            {
+                _listTopProcesses.SelectedItem = match;
+            }
+        }
+
+        // 7. System Uptime
+        if (_lblUptimeVal != null)
+        {
+            _lblUptimeVal.Text = $"Uptime: {snap.Uptime.Days}d {snap.Uptime.Hours}h {snap.Uptime.Minutes}m {snap.Uptime.Seconds}s";
+        }
+
+        // 8. Overall Health Score
+        UpdateCircularGauge(snap.HealthScore);
+    }
+
+    private void RenderDriveBars(List<DriveBarItem> drives)
+    {
+        if (_panelDriveBars == null) return;
+        _panelDriveBars.Children.Clear();
+
+        foreach (var d in drives)
+        {
+            var sp = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+            var labelGrid = new DockPanel { Margin = new Thickness(0, 0, 0, 2) };
+
+            var titleSp = new StackPanel { Orientation = Orientation.Horizontal };
+            titleSp.Children.Add(new TextBlock
+            {
+                Text = $"[{d.DriveName}] {d.VolumeLabel}",
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = TextDark
+            });
+            var typeBadge = new Border
+            {
+                Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+                BorderBrush = BorderMuted,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(4, 1, 4, 1),
+                Margin = new Thickness(6, 0, 0, 0),
+                Child = new TextBlock { Text = d.TypeTag, FontSize = 8.5, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
+            };
+            titleSp.Children.Add(typeBadge);
+            labelGrid.Children.Add(titleSp);
+
+            var statSp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            statSp.Children.Add(new TextBlock
+            {
+                Text = $"{d.UsedGb} / {d.TotalGb} GB ({d.Pct}% Used  |  {d.FreeGb} GB Free)",
+                FontSize = 10,
+                Foreground = d.Pct >= 85 ? SvllRed : TextSubtle,
+                FontWeight = d.Pct >= 85 ? FontWeights.Bold : FontWeights.Normal
+            });
+            labelGrid.Children.Add(statSp);
+            sp.Children.Add(labelGrid);
+
+            var bar = new ProgressBar
+            {
+                Height = 7,
+                Minimum = 0,
+                Maximum = 100,
+                Value = d.Pct,
+                Foreground = d.Pct >= 90 ? SvllRed : (d.Pct >= 75 ? new SolidColorBrush(Color.FromRgb(217, 119, 6)) : new SolidColorBrush(Color.FromRgb(16, 185, 129)))
+            };
+            sp.Children.Add(bar);
+            _panelDriveBars.Children.Add(sp);
         }
     }
 
@@ -983,53 +1103,6 @@ public partial class MainWindow
         rxLine.Points = rxPts;
         rxFill.Points = rxFillPts;
         txLine.Points = txPts;
-    }
-
-    private void UpdateTopProcesses(double totalRamGb)
-    {
-        if (_listTopProcesses == null) return;
-
-        try
-        {
-            // Capture selected PID so auto-refresh NEVER deselects!
-            int? selectedPid = (_listTopProcesses.SelectedItem as TopProcessItem)?.Id;
-
-            var top = Process.GetProcesses()
-                .OrderByDescending(p =>
-                {
-                    try { return p.WorkingSet64; } catch { return 0L; }
-                })
-                .Take(6)
-                .Select(p =>
-                {
-                    double mb = 0;
-                    try { mb = p.WorkingSet64 / (1024.0 * 1024.0); } catch { }
-                    return new TopProcessItem
-                    {
-                        Id = p.Id,
-                        Name = p.ProcessName,
-                        MemoryMb = mb,
-                        MemoryPercent = totalRamGb > 0 ? (mb / (totalRamGb * 1024.0)) * 100.0 : 0
-                    };
-                })
-                .ToList();
-
-            _topProcesses.Clear();
-            _topProcesses.AddRange(top);
-            _listTopProcesses.ItemsSource = null;
-            _listTopProcesses.ItemsSource = _topProcesses;
-
-            // Restore selection if previously selected!
-            if (selectedPid.HasValue)
-            {
-                var match = _topProcesses.FirstOrDefault(x => x.Id == selectedPid.Value);
-                if (match != null)
-                {
-                    _listTopProcesses.SelectedItem = match;
-                }
-            }
-        }
-        catch { }
     }
 
     private void TerminateSelectedProcess()

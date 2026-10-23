@@ -207,8 +207,12 @@ public class CloudSyncService
         };
     }
 
+    private static string? _cachedSerial;
+
     private static string GetBiosSerial()
     {
+        if (_cachedSerial != null) return _cachedSerial;
+
         try
         {
             using var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
@@ -219,7 +223,10 @@ public class CloudSyncService
                     serial != "To be filled by O.E.M." &&
                     serial != "Default string" &&
                     serial.Length > 3)
-                    return serial;
+                {
+                    _cachedSerial = serial;
+                    return _cachedSerial;
+                }
             }
         }
         catch { }
@@ -232,12 +239,16 @@ public class CloudSyncService
             {
                 string? uuid = obj["UUID"]?.ToString()?.Trim();
                 if (!string.IsNullOrEmpty(uuid) && uuid != "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")
-                    return "UUID:" + uuid;
+                {
+                    _cachedSerial = "UUID:" + uuid;
+                    return _cachedSerial;
+                }
             }
         }
         catch { }
 
-        return "N/A";
+        _cachedSerial = "N/A";
+        return _cachedSerial;
     }
 
     private static string GetOsBuildNumber()
@@ -272,10 +283,7 @@ public class CloudSyncService
     {
         try
         {
-            using var counter = new System.Diagnostics.PerformanceCounter("Processor", "% Processor Time", "_Total", true);
-            counter.NextValue();
-            System.Threading.Thread.Sleep(200);
-            return Math.Round(counter.NextValue(), 1);
+            return Math.Round(MainWindow.LastCpuPercentage, 1);
         }
         catch { }
         return 0.0;
@@ -285,12 +293,10 @@ public class CloudSyncService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
-            foreach (ManagementObject obj in searcher.Get())
+            var mem = new MainWindow.MEMORYSTATUSEX();
+            if (MainWindow.GetMemoryStatus(mem))
             {
-                double total = Convert.ToDouble(obj["TotalVisibleMemorySize"]);
-                double free = Convert.ToDouble(obj["FreePhysicalMemory"]);
-                return Math.Round((total - free) / total * 100, 1);
+                return (double)mem.dwMemoryLoad;
             }
         }
         catch { }

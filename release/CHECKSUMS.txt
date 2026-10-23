@@ -1,5 +1,4 @@
 ﻿4f45a95bc2cf91834d60a3dbcff049e37cb12d0be200389d33f767b2092e2d99  RELEASE_NOTES_v8.1.md
-f049a6a475dc9cb812a24b10e82e03543afb8ed022e91b3ea3b860a089b47b2b  SVLL-IT-Workstation-Admin-v8.1-Setup.exe
-018be2a85571f8bc3c604f5cffc7f9f2dd572db7aa8d6f83a586a09df645a11c  SVLL-IT-Workstation-User-v8.1-Setup.exe
-018be2a85571f8bc3c604f5cffc7f9f2dd572db7aa8d6f83a586a09df645a11c  SVLL-IT-Workstation-v8.1-Setup.exe
-1705be217974e77625760ac7bebe77fed880e2a4db2b28f3a3b925da3324833e  SVLL-Relay-Server-v1.1-win-x64.zip
+951704cb2c67d320b099fc61edae19bca444fb24e82485e45699a73e8407b3c0  SVLL-IT-Workstation-Admin-v8.1-Setup.exe
+bb4c974f15465f6987561c904136892bb4ea762c0e38b8b455d1dcc52ddbb3d9  SVLL-IT-Workstation-User-v8.1-Setup.exe
+bb4c974f15465f6987561c904136892bb4ea762c0e38b8b455d1dcc52ddbb3d9  SVLL-IT-Workstation-v8.1-Setup.exe
