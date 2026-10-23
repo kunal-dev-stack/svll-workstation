@@ -22,6 +22,7 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Configuration ────────────────────────────────────────────────────────────
 // Config is in RelayConfig class below
 
+builder.Host.UseWindowsService();
 builder.Logging.AddConsole();
 builder.Services.AddSingleton<DatabaseService>();
 

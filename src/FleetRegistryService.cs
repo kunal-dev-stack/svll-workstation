@@ -117,6 +117,30 @@ public class FleetRegistryService
                     }
                 }
             }
+
+            // 4. Fallback: AnyDesk CLI --get-id
+            string? exe = FindAnyDeskExe();
+            if (!string.IsNullOrEmpty(exe))
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = "--get-id",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+                using var p = Process.Start(psi);
+                if (p != null)
+                {
+                    string outStr = p.StandardOutput.ReadToEnd().Trim();
+                    p.WaitForExit(3000);
+                    if (!string.IsNullOrEmpty(outStr) && outStr.All(char.IsDigit) && outStr.Length >= 8)
+                    {
+                        return FormatAnyDeskId(outStr);
+                    }
+                }
+            }
         }
         catch { }
 

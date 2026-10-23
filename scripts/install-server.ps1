@@ -87,9 +87,10 @@ try {
     Write-Warning "Firewall rule could not be set automatically. Please verify port 5000 is open."
 }
 
-# 5. Register and Start Windows Service
-Write-Host "`n[5/5] Registering and starting SvllRelay Windows Service..." -ForegroundColor Yellow
-$binPath = "dotnet $targetDir\SvllRelayServer.dll --urls http://0.0.0.0:5000"
+# 5. Register and Start Windows Service / Background Task
+Write-Host "`n[5/5] Registering and starting SvllRelay Service..." -ForegroundColor Yellow
+$exePath = Join-Path $targetDir "SvllRelayServer.exe"
+$binPath = if (Test-Path $exePath) { "`"$exePath`" --urls http://0.0.0.0:5000" } else { "dotnet `"$targetDir\SvllRelayServer.dll`" --urls http://0.0.0.0:5000" }
 
 if ($svc) {
     & sc.exe config SvllRelay binpath= "$binPath" start= auto | Out-Null
@@ -100,6 +101,28 @@ if ($svc) {
 & sc.exe start SvllRelay | Out-Null
 
 Start-Sleep -Seconds 3
+
+# If service didn't start (e.g. SCM permissions), launch background daemon process
+$svcRunning = (Get-Service -Name "SvllRelay" -ErrorAction SilentlyContinue).Status -eq "Running"
+if (-not $svcRunning) {
+    Write-Host "[i] Starting SvllRelay background process..." -ForegroundColor Yellow
+    if (Test-Path $exePath) {
+        Start-Process -FilePath $exePath -ArgumentList "--urls http://0.0.0.0:5000" -WindowStyle Hidden
+    } else {
+        Start-Process -FilePath "dotnet" -ArgumentList "`"$targetDir\SvllRelayServer.dll`" --urls http://0.0.0.0:5000" -WindowStyle Hidden
+    }
+    Start-Sleep -Seconds 3
+}
+
+# Create Desktop Shortcut for easy management
+try {
+    $wsh = New-Object -ComObject WScript.Shell
+    $shortcut = $wsh.CreateShortcut([System.IO.Path]::Combine([Environment]::GetFolderPath("Desktop"), "SVLL Relay Server.lnk"))
+    $shortcut.TargetPath = if (Test-Path (Join-Path $targetDir "start_server.bat")) { Join-Path $targetDir "start_server.bat" } else { $exePath }
+    $shortcut.WorkingDirectory = $targetDir
+    $shortcut.Description = "Start SVLL IT Relay Server (Port 5000)"
+    $shortcut.Save()
+} catch { }
 
 # 6. Verify Health Check
 $healthOk = $false

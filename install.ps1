@@ -119,8 +119,62 @@ if ($meshSvc) {
     }
 }
 
-# 6. Gather Machine Telemetry and Fire Immediate Heartbeat
-Write-Host "`nReflecting machine information to Server Panel..." -ForegroundColor Yellow
+# 6. Configure Remote Access & Telemetry
+Write-Host "`n[4/4] Configuring Remote Access (AnyDesk & RDP) & Telemetry..." -ForegroundColor Yellow
+
+# Ensure AnyDesk is installed
+$adExe = $null
+$adPaths = @("C:\Program Files (x86)\AnyDesk\AnyDesk.exe", "C:\Program Files\AnyDesk\AnyDesk.exe")
+foreach ($p in $adPaths) { if (Test-Path $p) { $adExe = $p; break } }
+
+if (-not $adExe) {
+    Write-Host "Downloading and installing AnyDesk silently..." -ForegroundColor Yellow
+    $adTemp = Join-Path $env:TEMP "AnyDeskSetup.exe"
+    try {
+        Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile $adTemp -UseBasicParsing -TimeoutSec 30
+        Start-Process -FilePath $adTemp -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent" -Wait
+        Remove-Item $adTemp -Force -ErrorAction SilentlyContinue
+        foreach ($p in $adPaths) { if (Test-Path $p) { $adExe = $p; break } }
+        if ($adExe) { Write-Host "[+] AnyDesk installed successfully." -ForegroundColor Green }
+    } catch {
+        Write-Warning "AnyDesk silent install skipped: $($_.Exception.Message)"
+    }
+}
+
+# Detect AnyDesk ID
+$anyDeskId = ""
+if ($adExe) {
+    try {
+        $idProc = Start-Process -FilePath $adExe -ArgumentList "--get-id" -NoNewWindow -Wait -PassThru -RedirectStandardOutput (Join-Path $env:TEMP "ad_id.txt")
+        $idFile = Join-Path $env:TEMP "ad_id.txt"
+        if (Test-Path $idFile) {
+            $rawId = (Get-Content $idFile -Raw -ErrorAction SilentlyContinue).Trim()
+            Remove-Item $idFile -Force -ErrorAction SilentlyContinue
+            if ($rawId -match '^\d{9,10}$') { $anyDeskId = $rawId }
+        }
+    } catch { }
+}
+if (-not $anyDeskId) {
+    $confPaths = @("$env:APPDATA\AnyDesk\system.conf", "C:\ProgramData\AnyDesk\system.conf", "C:\ProgramData\AnyDesk\service.conf", "$env:APPDATA\AnyDesk\user.conf")
+    foreach ($cp in $confPaths) {
+        if (Test-Path $cp) {
+            $m = Select-String -Path $cp -Pattern "ad\.anynet\.id=(\d+)" -ErrorAction SilentlyContinue
+            if ($m -and $m.Matches.Groups[1].Value) {
+                $anyDeskId = $m.Matches.Groups[1].Value
+                break
+            }
+        }
+    }
+}
+
+# Enable Remote Desktop & PowerShell Remoting for local admin management
+try {
+    Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -ErrorAction SilentlyContinue
+    Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Type DWord -ErrorAction SilentlyContinue
+    Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction SilentlyContinue
+} catch { }
+
 $serial = "N/A"
 try {
     $bios = Get-CimInstance Win32_Bios -ErrorAction SilentlyContinue
@@ -151,9 +205,9 @@ $heartbeatPayload = @{
     SerialNumber = $serial
     BranchLocation = "HQ"
     LoggedInUser = $env:USERNAME
-    AnyDeskId = ""
-    AnyDeskInstalled = (Test-Path "C:\Program Files (x86)\AnyDesk\AnyDesk.exe") -or (Test-Path "C:\Program Files\AnyDesk\AnyDesk.exe")
-    RdpEnabled = $false
+    AnyDeskId = if ($anyDeskId) { $anyDeskId } else { "Not Configured" }
+    AnyDeskInstalled = ($null -ne $adExe)
+    RdpEnabled = $true
     Status = "Online"
     SupportRequestMessage = ""
     CpuLoadPercent = 5.0
@@ -172,7 +226,7 @@ try {
         "Content-Type" = "application/json"
     }
     $res = Invoke-RestMethod -Uri "$ServerUrl/api/heartbeat" -Method Post -Body $heartbeatPayload -Headers $headers -TimeoutSec 6 -ErrorAction Stop
-    Write-Host "[+] Heartbeat registered at server panel successfully!" -ForegroundColor Green
+    Write-Host "[+] Machine telemetry & AnyDesk ID reflected to Server Panel successfully!" -ForegroundColor Green
 } catch {
     Write-Host "[i] Server panel reached upon workstation startup." -ForegroundColor Yellow
 }

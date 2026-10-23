@@ -209,41 +209,9 @@ public partial class MainWindow : Window
         },
         new HubInfo
         {
-            Id = "Hub_Remote",
-            Title = "REMOTE ACCESS & FLEET CONSOLE",
-            Subtitle = "Dedicated Live Remote Access, 1-Click Desktop & Fleet Management",
-            Glyph = "\uE896",
-            SubTools = new()
-            {
-#if BUILD_ADMIN
-                ("FleetAdminConsole", "👑 Dedicated Remote Access Dashboard", "🖥️"),
-                ("RemoteClient", "My Local AnyDesk Client", "🔴"),
-#else
-                ("RemoteClient", "My Remote Client", "🔴"),
-#endif
-            }
-        },
-        new HubInfo
-        {
-            Id = "Hub_Complaints",
-            Title = "IT COMPLAINT & SERVICE DESK",
-            Subtitle = "AI Triage Assistant, Complaint Intake & Admin Ticket Desk",
-            Glyph = "\uE8BD",
-            SubTools = new()
-            {
-                ("SubmitComplaint", "Register Complaint", "📋"),
-                ("AiComplaintBot", "AI Diagnostic Assistant", "🤖"),
-#if BUILD_ADMIN
-                ("TicketAdminDesk", "Admin Service Desk", "👑"),
-#endif
-                ("MyTickets", "Track My Tickets", "📂")
-            }
-        },
-        new HubInfo
-        {
             Id = "Hub_Security",
-            Title = "ENDPOINT THREAT DEFENSE & SECURITY HARDENING",
-            Subtitle = "Zero-Trust Process Shield, CIS Benchmark, DLP & Socket Hunter",
+            Title = "ENDPOINT SECURITY & HARDENING",
+            Subtitle = "Zero-Trust Shield, CIS Benchmark, DLP & Port Threat Hunter",
             Glyph = "\uE72E",
             SubTools = new()
             {
@@ -254,7 +222,37 @@ public partial class MainWindow : Window
                 ("ForensicsCollector", "Incident Forensics Collector", "📦"),
                 ("CertHealthInspector", "SSL/TLS & Domain Health", "🌐")
             }
-        }
+        },
+        new HubInfo
+        {
+            Id = "Hub_ServiceDesk",
+            Title = "IT SERVICE DESK & HELPDESK",
+            Subtitle = "Raise Tickets, AI Diagnostic Assistant & Track Requests",
+            Glyph = "\uE8BD",
+            SubTools = new()
+            {
+                ("SubmitComplaint", "Raise Support Ticket", "📋"),
+                ("AiComplaintBot", "AI Diagnostic Assistant", "🤖"),
+                ("MyTickets", "My Open Tickets", "📂"),
+                ("RemoteClient", "My Remote Client (AnyDesk)", "🔴"),
+#if BUILD_ADMIN
+                ("TicketAdminDesk", "Admin Ticket Desk", "👑"),
+#endif
+            }
+        },
+#if BUILD_ADMIN
+        new HubInfo
+        {
+            Id = "Hub_AdminCenter",
+            Title = "ADMIN COMMAND CENTER",
+            Subtitle = "Live Fleet Monitor, 1-Click Remote Access & System Control",
+            Glyph = "\uEC09",
+            SubTools = new()
+            {
+                ("AdminCommandCenter", "Fleet & Remote Control", "👑"),
+            }
+        },
+#endif
     };
 
     private readonly Dictionary<string, (Border Container, ContentControl Host, Dictionary<string, Button> SubButtons, string ActiveSubTag)> _hubViews 
@@ -304,6 +302,10 @@ public partial class MainWindow : Window
         Loaded += async (s, e) =>
         {
             NavigateTo("Dashboard");
+#if BUILD_ADMIN
+            // Admin Edition always opens to the Command Center first
+            NavigateTo("AdminCommandCenter");
+#endif
             Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Build: {BuildConstants.BuildEdition}. Initial state verified.");
             await HandleCommandLineArgsAsync(args);
 
@@ -452,8 +454,9 @@ public partial class MainWindow : Window
 #if BUILD_ADMIN
     private void OnCloudFleetUpdated(List<SVLL_IT_Workstation.Models.RemoteDeviceItem> devices)
     {
-        // Invalidate Fleet Admin Console view cache so it re-renders with fresh data
+        // Invalidate cached views so they re-render with fresh data
         _viewCache.Remove("FleetAdminConsole");
+        _viewCache.Remove("AdminCommandCenter");
         Dispatcher.Invoke(() =>
         {
             try
@@ -1540,7 +1543,10 @@ public partial class MainWindow : Window
             "SecurityDlp" => BuildUsbDlpGuardianView(),
             "SocketInspector" => BuildSocketInspectorView(),
             "RemoteClient" => BuildRemoteClientView(),
-            "FleetAdminConsole" => BuildFleetAdminConsoleView(),
+#if BUILD_ADMIN
+            "FleetAdminConsole" => BuildAdminCommandCenterView(), // legacy redirect
+            "AdminCommandCenter" => BuildAdminCommandCenterView(),
+#endif
             "SubmitComplaint" => BuildSubmitComplaintView(),
             "AiComplaintBot" => BuildAiComplaintBotView(),
             "TicketAdminDesk" => BuildTicketAdminDeskView(),

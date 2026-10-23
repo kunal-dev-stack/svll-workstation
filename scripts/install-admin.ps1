@@ -39,6 +39,8 @@ $ServerUrl = $ServerUrl.TrimEnd('/')
 Write-Host "[+] Connecting Admin Console to Relay Server: $ServerUrl" -ForegroundColor Green
 
 # 3. Configure Security Settings Profile
+$programDataDir = "C:\ProgramData\SVLL-IT-Workstation"
+$cfgPath = Join-Path $programDataDir "admin_security.json"
 if (-not (Test-Path $programDataDir)) {
     New-Item -ItemType Directory -Path $programDataDir -Force | Out-Null
 }
