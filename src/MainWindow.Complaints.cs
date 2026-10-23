@@ -46,7 +46,7 @@ public partial class MainWindow
     // -------------------------------------------------------------
     public UIElement BuildSubmitComplaintView()
     {
-        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         var root = new StackPanel { Margin = new Thickness(10) };
 
         // 1. Header Card
@@ -63,14 +63,15 @@ public partial class MainWindow
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var headerLeft = new StackPanel();
-        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var headerLeft = new StackPanel { Margin = new Thickness(0, 0, 16, 0) };
+        var titleRow = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         titleRow.Children.Add(new TextBlock
         {
             Text = "📋 Register IT Support Complaint & Service Incident",
             FontSize = 16,
             FontWeight = FontWeights.ExtraBold,
-            Foreground = TextDark
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
         });
         titleRow.Children.Add(new Border
         {
@@ -79,7 +80,8 @@ public partial class MainWindow
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(10, 0, 0, 0),
+            Margin = new Thickness(8, 2, 0, 2),
+            VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock { Text = "HUB 7 • SERVICE DESK", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
         });
         titleRow.Children.Add(new Border
@@ -89,7 +91,8 @@ public partial class MainWindow
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
-            Margin = new Thickness(6, 0, 0, 0),
+            Margin = new Thickness(8, 2, 0, 2),
+            VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock { Text = "🟢 LIVE SYNC: Complain Log sheet IT - New Complaint.csv", FontSize = 9.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
         });
         headerLeft.Children.Add(titleRow);
@@ -98,12 +101,13 @@ public partial class MainWindow
             Text = "Submit technical workstation, ERP client, network, or hardware issues directly to the SVLL IT Support team with automated diagnostics and direct synchronization to the enterprise CSV log sheet and Admin Console.",
             FontSize = 11,
             Foreground = TextSubtle,
+            TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0)
         });
         Grid.SetColumn(headerLeft, 0);
         headerGrid.Children.Add(headerLeft);
 
-        var headerRight = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var headerRight = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
 
         var btnOpenCsvHeader = new Button
         {
@@ -225,10 +229,10 @@ public partial class MainWindow
         }
 
         AddPresetChip("🏢", "Boss ERP Session Hang", "Boss Not Working", "Boss ERP Client Session Timeout During Dispatch", "When processing LR and dispatch bills in Boss ERP, client terminates unexpectedly. Intermittent connectivity issue to dispatch database.");
-        AddPresetChip("🖨️", "Laser Printer Spooler Stuck", "Printer Not Work", "Department Laser Printer Queue Stuck & Spooler Locked", "Print jobs sent to department network laser printer are locked with status 'Deleting - Printing'. Print spooler service restart and queue cleanup required.");
-        AddPresetChip("⚡", "Workstation Freezing", "IT PC / LAPTOP WORKING SLOW", "Workstation Freezing with High CPU / Memory Saturation", "System responsiveness is severely degraded; applications freeze intermittently. Requires performance triage and process audit.");
-        AddPresetChip("🌐", "Depot Gateway Drops", "IT INERNET CONNECTIVITY PROBLEM", "Network Gateway Latency and Packet Loss Flapping", "Intermittent ping drops observed to corporate gateway and subnet switches. Branch file transfers timing out.");
-        AddPresetChip("📧", "Outlook Send/Receive Error", "IT OUTLOOK MAIL ISSUE", "Corporate Outlook Mail Sync & Delivery Failure", "Outlook client shows disconnected or send/receive error. Mail synchronization failing on department mailbox.");
+        AddPresetChip("🖨️", "Laser Printer Spooler Stuck", "Printer Not Working", "Department Laser Printer Queue Stuck & Spooler Locked", "Print jobs sent to department network laser printer are locked with status 'Deleting - Printing'. Print spooler service restart and queue cleanup required.");
+        AddPresetChip("⚡", "Workstation Freezing", "PC / Laptop", "Workstation Freezing with High CPU / Memory Saturation", "System responsiveness is severely degraded; applications freeze intermittently. Requires performance triage and process audit.");
+        AddPresetChip("🌐", "Depot Gateway Drops", "Internet", "Network Gateway Latency and Packet Loss Flapping", "Intermittent ping drops observed to corporate gateway and subnet switches. Branch file transfers timing out.");
+        AddPresetChip("📧", "Outlook Send/Receive Error", "Outlook", "Corporate Outlook Mail Sync & Delivery Failure", "Outlook client shows disconnected or send/receive error. Mail synchronization failing on department mailbox.");
         AddPresetChip("🔒", "USB Pen Drive DLP Access", "USB DLP Access", "Temporary USB Storage Access Request for Customs Manifest", "Requesting temporary 4-hour USB DLP write authorization to transfer signed vehicle dispatch bills-of-lading to driver pen drive.");
 
         presetsStack.Children.Add(presetChips);
@@ -261,15 +265,16 @@ public partial class MainWindow
         catStack.Children.Add(new TextBlock { Text = "Complaint Category *", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark, Margin = new Thickness(0, 0, 0, 4) });
         _cmbComplaintCategory = new ComboBox { Height = 30, FontSize = 11 };
         _cmbComplaintCategory.Items.Add("🏢 Boss Not Working (ERP / WMS)");
-        _cmbComplaintCategory.Items.Add("🖨️ Printer Not Work (Laser / Network)");
-        _cmbComplaintCategory.Items.Add("⚡ IT PC / LAPTOP WORKING SLOW");
-        _cmbComplaintCategory.Items.Add("🌐 IT INERNET CONNECTIVITY PROBLEM");
-        _cmbComplaintCategory.Items.Add("📧 IT OUTLOOK MAIL ISSUE");
-        _cmbComplaintCategory.Items.Add("🔧 IT COMPUTER REPAIRING & MAINTENANCE");
-        _cmbComplaintCategory.Items.Add("📦 New Software Installation");
-        _cmbComplaintCategory.Items.Add("📹 IT CAMERA DOWN");
+        _cmbComplaintCategory.Items.Add("🖨️ Printer Not Working (Laser / Network)");
+        _cmbComplaintCategory.Items.Add("⚡ PC / Laptop Working Slow");
+        _cmbComplaintCategory.Items.Add("🌐 Internet / Network Connectivity Problem");
+        _cmbComplaintCategory.Items.Add("📧 Outlook / Corporate Email Issue");
+        _cmbComplaintCategory.Items.Add("🔧 Computer Hardware Repair & Maintenance");
+        _cmbComplaintCategory.Items.Add("📦 Software Installation / Update");
+        _cmbComplaintCategory.Items.Add("📹 Security Camera / CCTV Down");
+        _cmbComplaintCategory.Items.Add("🔋 UPS / Power Backup Problem");
         _cmbComplaintCategory.Items.Add("🔒 USB DLP Access (Removable Media)");
-        _cmbComplaintCategory.Items.Add("❓ Other");
+        _cmbComplaintCategory.Items.Add("❓ Other Technical Problem");
         _cmbComplaintCategory.SelectedIndex = 0;
         catStack.Children.Add(_cmbComplaintCategory);
         Grid.SetColumn(catStack, 0);
@@ -428,13 +433,14 @@ public partial class MainWindow
             string category = "Other";
             if (catRaw.Contains("Boss")) category = "Boss Not Working";
             else if (catRaw.Contains("Printer")) category = "Printer Not Work";
-            else if (catRaw.Contains("SLOW")) category = "IT PC / LAPTOP WORKING SLOW";
-            else if (catRaw.Contains("INERNET")) category = "IT INERNET CONNECTIVITY PROBLEM";
-            else if (catRaw.Contains("OUTLOOK")) category = "IT OUTLOOK MAIL ISSUE";
-            else if (catRaw.Contains("REPAIRING")) category = "IT COMPUTER REPAIRING & MAINTENANCE";
-            else if (catRaw.Contains("Installation")) category = "New Software Installation";
-            else if (catRaw.Contains("CAMERA")) category = "IT CAMERA DOWN";
-            else if (catRaw.Contains("DLP")) category = "USB DLP Access";
+            else if (catRaw.Contains("Laptop") || catRaw.Contains("PC") || catRaw.Contains("Slow")) category = "PC / Laptop Working Slow";
+            else if (catRaw.Contains("Internet") || catRaw.Contains("Network")) category = "Internet Connectivity Problem";
+            else if (catRaw.Contains("Outlook") || catRaw.Contains("Email") || catRaw.Contains("Mail")) category = "Outlook Mail Issue";
+            else if (catRaw.Contains("Repair") || catRaw.Contains("Maintenance") || catRaw.Contains("Hardware")) category = "Computer Repairing & Maintenance";
+            else if (catRaw.Contains("Software") || catRaw.Contains("Installation")) category = "New Software Installation";
+            else if (catRaw.Contains("Camera") || catRaw.Contains("CCTV")) category = "Camera Down";
+            else if (catRaw.Contains("UPS") || catRaw.Contains("Power")) category = "UPS Backup Issue";
+            else if (catRaw.Contains("DLP") || catRaw.Contains("USB")) category = "USB DLP Access";
 
             string prioRaw = _cmbComplaintPriority.SelectedItem?.ToString() ?? "NORMAL";
             string priority = prioRaw.Contains("URGENT") ? "URGENT" : "NORMAL";
@@ -1106,14 +1112,15 @@ public partial class MainWindow
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var headerLeft = new StackPanel();
-        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var headerLeft = new StackPanel { Margin = new Thickness(0, 0, 16, 0) };
+        var titleRow = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         titleRow.Children.Add(new TextBlock
         {
             Text = "👑 Central IT Helpdesk & Service Desk Admin Panel",
             FontSize = 16,
             FontWeight = FontWeights.ExtraBold,
-            Foreground = TextDark
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
         });
         titleRow.Children.Add(new Border
         {
@@ -1123,6 +1130,7 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
             Margin = new Thickness(10, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock { Text = "ADMIN ONLY", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(146, 64, 14)) }
         });
         headerLeft.Children.Add(titleRow);
@@ -1131,12 +1139,13 @@ public partial class MainWindow
             Text = "Manage all submitted incident complaints, change resolution statuses, view attached telemetry, and launch 1-click remote assistance to requesters.",
             FontSize = 11,
             Foreground = TextSubtle,
+            TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0)
         });
         Grid.SetColumn(headerLeft, 0);
         headerGrid.Children.Add(headerLeft);
 
-        var headerRight = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var headerRight = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
 
         var btnOpenLogSheet = new Button
         {
@@ -1599,14 +1608,15 @@ public partial class MainWindow
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var headerLeft = new StackPanel();
-        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        var headerLeft = new StackPanel { Margin = new Thickness(0, 0, 16, 0) };
+        var titleRow = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         titleRow.Children.Add(new TextBlock
         {
             Text = "📂 My Submitted IT Complaints & Status Tracker",
             FontSize = 16,
             FontWeight = FontWeights.ExtraBold,
-            Foreground = TextDark
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
         });
         titleRow.Children.Add(new Border
         {
@@ -1616,6 +1626,7 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
             Margin = new Thickness(10, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock { Text = "LOCAL STATUS", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
         });
         headerLeft.Children.Add(titleRow);
@@ -1624,6 +1635,7 @@ public partial class MainWindow
             Text = $"Track real-time progress, assigned technician notes, and resolution updates for tickets logged on this workstation ({Environment.MachineName}).",
             FontSize = 11,
             Foreground = TextSubtle,
+            TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0)
         });
         Grid.SetColumn(headerLeft, 0);

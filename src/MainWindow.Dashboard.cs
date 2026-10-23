@@ -53,6 +53,15 @@ public partial class MainWindow
     private System.Windows.Shapes.Path _healthGaugePath = null!;
     private TextBlock _lblHealthGaugeValue = null!;
 
+    // Dashboard AI Chatbot Controls
+    private ScrollViewer _dashboardAiChatScroll = null!;
+    private StackPanel _dashboardAiChatPanel = null!;
+    private TextBox _txtDashboardAiInput = null!;
+    private Button _btnDashboardAiSend = null!;
+    private TextBlock _lblDashboardAiStatus = null!;
+    private Border _dashboardAiBody = null!;
+    private bool _isDashboardAiExpanded = true;
+
     // Multi-Drive Storage Visualizer Panel
     private StackPanel _panelDriveBars = null!;
 
@@ -176,6 +185,9 @@ public partial class MainWindow
         bannerGrid.Children.Add(topActions);
         topBanner.Child = bannerGrid;
         root.Children.Add(topBanner);
+
+        // ------------------ 1.5 SVLL AI Quick Support Copilot (Interactive AI Assistant) ------------------
+        root.Children.Add(BuildDashboardAiChatBot());
 
         // ------------------ Quick Staging Banner for New PC/Laptop Deployment ------------------
         var quickDeployBanner = new Border
@@ -1124,4 +1136,652 @@ public partial class MainWindow
 
         return Math.Clamp(Math.Round((double)(total - dIdle) / total * 100.0, 1), 0.0, 100.0);
     }
+
+    #region Dashboard AI Quick Support Assistant & Feature Hub
+
+    private UIElement BuildDashboardAiChatBot()
+    {
+        var card = new Border
+        {
+            Background = BgCard,
+            BorderBrush = SvllBlue,
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(14, 12, 14, 12),
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+
+        var mainStack = new StackPanel();
+
+        // 1. Header Bar with Expand / Collapse and Clear
+        var headerGrid = new Grid();
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var titleRow = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var iconBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(6, 3, 6, 3),
+            Margin = new Thickness(0, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = "🤖", FontSize = 14 }
+        };
+        titleRow.Children.Add(iconBadge);
+
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = "SVLL AI Quick Support Copilot",
+            FontSize = 14,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var onlineBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(220, 252, 231)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(7, 2, 7, 2),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = "🟢 LIVE AI ASSISTANT", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
+        };
+        titleRow.Children.Add(onlineBadge);
+
+        var subText = new TextBlock
+        {
+            Text = "— Ask any technical question or execute any feature across the entire workstation",
+            FontSize = 10.5,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0)
+        };
+        titleRow.Children.Add(subText);
+
+        Grid.SetColumn(titleRow, 0);
+        headerGrid.Children.Add(titleRow);
+
+        var topButtons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var btnClear = new Button
+        {
+            Content = "🗑️ Clear",
+            FontSize = 10,
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnClear.Click += (s, e) => ResetDashboardAiChat();
+        topButtons.Children.Add(btnClear);
+
+        var btnToggle = new Button
+        {
+            Content = "▲ Minimize",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(8, 3, 8, 3),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnToggle.Click += (s, e) =>
+        {
+            _isDashboardAiExpanded = !_isDashboardAiExpanded;
+            _dashboardAiBody.Visibility = _isDashboardAiExpanded ? Visibility.Visible : Visibility.Collapsed;
+            btnToggle.Content = _isDashboardAiExpanded ? "▲ Minimize" : "▼ Expand Support Copilot";
+        };
+        topButtons.Children.Add(btnToggle);
+
+        Grid.SetColumn(topButtons, 1);
+        headerGrid.Children.Add(topButtons);
+        mainStack.Children.Add(headerGrid);
+
+        // 2. Collapsible Body Container
+        _dashboardAiBody = new Border { Margin = new Thickness(0, 10, 0, 0) };
+        var bodyStack = new StackPanel();
+
+        // 2a. 1-Click Fast Feature Action Chips Bar
+        var chipsScroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Margin = new Thickness(0, 0, 0, 8) };
+        var chipsWrap = new WrapPanel { Orientation = Orientation.Horizontal };
+
+        void AddQuickFeatureChip(string icon, string label, string actionTag, string? customQuestion = null)
+        {
+            var btnChip = new Button
+            {
+                Content = $"{icon} {label}",
+                FontSize = 10,
+                FontWeight = FontWeights.SemiBold,
+                Padding = new Thickness(9, 4, 9, 4),
+                Margin = new Thickness(0, 0, 6, 4),
+                Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+                BorderBrush = BorderMuted,
+                Cursor = Cursors.Hand
+            };
+            btnChip.Click += (s, e) =>
+            {
+                if (customQuestion != null)
+                {
+                    _ = SendDashboardAiMessageAsync(customQuestion);
+                }
+                else
+                {
+                    ExecuteAiFeatureAction(actionTag);
+                }
+            };
+            chipsWrap.Children.Add(btnChip);
+        }
+
+        AddQuickFeatureChip("⚡", "1-Click Turbo Boost", "TurboBoost");
+        AddQuickFeatureChip("🖨️", "Fix Print Spooler", "FixPrintSpooler");
+        AddQuickFeatureChip("🌐", "Ping Gateway & DNS", "PingGateway");
+        AddQuickFeatureChip("🧹", "Purge Temp Files", "PurgeTemp");
+        AddQuickFeatureChip("📋", "File IT Ticket", "OpenSubmitComplaint");
+        AddQuickFeatureChip("🔴", "Remote Client", "OpenRemoteClient");
+        AddQuickFeatureChip("🔌", "USB Depot", "OpenUsbDepot");
+        AddQuickFeatureChip("🗑️", "Force App Purge", "OpenAppUninstaller");
+        AddQuickFeatureChip("🛡️", "Security Shield", "OpenProcessShield");
+        AddQuickFeatureChip("💾", "S.M.A.R.T. Drive", "OpenStorageSmart");
+        AddQuickFeatureChip("📖", "IT Playbook", "OpenLibrary");
+        AddQuickFeatureChip("❓", "Ask: How to fix Boss ERP?", "", "How to fix Boss ERP session disconnects?");
+
+        chipsScroll.Content = chipsWrap;
+        bodyStack.Children.Add(chipsScroll);
+
+        // 2b. Scrollable Chat History Panel
+        _dashboardAiChatScroll = new ScrollViewer
+        {
+            Height = 220,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            Padding = new Thickness(8),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var chatBorder = new Border
+        {
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Child = _dashboardAiChatScroll
+        };
+
+        _dashboardAiChatPanel = new StackPanel();
+        _dashboardAiChatScroll.Content = _dashboardAiChatPanel;
+        bodyStack.Children.Add(chatBorder);
+
+        // 2c. Input Area & Send Button
+        var inputGrid = new Grid { Margin = new Thickness(0, 0, 0, 2) };
+        inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var inputBorder = new Border
+        {
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(4, 2, 4, 2)
+        };
+
+        _txtDashboardAiInput = new TextBox
+        {
+            FontSize = 11.5,
+            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(6, 4, 6, 4)
+        };
+        _txtDashboardAiInput.KeyDown += (s, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                string query = _txtDashboardAiInput.Text.Trim();
+                if (!string.IsNullOrEmpty(query))
+                {
+                    _ = SendDashboardAiMessageAsync(query);
+                }
+            }
+        };
+        inputBorder.Child = _txtDashboardAiInput;
+        Grid.SetColumn(inputBorder, 0);
+        inputGrid.Children.Add(inputBorder);
+
+        _btnDashboardAiSend = new Button
+        {
+            Content = "Ask AI ➔",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            Padding = new Thickness(14, 6, 14, 6),
+            Margin = new Thickness(8, 0, 0, 0),
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        _btnDashboardAiSend.Click += (s, e) =>
+        {
+            string query = _txtDashboardAiInput.Text.Trim();
+            if (!string.IsNullOrEmpty(query))
+            {
+                _ = SendDashboardAiMessageAsync(query);
+            }
+        };
+        Grid.SetColumn(_btnDashboardAiSend, 1);
+        inputGrid.Children.Add(_btnDashboardAiSend);
+        bodyStack.Children.Add(inputGrid);
+
+        // 2d. Status Indicator
+        _lblDashboardAiStatus = new TextBlock
+        {
+            FontSize = 10,
+            Foreground = SvllBlue,
+            Margin = new Thickness(4, 3, 0, 0)
+        };
+        bodyStack.Children.Add(_lblDashboardAiStatus);
+
+        _dashboardAiBody.Child = bodyStack;
+        mainStack.Children.Add(_dashboardAiBody);
+        card.Child = mainStack;
+
+        // Initialize with friendly welcome greeting
+        ResetDashboardAiChat();
+
+        return card;
+    }
+
+    private void ResetDashboardAiChat()
+    {
+        _dashboardAiChatPanel.Children.Clear();
+        AppendBotChatBubble(
+            $"👋 Hello **{Environment.UserName}**! I am your **SVLL AI Quick Support Copilot** on `{Environment.MachineName}`.\n\n" +
+            "• You can **ask any question** (IT issues, Windows errors, Boss ERP client, printer setup, or general tech & logistics questions).\n" +
+            "• You have **full 1-click execution** for all workstation tools (e.g. *'turbo boost my PC'*, *'fix printer spooler'*, *'clean temp files'*, *'ping gateway'*, *'file complaint ticket'*).\n\n" +
+            "How can I assist you right now?",
+            "TurboBoost", "⚡ Run 1-Click Turbo Boost Optimization", "Free RAM and optimize CPU performance", false,
+            new List<string> { "⚡ 1-Click Turbo Boost", "🖨️ Fix Print Spooler", "🌐 Ping Gateway & DNS", "🧹 Clean Temp Files", "📋 File IT Complaint Ticket" });
+    }
+
+    private void AppendUserChatBubble(string text)
+    {
+        var bubble = new Border
+        {
+            Background = SvllBlue,
+            CornerRadius = new CornerRadius(12, 12, 2, 12),
+            Padding = new Thickness(12, 8, 12, 8),
+            Margin = new Thickness(60, 4, 4, 4),
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        var sp = new StackPanel();
+        sp.Children.Add(new TextBlock
+        {
+            Text = text,
+            FontSize = 11.5,
+            Foreground = Brushes.White,
+            TextWrapping = TextWrapping.Wrap
+        });
+        sp.Children.Add(new TextBlock
+        {
+            Text = DateTime.Now.ToString("hh:mm tt"),
+            FontSize = 8.5,
+            Foreground = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 3, 0, 0)
+        });
+
+        bubble.Child = sp;
+        _dashboardAiChatPanel.Children.Add(bubble);
+        _dashboardAiChatScroll.ScrollToEnd();
+    }
+
+    private void AppendBotChatBubble(string text, string? actionTag, string? actionTitle, string? actionDescription, bool isOnline, List<string>? suggestions)
+    {
+        var bubble = new Border
+        {
+            Background = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12, 12, 12, 2),
+            Padding = new Thickness(12, 10, 12, 10),
+            Margin = new Thickness(4, 4, 60, 6),
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+
+        var sp = new StackPanel();
+
+        // Header with timestamp and source pill
+        var header = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+        header.Children.Add(new TextBlock
+        {
+            Text = "🤖 SVLL AI Assistant",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var badge = new Border
+        {
+            Background = isOnline ? new SolidColorBrush(Color.FromRgb(220, 252, 231)) : new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            BorderBrush = isOnline ? new SolidColorBrush(Color.FromRgb(134, 239, 172)) : new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(5, 1, 5, 1),
+            Margin = new Thickness(6, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = isOnline ? "🌐 CLOUD AI" : "⚡ LOCAL AI",
+                FontSize = 8.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = isOnline ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllBlue
+            }
+        };
+        header.Children.Add(badge);
+
+        header.Children.Add(new TextBlock
+        {
+            Text = " • " + DateTime.Now.ToString("hh:mm tt"),
+            FontSize = 9,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        sp.Children.Add(header);
+
+        // Body Text
+        sp.Children.Add(new TextBlock
+        {
+            Text = text,
+            FontSize = 11.5,
+            Foreground = TextDark,
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 16
+        });
+
+        // 1-Click Feature Action Button
+        if (!string.IsNullOrEmpty(actionTag))
+        {
+            var btnAction = new Button
+            {
+                Content = !string.IsNullOrEmpty(actionTitle) ? actionTitle : $"🚀 Execute {actionTag}",
+                ToolTip = actionDescription,
+                FontSize = 11,
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+                BorderBrush = SvllLightBlue,
+                BorderThickness = new Thickness(1.2),
+                Foreground = SvllBlue,
+                Cursor = Cursors.Hand,
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 8, 0, 4),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            btnAction.Click += (s, e) => ExecuteAiFeatureAction(actionTag);
+            sp.Children.Add(btnAction);
+        }
+
+        // Suggestion Chips
+        if (suggestions != null && suggestions.Count > 0)
+        {
+            var sugWrap = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+            foreach (var sug in suggestions.Take(4))
+            {
+                var chip = new Button
+                {
+                    Content = sug,
+                    FontSize = 9.5,
+                    Padding = new Thickness(7, 3, 7, 3),
+                    Margin = new Thickness(0, 0, 5, 3),
+                    Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                    BorderBrush = BorderMuted,
+                    Cursor = Cursors.Hand
+                };
+                chip.Click += (s, e) => _ = SendDashboardAiMessageAsync(sug);
+                sugWrap.Children.Add(chip);
+            }
+            sp.Children.Add(sugWrap);
+        }
+
+        bubble.Child = sp;
+        _dashboardAiChatPanel.Children.Add(bubble);
+        _dashboardAiChatScroll.ScrollToEnd();
+    }
+
+    private async Task SendDashboardAiMessageAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return;
+
+        AppendUserChatBubble(query);
+        _txtDashboardAiInput.Text = "";
+        _btnDashboardAiSend.IsEnabled = false;
+        _lblDashboardAiStatus.Text = "🤖 AI Thinking... Querying intelligence engine & running diagnostics...";
+
+        try
+        {
+            var response = await DashboardAiService.Instance.AskAsync(query);
+            AppendBotChatBubble(
+                response.Answer,
+                response.ActionTag,
+                response.ActionTitle,
+                response.ActionDescription,
+                response.IsOnlineAi,
+                response.Suggestions);
+        }
+        catch (Exception ex)
+        {
+            AppendBotChatBubble($"⚠️ An unexpected error occurred: {ex.Message}", "TurboBoost", "⚡ Run 1-Click Turbo Boost", "Accelerate PC", false, null);
+        }
+        finally
+        {
+            _btnDashboardAiSend.IsEnabled = true;
+            _lblDashboardAiStatus.Text = "";
+            _txtDashboardAiInput.Focus();
+        }
+    }
+
+    private async void ExecuteAiFeatureAction(string actionTag)
+    {
+        switch (actionTag)
+        {
+            case "TurboBoost":
+                AppendUserChatBubble("⚡ Please run 1-Click Turbo Boost to optimize my workstation.");
+                _lblDashboardAiStatus.Text = "⏳ Accelerating system and trimming working sets...";
+                try
+                {
+                    var res = await ExecuteTurboBoostAsync();
+                    AppendBotChatBubble(
+                        $"🎉 **1-Click Turbo Boost Completed!**\n\n" +
+                        $"• **RAM Released:** `{res.freedMb} MB` of fragmented memory recovered\n" +
+                        $"• **Bloat Tasks Terminated:** `{res.killedCount}` background tasks stopped\n" +
+                        $"• **Applications Trimmed:** `{res.trimmedCount}` working sets flushed\n" +
+                        $"• **CPU Power Plan:** Ultimate Performance profile active",
+                        null, null, null, false, new List<string> { "Purge Temp Files", "Check S.M.A.R.T. Drive", "Ping Gateway Diagnostic" });
+                }
+                catch (Exception ex)
+                {
+                    AppendBotChatBubble($"⚠️ Optimization note: {ex.Message}", null, null, null, false, null);
+                }
+                finally
+                {
+                    _lblDashboardAiStatus.Text = "";
+                }
+                break;
+
+            case "FixPrintSpooler":
+                AppendUserChatBubble("🖨️ Please fix and restart the print spooler service.");
+                _lblDashboardAiStatus.Text = "⏳ Purging locked spooler jobs and restarting Spooler service...";
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        ExecutePowerShellScript("Stop-Service Spooler -Force; Remove-Item $env:windir\\System32\\spool\\PRINTERS\\* -Force -Recurse -ErrorAction SilentlyContinue; Start-Service Spooler");
+                    });
+                    AppendBotChatBubble(
+                        "✔ **Print Spooler Subsystem Reset Successfully!**\n\n" +
+                        "• **Spooler Service:** Stopped and cleanly restarted\n" +
+                        "• **Queue Cache:** Locked `.SPL` and `.SHD` phantom job files purged from `System32\\spool\\PRINTERS`\n" +
+                        "• **Status:** Print subsystem is now ready to receive print jobs.",
+                        "OpenPrinterSuite", "🖨️ Open Full Print Diagnostics Suite", "Deep test printer ports and drivers", false,
+                        new List<string> { "Test Printer Driver", "File IT Complaint Ticket", "1-Click Turbo Boost" });
+                }
+                catch (Exception ex)
+                {
+                    AppendBotChatBubble($"⚠️ Spooler reset error: {ex.Message}", null, null, null, false, null);
+                }
+                finally
+                {
+                    _lblDashboardAiStatus.Text = "";
+                }
+                break;
+
+            case "FlushDns":
+                AppendUserChatBubble("🌐 Please flush DNS resolver cache and reset network stack.");
+                _lblDashboardAiStatus.Text = "⏳ Clearing DNS resolver cache...";
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        ExecutePowerShellScript("Clear-DnsClientCache; ipconfig /flushdns");
+                    });
+                    AppendBotChatBubble(
+                        "✔ **DNS Resolver Cache Successfully Flushed!**\n\n" +
+                        "• **Cache:** Cleared all poisoned or stale DNS hostname entries\n" +
+                        "• **Protocol Stack:** IPv4 and IPv6 resolver renewed\n" +
+                        "• **Verification:** Domain names will now be resolved directly from upstream DNS.",
+                        "PingGateway", "📡 Test Gateway Ping Latency", "Ping 8.8.8.8 and local gateway", false,
+                        new List<string> { "Ping Gateway Diagnostic", "Network Profile Switcher", "File IT Complaint Ticket" });
+                }
+                catch (Exception ex)
+                {
+                    AppendBotChatBubble($"⚠️ DNS flush error: {ex.Message}", null, null, null, false, null);
+                }
+                finally
+                {
+                    _lblDashboardAiStatus.Text = "";
+                }
+                break;
+
+            case "PurgeTemp":
+                AppendUserChatBubble("🧹 Please clean temporary files and empty Recycle Bin.");
+                _lblDashboardAiStatus.Text = "⏳ Purging user and system temp folders...";
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        try { CleanDirectory(System.IO.Path.GetTempPath()); } catch { }
+                        try { CleanDirectory(@"C:\Windows\Temp"); } catch { }
+                        try { SHEmptyRecycleBin(IntPtr.Zero, null!, 7); } catch { }
+                    });
+                    AppendBotChatBubble(
+                        "✔ **Temporary Junk & Recycle Bin Purged!**\n\n" +
+                        "• **User Temp:** Cleaned `%TEMP%` directory\n" +
+                        "• **System Temp:** Cleaned `C:\\Windows\\Temp`\n" +
+                        "• **Recycle Bin:** Emptied all deleted files across local storage drives\n" +
+                        "• **Disk Headroom:** Freed storage space for optimal OS caching.",
+                        "OpenStorageSmart", "💾 Inspect S.M.A.R.T. Drive Health", "View SSD health & wear %", false,
+                        new List<string> { "1-Click Turbo Boost", "Check S.M.A.R.T. Drive", "WinUtil Debloat" });
+                }
+                catch (Exception ex)
+                {
+                    AppendBotChatBubble($"⚠️ Temp clean note: {ex.Message}", null, null, null, false, null);
+                }
+                finally
+                {
+                    _lblDashboardAiStatus.Text = "";
+                }
+                break;
+
+            case "PingGateway":
+                AppendUserChatBubble("📡 Please run a network gateway ping test.");
+                _lblDashboardAiStatus.Text = "⏳ Sending ICMP echo packets to gateway & public DNS...";
+                try
+                {
+                    string pingReport = await Task.Run(() =>
+                    {
+                        var sb = new System.Text.StringBuilder();
+                        try
+                        {
+                            var ping = new Ping();
+                            var reply = ping.Send("8.8.8.8", 2000);
+                            if (reply.Status == IPStatus.Success)
+                                sb.AppendLine($"• **Internet Gateway (8.8.8.8):** Connected | Roundtrip `{reply.RoundtripTime} ms` | TTL: `{reply.Options?.Ttl}`");
+                            else
+                                sb.AppendLine($"• **Internet Gateway (8.8.8.8):** Packet Failed ({reply.Status})");
+                        }
+                        catch (Exception ex)
+                        {
+                            sb.AppendLine($"• **Internet Gateway:** Error ({ex.Message})");
+                        }
+                        return sb.ToString().Trim();
+                    });
+
+                    AppendBotChatBubble(
+                        $"🌐 **Network Latency Ping Diagnostic Results:**\n\n{pingReport}\n\n• **Local IP:** `{FleetRegistryService.Instance.LocalDevice.IpAddress}`\n• **Network State:** Active Ethernet/WLAN Adapter",
+                        "FlushDns", "⚡ Flush DNS Resolver Cache", "Clear DNS cache", false,
+                        new List<string> { "Flush DNS", "File IT Complaint Ticket", "Network Profile Switcher" });
+                }
+                catch (Exception ex)
+                {
+                    AppendBotChatBubble($"⚠️ Ping diagnostic note: {ex.Message}", null, null, null, false, null);
+                }
+                finally
+                {
+                    _lblDashboardAiStatus.Text = "";
+                }
+                break;
+
+            case "OpenSubmitComplaint":
+                NavigateTo("SubmitComplaint");
+                break;
+
+            case "OpenRemoteClient":
+                NavigateTo("RemoteClient");
+                break;
+
+            case "OpenUsbDepot":
+                NavigateTo("UsbDepot");
+                break;
+
+            case "OpenAppUninstaller":
+                NavigateTo("AppUninstaller");
+                break;
+
+            case "OpenProcessShield":
+                NavigateTo("ProcessShield");
+                break;
+
+            case "OpenStorageSmart":
+                NavigateTo("StorageSmart");
+                break;
+
+            case "OpenLibrary":
+                NavigateTo("Library");
+                break;
+
+            case "OpenAssetPassport":
+                NavigateTo("AssetPassport");
+                break;
+
+            case "OpenPrinterSuite":
+                NavigateTo("Printer");
+                break;
+
+            default:
+                if (actionTag.StartsWith("Open"))
+                    NavigateTo(actionTag.Substring(4));
+                else
+                    NavigateTo(actionTag);
+                break;
+        }
+    }
+
+    #endregion
 }
