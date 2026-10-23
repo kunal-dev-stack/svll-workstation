@@ -134,7 +134,8 @@ Write-Host "       Local:        http://localhost:5000/" -ForegroundColor White
 foreach ($ip in $localIps) {
     Write-Host "       Network LAN:  http://$($ip):5000/" -ForegroundColor Yellow
 }
-Write-Host "`n   ⚡ USER WORKSTATION INSTALLATION COMMANDS (Run on Employee PCs):" -ForegroundColor Cyan
-Write-Host "       Internet:     irm https://tinyurl.com/svll-tool | iex" -ForegroundColor Green
-Write-Host "       Local LAN:    irm http://$($primaryIp):5000/install.ps1 | iex" -ForegroundColor Green
+Write-Host "`n   ⚡ WORKSTATION INSTALLATION COMMANDS:" -ForegroundColor Cyan
+Write-Host "       User Edition (Employee PCs):  irm https://tinyurl.com/svll-tool | iex" -ForegroundColor Green
+Write-Host "       Admin Console (IT Admin PC):  irm https://tinyurl.com/svll-admin | iex" -ForegroundColor Green
+Write-Host "       Local LAN Installer:          irm http://$($primaryIp):5000/install.ps1 | iex" -ForegroundColor DarkGray
 Write-Host "=========================================================================`n" -ForegroundColor Green

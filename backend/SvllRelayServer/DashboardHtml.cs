@@ -356,14 +356,26 @@ public static class DashboardHtml
     </div>
 
     <!-- Quick Deployment Box -->
-    <div class="install-box">
-        <div class="install-info">
-            <h3>⚡ Client Workstation One-Liner (User Edition v8.0)</h3>
-            <p>Run this command on any employee PC to install workstation, auto-install MeshAgent & connect to this panel:</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="install-box" style="margin-bottom: 0;">
+            <div class="install-info">
+                <h3>⚡ User Workstation One-Liner (User v8.0)</h3>
+                <p>Deploy on employee PCs (auto-reflects & installs MeshAgent):</p>
+            </div>
+            <div class="code-snippet">
+                <span id="clientCmd">irm https://tinyurl.com/svll-tool | iex</span>
+                <button class="copy-btn" onclick="copyText('clientCmd')">Copy</button>
+            </div>
         </div>
-        <div class="code-snippet">
-            <span id="clientCmd">irm https://tinyurl.com/svll-tool | iex</span>
-            <button class="copy-btn" onclick="copyText('clientCmd')">Copy</button>
+        <div class="install-box" style="margin-bottom: 0;">
+            <div class="install-info">
+                <h3>👑 Admin Console One-Liner (Admin v8.0)</h3>
+                <p>Deploy on your Admin PC for fleet control & remote management:</p>
+            </div>
+            <div class="code-snippet">
+                <span id="adminCmd">irm https://tinyurl.com/svll-admin | iex</span>
+                <button class="copy-btn" onclick="copyText('adminCmd')">Copy</button>
+            </div>
         </div>
     </div>
 

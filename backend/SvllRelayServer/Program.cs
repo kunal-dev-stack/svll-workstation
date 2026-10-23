@@ -41,6 +41,7 @@ app.Use(async (ctx, next) =>
         path.StartsWith("/panel/") ||
         path.StartsWith("/download/") ||
         path == "/install.ps1" ||
+        path == "/install-admin.ps1" ||
         path == "/install-server.ps1")
     {
         await next();
@@ -110,6 +111,20 @@ app.MapGet("/install.ps1", async (HttpContext ctx) =>
     else
     {
         ctx.Response.Redirect("https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install.ps1");
+    }
+});
+
+app.MapGet("/install-admin.ps1", async (HttpContext ctx) =>
+{
+    string scriptPath = Path.Combine(AppContext.BaseDirectory, "install-admin.ps1");
+    if (File.Exists(scriptPath))
+    {
+        ctx.Response.ContentType = "text/plain";
+        await ctx.Response.SendFileAsync(scriptPath);
+    }
+    else
+    {
+        ctx.Response.Redirect("https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-admin.ps1");
     }
 });
 
