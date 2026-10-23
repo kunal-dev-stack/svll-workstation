@@ -62,3 +62,22 @@ procedure InitializeWizard;
 begin
   ShowWindow(WizardForm.Handle, 3);
 end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  DataDir: string;
+  CfgFile: string;
+  JsonContent: string;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    DataDir := ExpandConstant('{commonappdata}\SVLL-IT-Workstation');
+    ForceDirectories(DataDir);
+    CfgFile := DataDir + '\admin_security.json';
+    if not FileExists(CfgFile) then
+    begin
+      JsonContent := '{"RelayServerUrl":"http://192.168.10.222:5000","MeshCentralUrl":"http://192.168.10.222:8086"}';
+      SaveStringToFile(CfgFile, JsonContent, False);
+    end;
+  end;
+end;

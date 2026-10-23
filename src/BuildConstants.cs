@@ -23,7 +23,7 @@ public static class BuildConstants
     public const string AppVersion = "8.0";
     public const string RelayApiKey = "SVLL-RELAY-KEY-2026-KUNAL";  // shared secret, same in both builds
 
-    /// <summary>Default fallback if not explicitly configured in admin security config</summary>
-    public const string DefaultRelayUrl = "http://localhost:5000";
-    public const string DefaultMeshCentralUrl = "http://localhost:8086";
+    /// <summary>Default corporate server IP for Shree Vasu Logistics</summary>
+    public const string DefaultRelayUrl = "http://192.168.10.222:5000";
+    public const string DefaultMeshCentralUrl = "http://192.168.10.222:8086";
 }

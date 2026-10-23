@@ -6,8 +6,8 @@
 # =========================================================================
 
 param(
-    [string]$ServerUrl = $env:SVLL_SERVER,
-    [string]$MeshServerUrl = $env:SVLL_MESH
+    [string]$ServerUrl = "http://192.168.10.222:5000",
+    [string]$MeshServerUrl = "http://192.168.10.222:8086"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +17,7 @@ $ErrorActionPreference = "Stop"
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "[!] Elevation required. Requesting Administrator permissions..." -ForegroundColor Yellow
-    $cliArgs = "-NoProfile -ExecutionPolicy Bypass -Command `"& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `$ServerUrl='$ServerUrl'; `$MeshServerUrl='$MeshServerUrl'; irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-admin.ps1 | iex }`""
+    $cliArgs = "-NoProfile -ExecutionPolicy Bypass -Command `"& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-admin.ps1 | iex }`""
     Start-Process powershell.exe -ArgumentList $cliArgs -Verb RunAs
     exit 0
 }
@@ -28,37 +28,15 @@ Write-Host "   SHREE VASU LOGISTICS LIMITED - ADMIN CONSOLE DEPLOYMENT" -Foregro
 Write-Host "   Version: Admin Edition v8.0 | Developed by Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
-# 2. Determine Relay Server URL
-$defaultServer = "http://localhost:5000"
-$programDataDir = "C:\ProgramData\SVLL-IT-Workstation"
-$cfgPath = Join-Path $programDataDir "admin_security.json"
-
-if (-not $ServerUrl -and (Test-Path $cfgPath)) {
-    try {
-        $existingJson = Get-Content $cfgPath -Raw | ConvertFrom-Json
-        if ($existingJson.RelayServerUrl) {
-            $ServerUrl = $existingJson.RelayServerUrl
-        }
-    } catch { }
-}
-
+# 2. Corporate Server Pre-configured (Zero Input Required)
 if (-not $ServerUrl) {
-    if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
-        Write-Host "`nEnter your SVLL Relay Server URL (where the server is running)." -ForegroundColor Yellow
-        Write-Host "Example: http://localhost:5000 or http://192.168.1.100:5000" -ForegroundColor DarkGray
-        $inputUrl = Read-Host "Server URL (press Enter for default: $defaultServer)"
-        if ($inputUrl -and $inputUrl.Trim()) {
-            $ServerUrl = $inputUrl.Trim()
-        } else {
-            $ServerUrl = $defaultServer
-        }
-    } else {
-        $ServerUrl = $defaultServer
-    }
+    $ServerUrl = "http://192.168.10.222:5000"
 }
-
+if (-not $MeshServerUrl) {
+    $MeshServerUrl = "http://192.168.10.222:8086"
+}
 $ServerUrl = $ServerUrl.TrimEnd('/')
-Write-Host "[+] Configured Relay Server: $ServerUrl" -ForegroundColor Green
+Write-Host "[+] Connecting Admin Console to Relay Server: $ServerUrl" -ForegroundColor Green
 
 # 3. Configure Security Settings Profile
 if (-not (Test-Path $programDataDir)) {
