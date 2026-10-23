@@ -34,7 +34,7 @@ public class DashboardAiService
         {
             Timeout = TimeSpan.FromSeconds(5)
         };
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "SVLL-Workstation-Copilot/7.0");
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "SVLL-Workstation-Copilot/7.1");
     }
 
     public async Task<DashboardAiResponse> AskAsync(string query)

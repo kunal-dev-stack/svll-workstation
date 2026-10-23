@@ -14,7 +14,7 @@ $installerDir = Join-Path $projectRoot "installer"
 $releaseDir = Join-Path $projectRoot "release"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Building SVLL IT Support Workstation v7.0" -ForegroundColor Cyan
+Write-Host "  Building SVLL IT Support Workstation v7.1" -ForegroundColor Cyan
 Write-Host "  Project Directory: $projectRoot" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
@@ -101,7 +101,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
 }
 
-$setupPath = Join-Path $releaseDir "SVLL-IT-Workstation-v7.0-Setup.exe"
+$setupPath = Join-Path $releaseDir "SVLL-IT-Workstation-v7.1-Setup.exe"
 if (Test-Path $setupPath) {
     $setupSize = (Get-Item $setupPath).Length / 1MB
     $setupMb = [Math]::Round($setupSize, 2)

@@ -34,10 +34,10 @@ if (-not $token) {
 }
 
 $repo = "kunal-dev-stack/svll-workstation"
-$tag = "v7.0"
-$releaseName = "SVLL IT Workstation v7.0 - Zero-Code Remote Access & AI Service Desk Edition"
-$notesPath = Join-Path $releaseDir "RELEASE_NOTES_v7.0.md"
-$body = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath, [System.Text.Encoding]::UTF8) } else { "SVLL IT Support Workstation v7.0 Release" }
+$tag = if ($args.Count -gt 0) { $args[0] } else { "v7.1" }
+$releaseName = "SVLL IT Workstation v7.1 - AI Quick Support Copilot & Complaint Desk Update"
+$notesPath = Join-Path $releaseDir "RELEASE_NOTES_v7.1.md"
+$body = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath, [System.Text.Encoding]::UTF8) } else { "SVLL IT Support Workstation v7.1 Release" }
 
 $headers = @{
     "Authorization" = "token " + $token
@@ -72,6 +72,13 @@ if (-not $release) {
 
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -Method Post -Body $payload -ContentType "application/json; charset=utf-8"
     Write-Host ("Created Release ID: " + $release.id) -ForegroundColor Green
+} else {
+    Write-Host "Updating release notes on '$tag'..." -ForegroundColor Cyan
+    $patchPayload = @{
+        name = $releaseName
+        body = $body
+    } | ConvertTo-Json
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/$($release.id)" -Headers $headers -Method Patch -Body $patchPayload -ContentType "application/json; charset=utf-8"
 }
 
 $releaseId = $release.id
@@ -80,8 +87,8 @@ $uploadBase = "https://uploads.github.com/repos/" + $repo + "/releases/" + $rele
 # 3. Assets to upload
 $assets = @(
     @{
-        Path = Join-Path $releaseDir "SVLL-IT-Workstation-v7.0-Setup.exe"
-        Name = "SVLL-IT-Workstation-v7.0-Setup.exe"
+        Path = Join-Path $releaseDir "SVLL-IT-Workstation-v7.1-Setup.exe"
+        Name = "SVLL-IT-Workstation-v7.1-Setup.exe"
         Type = "application/vnd.microsoft.portable-executable"
     },
     @{

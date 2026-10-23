@@ -4,7 +4,7 @@
 ; =========================================================================
 
 #define MyAppName "SVLL IT Support Workstation"
-#define MyAppVersion "7.0"
+#define MyAppVersion "7.1"
 #define MyAppPublisher "Shree Vasu Logistics Limited"
 #define MyAppURL "https://svll.in"
 #define MyAppExeName "SVLL-IT-Workstation.exe"
@@ -21,7 +21,7 @@ DefaultDirName={autopf}\ShreeVasuLogistics\ITWorkstation
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\release
-OutputBaseFilename=SVLL-IT-Workstation-v7.0-Setup
+OutputBaseFilename=SVLL-IT-Workstation-v7.1-Setup
 SetupIconFile=app_logo.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
