@@ -89,6 +89,13 @@ public class CloudSyncService
     {
         // Initial connectivity probe
         await CheckRelayReachabilityAsync();
+        if (IsRelayReachable)
+        {
+            await SendHeartbeatAsync();
+#if BUILD_ADMIN
+            await PollFleetAsync();
+#endif
+        }
 
         int heartbeatTick = 0;
         int fleetPollTick = 0;

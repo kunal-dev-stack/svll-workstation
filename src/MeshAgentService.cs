@@ -158,4 +158,39 @@ public static class MeshAgentService
         }
         catch { }
     }
+
+    /// <summary>
+    /// Silently installs MeshAgent service using local executable if available.
+    /// </summary>
+    public static bool TryInstallLocalAgent(string? sourceExe = null)
+    {
+        try
+        {
+            if (IsInstalled())
+            {
+                StartService();
+                return true;
+            }
+
+            string candidate = sourceExe ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MeshAgent.exe");
+            if (!File.Exists(candidate)) return false;
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = candidate,
+                Arguments = "-install",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            var proc = Process.Start(psi);
+            proc?.WaitForExit(10000);
+
+            StartService();
+            return IsInstalled();
+        }
+        catch { }
+        return false;
+    }
 }
+

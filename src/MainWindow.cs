@@ -317,6 +317,20 @@ public partial class MainWindow : Window
                 Log("[CLOUD SYNC] No relay server URL configured. Fleet sync inactive. Configure in Admin Security Settings.");
             }
 
+            // v8.0: Check MeshAgent service and auto-install/heal if bundled
+            try
+            {
+                if (!MeshAgentService.IsInstalled())
+                {
+                    Task.Run(() => MeshAgentService.TryInstallLocalAgent());
+                }
+                else
+                {
+                    Task.Run(() => MeshAgentService.StartService());
+                }
+            }
+            catch { }
+
             // v8.0: Subscribe to admin reply notifications
             CloudSyncService.Instance.AdminReplyReceived += OnAdminReplyReceived;
 

@@ -15,6 +15,7 @@
 
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
+using SvllRelayServer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,8 +33,15 @@ app.Services.GetRequiredService<DatabaseService>().Initialize();
 // ── Middleware: API Key Authentication ───────────────────────────────────────
 app.Use(async (ctx, next) =>
 {
-    // Health check is public
-    if (ctx.Request.Path.Value?.StartsWith("/api/health") == true)
+    string path = ctx.Request.Path.Value ?? "";
+    // Public routes: health check, web dashboard, panel APIs, downloads, install scripts
+    if (path.StartsWith("/api/health") ||
+        path == "/" ||
+        path == "/panel" ||
+        path.StartsWith("/panel/") ||
+        path.StartsWith("/download/") ||
+        path == "/install.ps1" ||
+        path == "/install-server.ps1")
     {
         await next();
         return;
@@ -47,6 +55,76 @@ app.Use(async (ctx, next) =>
         return;
     }
     await next();
+});
+
+// ── Web Dashboard Panel & Public Routes ───────────────────────────────────────
+app.MapGet("/", () => Results.Content(DashboardHtml.Render(), "text/html"));
+app.MapGet("/panel", () => Results.Content(DashboardHtml.Render(), "text/html"));
+
+app.MapGet("/panel/api/fleet", (DatabaseService db) =>
+{
+    var devices = db.GetAllDevices();
+    foreach (var d in devices)
+    {
+        if ((DateTime.UtcNow - d.LastSeen).TotalMinutes > RelayConfig.OfflineMinutes &&
+            d.Status != "SupportRequested")
+        {
+            d.Status = "Offline";
+        }
+    }
+    var sorted = devices
+        .OrderBy(d => d.Status == "SupportRequested" ? 0 : d.Status == "Online" ? 1 : 2)
+        .ThenBy(d => d.Hostname)
+        .ToList();
+    return Results.Ok(sorted);
+});
+
+app.MapGet("/panel/api/tickets", (DatabaseService db) => Results.Ok(db.GetAllTickets()));
+
+app.MapPost("/panel/api/ticket/reply", (DatabaseService db, PanelReplyRequest req) =>
+{
+    if (string.IsNullOrEmpty(req.CloudTicketId)) return Results.BadRequest("Missing ticket ID");
+    bool ok = db.UpdateTicket(req.CloudTicketId, new TicketUpdateRequest
+    {
+        Status = req.Status ?? "Resolved",
+        AdminReply = req.AdminReply,
+        AdminNotes = $"Replied via Web Panel: {req.AdminReply}"
+    });
+    return ok ? Results.Ok(new { updated = true }) : Results.NotFound();
+});
+
+// Download endpoints
+app.MapGet("/download/user-setup", () => Results.Redirect("https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.0/SVLL-IT-Workstation-User-v8.0-Setup.exe"));
+app.MapGet("/download/meshagent", () => Results.Redirect("https://github.com/Ylianst/MeshAgent/releases/download/legacy-1.2.6/MeshService64.exe"));
+
+// Direct installer script endpoints
+app.MapGet("/install.ps1", async (HttpContext ctx) =>
+{
+    string scriptPath = Path.Combine(AppContext.BaseDirectory, "install-client.ps1");
+    if (!File.Exists(scriptPath)) scriptPath = Path.Combine(AppContext.BaseDirectory, "install.ps1");
+    if (File.Exists(scriptPath))
+    {
+        ctx.Response.ContentType = "text/plain";
+        await ctx.Response.SendFileAsync(scriptPath);
+    }
+    else
+    {
+        ctx.Response.Redirect("https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install.ps1");
+    }
+});
+
+app.MapGet("/install-server.ps1", async (HttpContext ctx) =>
+{
+    string scriptPath = Path.Combine(AppContext.BaseDirectory, "install-server.ps1");
+    if (File.Exists(scriptPath))
+    {
+        ctx.Response.ContentType = "text/plain";
+        await ctx.Response.SendFileAsync(scriptPath);
+    }
+    else
+    {
+        ctx.Response.Redirect("https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-server.ps1");
+    }
 });
 
 // ── Health Check ─────────────────────────────────────────────────────────────
@@ -531,3 +609,11 @@ public class TicketUpdateRequest
     public string? AdminReply { get; set; }
     public string? AssignedTechnician { get; set; }
 }
+
+public class PanelReplyRequest
+{
+    public string CloudTicketId { get; set; } = "";
+    public string AdminReply { get; set; } = "";
+    public string Status { get; set; } = "Resolved";
+}
+
