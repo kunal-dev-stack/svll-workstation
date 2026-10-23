@@ -27,7 +27,7 @@ namespace SVLL_IT_Workstation;
 public partial class MainWindow
 {
     // =========================================================================
-    // HUB 8: ENDPOINT THREAT DEFENSE & SECURITY HARDENING (SOC & CYBER DEFENSE)
+    // HUB 6: ENDPOINT THREAT DEFENSE & SECURITY HARDENING (SOC & CYBER DEFENSE)
     // =========================================================================
 
     [DllImport("ntdll.dll", SetLastError = true)]
@@ -93,7 +93,7 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
             Margin = new Thickness(10, 0, 0, 0),
-            Child = new TextBlock { Text = "HUB 8 • SOC DEFENSE", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(109, 40, 217)) }
+            Child = new TextBlock { Text = "HUB 6 • SOC DEFENSE", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(109, 40, 217)) }
         });
         headerLeft.Children.Add(titleRow);
         headerLeft.Children.Add(new TextBlock

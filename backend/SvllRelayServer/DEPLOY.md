@@ -1,5 +1,5 @@
 # SVLL IT Relay Server — Deployment Guide
-> Version 1.0 | Developed by Kunal Turkar | Shree Vasu Logistics Limited
+> Version 1.1 | Developed by Kunal Turkar | Shree Vasu Logistics Limited
 
 ## What is this?
 

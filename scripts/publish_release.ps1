@@ -1,7 +1,7 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - GitHub Release Publisher
 # Developed by: Kunal Turkar
-# Publishes Workstation v8.0 (Client) and Server v1.0 Releases to GitHub
+# Publishes Workstation v8.1 (Client & Admin) and Server v1.1 Releases to GitHub
 # =========================================================================
 
 param(
@@ -143,22 +143,22 @@ function Publish-GitHubRelease {
     Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
 }
 
-# ── 1. Publish Workstation v8.0 Release ───────────────────────────────────────
+# ── 1. Publish Workstation v8.1 Release (Client & Admin) ───────────────────────────
 if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
     $clientAssets = @(
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.0-Setup.exe"
-            Name = "SVLL-IT-Workstation-User-v8.0-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.1-Setup.exe"
+            Name = "SVLL-IT-Workstation-User-v8.1-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
-            Name = "SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.1-Setup.exe"
+            Name = "SVLL-IT-Workstation-Admin-v8.1-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.0-Setup.exe"
-            Name = "SVLL-IT-Workstation-v8.0-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.1-Setup.exe"
+            Name = "SVLL-IT-Workstation-v8.1-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
@@ -179,18 +179,18 @@ if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
     )
 
     Publish-GitHubRelease `
-        -Tag "v8.0" `
-        -ReleaseName "SVLL IT Support Workstation v8.0 (Dual Editions)" `
-        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.0.md") `
+        -Tag "v8.1" `
+        -ReleaseName "SVLL IT Support Workstation v8.1 (Dual Editions: Client & Admin)" `
+        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.1.md") `
         -Assets $clientAssets
 }
 
-# ── 2. Publish Server v1.0 Release ───────────────────────────────────────────
+# ── 2. Publish Server v1.1 Release ───────────────────────────────────────────
 if ($Target -eq "all" -or $Target -eq "server") {
     $serverAssets = @(
         @{
-            Path = Join-Path $releaseDir "SVLL-Relay-Server-v1.0-win-x64.zip"
-            Name = "SVLL-Relay-Server-v1.0-win-x64.zip"
+            Path = Join-Path $releaseDir "SVLL-Relay-Server-v1.1-win-x64.zip"
+            Name = "SVLL-Relay-Server-v1.1-win-x64.zip"
             Type = "application/zip"
         },
         @{
@@ -201,9 +201,9 @@ if ($Target -eq "all" -or $Target -eq "server") {
     )
 
     Publish-GitHubRelease `
-        -Tag "server-v1.0" `
-        -ReleaseName "SVLL IT Relay Server v1.0" `
-        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_SERVER_v1.0.md") `
+        -Tag "server-v1.1" `
+        -ReleaseName "SVLL IT Relay Server v1.1" `
+        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_SERVER_v1.1.md") `
         -Assets $serverAssets
 }
 

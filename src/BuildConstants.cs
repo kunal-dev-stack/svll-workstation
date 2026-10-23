@@ -20,7 +20,7 @@ public static class BuildConstants
     public const string BuildEditionColor = "#1A4BB2"; // SVLL blue
 #endif
 
-    public const string AppVersion = "8.0";
+    public const string AppVersion = "8.1";
     public const string RelayApiKey = "SVLL-RELAY-KEY-2026-KUNAL";  // shared secret, same in both builds
 
     /// <summary>Default corporate server IP for Shree Vasu Logistics</summary>

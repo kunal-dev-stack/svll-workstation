@@ -60,7 +60,7 @@ public partial class MainWindow
     private Button _btnDashboardAiSend = null!;
     private TextBlock _lblDashboardAiStatus = null!;
     private Border _dashboardAiBody = null!;
-    private bool _isDashboardAiExpanded = true;
+    private bool _isDashboardAiExpanded = false;
 
     // Multi-Drive Storage Visualizer Panel
     private StackPanel _panelDriveBars = null!;
@@ -129,12 +129,27 @@ public partial class MainWindow
 
         var topActions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
+        var btnOpenTaskMgr = new Button
+        {
+            Content = "⚡ Task Manager",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            Foreground = SvllBlue,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            Cursor = Cursors.Hand
+        };
+        btnOpenTaskMgr.Click += (s, e) => NavigateTo("TaskManager");
+        topActions.Children.Add(btnOpenTaskMgr);
+
         var btnRefresh = new Button
         {
-            Content = " Refresh Telemetry ",
+            Content = "🔄 Refresh Telemetry",
             FontSize = 11,
             Padding = new Thickness(10, 5, 10, 5),
-            Margin = new Thickness(0, 0, 10, 0),
+            Margin = new Thickness(0, 0, 8, 0),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             Cursor = Cursors.Hand
@@ -368,42 +383,80 @@ public partial class MainWindow
         Grid.SetColumn(cardDrives, 0);
         middleGrid.Children.Add(cardDrives);
 
-        // Right Card: Top 5 Active Processes by Memory Utilization
+        // Right Card: Top 6 Active Processes by Memory Utilization
         var cardProcs = new Border
         {
             Background = BgCard,
-            BorderBrush = BorderMuted,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(10),
             Padding = new Thickness(16),
             Margin = new Thickness(8, 0, 0, 0)
         };
         var spProcs = new StackPanel();
         var procHeader = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-        procHeader.Children.Add(new TextBlock
+
+        var procLeft = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        procLeft.Children.Add(new TextBlock
         {
-            Text = "TOP 5 ACTIVE RESOURCE-INTENSIVE PROCESSES",
+            Text = "TOP 6 ACTIVE RESOURCE-INTENSIVE PROCESSES",
             FontSize = 11,
             FontWeight = FontWeights.Bold,
-            Foreground = SvllBlue
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center
         });
+        var countBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(6, 1, 6, 1),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = "⚡ 6 HIGH-LOAD", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = SvllRed }
+        };
+        procLeft.Children.Add(countBadge);
+        procHeader.Children.Add(procLeft);
+
+        var procButtons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+
+        var btnOpenTaskMgrCard = new Button
+        {
+            Content = "⚡ Detailed Task Manager ➔",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            Foreground = SvllBlue,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            Cursor = Cursors.Hand
+        };
+        btnOpenTaskMgrCard.Click += (s, e) => NavigateTo("TaskManager");
+        procButtons.Children.Add(btnOpenTaskMgrCard);
+
         var btnKillProc = new Button
         {
-            Content = "Terminate Selected",
+            Content = "❌ Close Task",
             FontSize = 10,
-            Padding = new Thickness(8, 2, 8, 2),
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(10, 2, 10, 2),
             Background = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
             Foreground = SvllRed,
             BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
-            HorizontalAlignment = HorizontalAlignment.Right
+            Cursor = Cursors.Hand
         };
         btnKillProc.Click += (s, e) => TerminateSelectedProcess();
-        procHeader.Children.Add(btnKillProc);
+        procButtons.Children.Add(btnKillProc);
+
+        DockPanel.SetDock(procButtons, Dock.Right);
+        procHeader.Children.Add(procButtons);
         spProcs.Children.Add(procHeader);
 
         _listTopProcesses = new ListView
         {
-            Height = 130,
+            Height = 155,
             FontSize = 11,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1)
@@ -424,6 +477,20 @@ public partial class MainWindow
         gvProc.Columns.Add(barCol);
 
         _listTopProcesses.View = gvProc;
+
+        // Context menu & double click to close
+        var pMenu = new ContextMenu();
+        var menuClose = new MenuItem { Header = "❌  Close Task (Terminate Process)", FontWeight = FontWeights.Bold };
+        menuClose.Click += (s, e) => TerminateSelectedProcess();
+        pMenu.Items.Add(menuClose);
+
+        var menuFullTaskMgr = new MenuItem { Header = "⚡  Open Detailed Task Manager" };
+        menuFullTaskMgr.Click += (s, e) => NavigateTo("TaskManager");
+        pMenu.Items.Add(menuFullTaskMgr);
+
+        _listTopProcesses.ContextMenu = pMenu;
+        _listTopProcesses.MouseDoubleClick += (s, e) => TerminateSelectedProcess();
+
         spProcs.Children.Add(_listTopProcesses);
         cardProcs.Child = spProcs;
         Grid.SetColumn(cardProcs, 1);
@@ -750,31 +817,51 @@ public partial class MainWindow
             double used = Math.Round(total - free, 1);
             int pct = (int)Math.Round(((total - free) / total) * 100);
 
+            string typeTag = d.DriveType == DriveType.Removable ? "🔌 USB" : (d.DriveType == DriveType.Fixed ? "💾 FIXED" : "📁 " + d.DriveType);
+            string volName = string.IsNullOrWhiteSpace(d.VolumeLabel) ? "Local Disk" : d.VolumeLabel;
+
             var sp = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
             var labelGrid = new DockPanel { Margin = new Thickness(0, 0, 0, 2) };
-            labelGrid.Children.Add(new TextBlock
+
+            var titleSp = new StackPanel { Orientation = Orientation.Horizontal };
+            titleSp.Children.Add(new TextBlock
             {
-                Text = $"Volume [{d.Name}] {d.VolumeLabel}",
+                Text = $"[{d.Name.TrimEnd('\\')}] {volName}",
                 FontSize = 10.5,
                 FontWeight = FontWeights.Bold,
                 Foreground = TextDark
             });
-            labelGrid.Children.Add(new TextBlock
+            var typeBadge = new Border
             {
-                Text = $"{used} / {total} GB ({pct}% Used)",
+                Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+                BorderBrush = BorderMuted,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(4, 1, 4, 1),
+                Margin = new Thickness(6, 0, 0, 0),
+                Child = new TextBlock { Text = typeTag, FontSize = 8.5, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
+            };
+            titleSp.Children.Add(typeBadge);
+            labelGrid.Children.Add(titleSp);
+
+            var statSp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            statSp.Children.Add(new TextBlock
+            {
+                Text = $"{used} / {total} GB ({pct}% Used  |  {free} GB Free)",
                 FontSize = 10,
-                Foreground = TextSubtle,
-                HorizontalAlignment = HorizontalAlignment.Right
+                Foreground = pct >= 85 ? SvllRed : TextSubtle,
+                FontWeight = pct >= 85 ? FontWeights.Bold : FontWeights.Normal
             });
+            labelGrid.Children.Add(statSp);
             sp.Children.Add(labelGrid);
 
             var bar = new ProgressBar
             {
-                Height = 6,
+                Height = 7,
                 Minimum = 0,
                 Maximum = 100,
                 Value = pct,
-                Foreground = pct >= 90 ? SvllRed : (pct >= 75 ? new SolidColorBrush(Color.FromRgb(217, 119, 6)) : SvllBlue)
+                Foreground = pct >= 90 ? SvllRed : (pct >= 75 ? new SolidColorBrush(Color.FromRgb(217, 119, 6)) : new SolidColorBrush(Color.FromRgb(16, 185, 129)))
             };
             sp.Children.Add(bar);
             _panelDriveBars.Children.Add(sp);
@@ -904,12 +991,15 @@ public partial class MainWindow
 
         try
         {
+            // Capture selected PID so auto-refresh NEVER deselects!
+            int? selectedPid = (_listTopProcesses.SelectedItem as TopProcessItem)?.Id;
+
             var top = Process.GetProcesses()
                 .OrderByDescending(p =>
                 {
                     try { return p.WorkingSet64; } catch { return 0L; }
                 })
-                .Take(5)
+                .Take(6)
                 .Select(p =>
                 {
                     double mb = 0;
@@ -928,6 +1018,16 @@ public partial class MainWindow
             _topProcesses.AddRange(top);
             _listTopProcesses.ItemsSource = null;
             _listTopProcesses.ItemsSource = _topProcesses;
+
+            // Restore selection if previously selected!
+            if (selectedPid.HasValue)
+            {
+                var match = _topProcesses.FirstOrDefault(x => x.Id == selectedPid.Value);
+                if (match != null)
+                {
+                    _listTopProcesses.SelectedItem = match;
+                }
+            }
         }
         catch { }
     }
@@ -936,18 +1036,19 @@ public partial class MainWindow
     {
         if (_listTopProcesses.SelectedItem is TopProcessItem item)
         {
-            if (MessageBox.Show($"Are you sure you want to terminate process '{item.Name}' (PID: {item.Id})?", "Confirm Termination", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            if (MessageBox.Show($"Are you sure you want to close task '{item.Name}' (PID: {item.Id})?\n\nMemory in use: {item.MemoryFormatted}", "Confirm Close Task", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 try
                 {
                     var proc = Process.GetProcessById(item.Id);
                     proc.Kill();
-                    Log($"[TASK ADMIN] Terminated process {item.Name} (PID {item.Id}).");
+                    proc.WaitForExit(1500);
+                    Log($"[TASK MANAGER] Closed process {item.Name} (PID {item.Id}).");
                     UpdateLiveVitals();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Could not terminate process: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Could not close process: {ex.Message}", "Error Closing Task", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -1225,7 +1326,7 @@ public partial class MainWindow
 
         var btnToggle = new Button
         {
-            Content = "▲ Minimize",
+            Content = "▼ Expand Support Copilot",
             FontSize = 10,
             FontWeight = FontWeights.SemiBold,
             Padding = new Thickness(8, 3, 8, 3),
@@ -1245,8 +1346,8 @@ public partial class MainWindow
         headerGrid.Children.Add(topButtons);
         mainStack.Children.Add(headerGrid);
 
-        // 2. Collapsible Body Container
-        _dashboardAiBody = new Border { Margin = new Thickness(0, 10, 0, 0) };
+        // 2. Collapsible Body Container (Minimized at startup)
+        _dashboardAiBody = new Border { Margin = new Thickness(0, 10, 0, 0), Visibility = Visibility.Collapsed };
         var bodyStack = new StackPanel();
 
         // 2a. 1-Click Fast Feature Action Chips Bar
@@ -1281,10 +1382,10 @@ public partial class MainWindow
         }
 
         AddQuickFeatureChip("⚡", "1-Click Turbo Boost", "TurboBoost");
+        AddQuickFeatureChip("⚡", "Task Manager", "OpenTaskManager");
         AddQuickFeatureChip("🖨️", "Fix Print Spooler", "FixPrintSpooler");
         AddQuickFeatureChip("🌐", "Ping Gateway & DNS", "PingGateway");
         AddQuickFeatureChip("🧹", "Purge Temp Files", "PurgeTemp");
-        AddQuickFeatureChip("📋", "File IT Ticket", "OpenSubmitComplaint");
         AddQuickFeatureChip("🔴", "Remote Client", "OpenRemoteClient");
         AddQuickFeatureChip("🔌", "USB Depot", "OpenUsbDepot");
         AddQuickFeatureChip("🗑️", "Force App Purge", "OpenAppUninstaller");
@@ -1738,8 +1839,8 @@ public partial class MainWindow
                 }
                 break;
 
-            case "OpenSubmitComplaint":
-                NavigateTo("SubmitComplaint");
+            case "OpenTaskManager":
+                NavigateTo("TaskManager");
                 break;
 
             case "OpenRemoteClient":

@@ -5,11 +5,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Authors>Kunal Turkar</Authors>
     <Company>Shree Vasu Logistics Limited</Company>
     <Product>SVLL IT Relay Server</Product>
-    <Description>Lightweight relay server for SVLL IT Workstation v8.0 — fleet heartbeat sync and ticket relay.</Description>
+    <Description>Lightweight relay server for SVLL IT Workstation v8.1 — fleet heartbeat sync and remote control.</Description>
   </PropertyGroup>
 
   <ItemGroup>

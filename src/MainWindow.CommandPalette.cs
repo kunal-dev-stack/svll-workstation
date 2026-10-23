@@ -291,20 +291,21 @@ public partial class MainWindow
             new() { Title = "S.M.A.R.T. Drive Health & Crash Predictor", Subtitle = "Inspect NVMe/SATA controller registers, SSD wear % & bad sectors", Category = "STORAGE", Icon = "💾", TargetTag = "StorageSmart" },
             new() { Title = "Active Ports & Bandwidth Hog Hunter", Subtitle = "Map active TCP connections to process binaries and terminate hogs", Category = "NETWORK", Icon = "📡", TargetTag = "SocketInspector" },
 
-            // Hub 1: Monitoring
+            // Hub 1: Live Monitoring & Triage
             new() { Title = "Executive Telemetry Dashboard", Subtitle = "Live CPU, RAM, disk, IP and top memory processes", Category = "MONITORING", Icon = "📊", TargetTag = "Dashboard" },
+            new() { Title = "Interactive Task Manager & Process Controller", Subtitle = "Live process telemetry, memory footprint, threads & 1-click close task", Category = "MONITORING", Icon = "⚡", TargetTag = "TaskManager" },
             new() { Title = "24/7 Continuous Ping Watchdog", Subtitle = "Multi-target automated gateway, DNS and ERP ping monitor", Category = "MONITORING", Icon = "⚡", TargetTag = "PingMonitor" },
             new() { Title = "WMS & ERP Latency Diagnostics", Subtitle = "Test latency to warehouse database and logistics ERP servers", Category = "MONITORING", Icon = "🏢", TargetTag = "WmsLatency" },
             new() { Title = "Internet Speed & Bandwidth Test", Subtitle = "Measure upload/download throughput and jitter", Category = "MONITORING", Icon = "🚀", TargetTag = "SpeedTest" },
 
-            // Hub 2: Network
+            // Hub 2: Network Operations Center (NOC)
             new() { Title = "IPConfig & Netsh Network Suite", Subtitle = "Network adapter diagnostics, release/renew IP and ARP reset", Category = "NETWORK", Icon = "📋", TargetTag = "NetshSuite" },
             new() { Title = "Network & DNS Profiles Switcher", Subtitle = "Switch between DHCP, Static Logistics IPs and DNS presets", Category = "NETWORK", Icon = "🌐", TargetTag = "Network" },
             new() { Title = "Subnet IP Scanner (Free vs Occupied)", Subtitle = "Scan /24 subnets to find available unallocated IP addresses", Category = "NETWORK", Icon = "🔍", TargetTag = "SubnetScanner" },
             new() { Title = "Wi-Fi Diagnostics & Saved Keys", Subtitle = "Enumerate Wi-Fi profiles, signal strength and view saved WPA2 keys", Category = "NETWORK", Icon = "📶", TargetTag = "Wifi" },
             new() { Title = "LAN File Shares & SMB Auditor", Subtitle = "Enumerate active SMB network shares and mapped network drives", Category = "NETWORK", Icon = "📂", TargetTag = "LanShares" },
 
-            // Hub 3: Optimization
+            // Hub 3: System Optimization & Servicing
             new() { Title = "WinUtil Enterprise Debloat & Tweaks", Subtitle = "Remove Cortana, GameBar, consumer bloat and telemetry", Category = "OPTIMIZATION", Icon = "⚙️", TargetTag = "WinUtilTweaks" },
             new() { Title = "Disk Cleanup & Temp File Purge", Subtitle = "Purge Windows Temp, Prefetch, delivery caches and Recycle Bin", Category = "OPTIMIZATION", Icon = "🧹", TargetTag = "Cleanup" },
             new() { Title = "Storage Drive Optimization & TRIM", Subtitle = "Trigger SSD TRIM and defragment traditional storage drives", Category = "OPTIMIZATION", Icon = "💾", TargetTag = "Disk" },
@@ -312,13 +313,15 @@ public partial class MainWindow
             new() { Title = "Windows Update Strategy & Pause", Subtitle = "Pause updates, configure metered connection, or trigger update checks", Category = "OPTIMIZATION", Icon = "🔄", TargetTag = "WinUpdateConfig" },
             new() { Title = "Baseline Profile Configuration Manager", Subtitle = "Save and import standardized workstation baseline settings", Category = "OPTIMIZATION", Icon = "📋", TargetTag = "ConfigManager" },
 
-            // Hub 4: Diagnostics
+            // Hub 4: Fleet Diagnostics & Support
+            new() { Title = "Detailed Task Manager & Process Controller", Subtitle = "Inspect running processes, threads, memory footprint & close tasks", Category = "DIAGNOSTICS", Icon = "⚡", TargetTag = "TaskManager" },
             new() { Title = "Windows OS Repair (SFC & DISM)", Subtitle = "Repair corrupted system files, component store and BCD", Category = "DIAGNOSTICS", Icon = "🩺", TargetTag = "Repair" },
             new() { Title = "Print Spooler Diagnostic & Clear", Subtitle = "Restart printer spooler service and clear stuck print jobs", Category = "DIAGNOSTICS", Icon = "🖨️", TargetTag = "Printer" },
-            new() { Title = "Services & Process Controller", Subtitle = "Inspect running services, startup programs and processes", Category = "DIAGNOSTICS", Icon = "⚡", TargetTag = "Services" },
+            new() { Title = "Services & Process Controller", Subtitle = "Inspect running services, startup programs and processes", Category = "DIAGNOSTICS", Icon = "⚙️", TargetTag = "Services" },
             new() { Title = "Windows Event Log Analyzer", Subtitle = "Inspect System and Application critical errors and crash logs", Category = "DIAGNOSTICS", Icon = "⚠️", TargetTag = "EventLog" },
             new() { Title = "PC Health & Battery Diagnostics", Subtitle = "Generate battery degradation report and hardware health metrics", Category = "DIAGNOSTICS", Icon = "🔋", TargetTag = "Health" },
             new() { Title = "Hardware Asset Passport & QR Code", Subtitle = "View motherboard, BIOS, MAC addresses and export QR passport", Category = "DIAGNOSTICS", Icon = "🛡️", TargetTag = "AssetPassport" },
+            new() { Title = "My Remote Access Client & AnyDesk Status", Subtitle = "Inspect local AnyDesk ID, toggle RDP and launch Quick Assist", Category = "DIAGNOSTICS", Icon = "🔴", TargetTag = "RemoteClient" },
             new() { Title = "IT Support Incident Bundle (ZIP)", Subtitle = "Compile complete system diagnostic logs into a zip for IT helpdesk", Category = "DIAGNOSTICS", Icon = "📦", TargetTag = "SupportBundle" },
 
             // Hub 5: Playbook & Deployment
@@ -329,23 +332,18 @@ public partial class MainWindow
             new() { Title = "Local Users & Windows Vault Manager", Subtitle = "Audit local user accounts, reset passwords and query credential vault", Category = "SECURITY", Icon = "👤", TargetTag = "Users" },
             new() { Title = "Updates & About SVLL Workstation", Subtitle = "View build info, check for latest releases on GitHub", Category = "SYSTEM", Icon = "ℹ️", TargetTag = "About" },
 
-            // Hub 6: Remote Access & Fleet Console
-            new() { Title = "My Remote Access Client & AnyDesk Status", Subtitle = "Inspect local AnyDesk ID, toggle RDP and launch Quick Assist", Category = "REMOTE", Icon = "🔴", TargetTag = "RemoteClient" },
-            new() { Title = "Fleet Device Management & Admin Console", Subtitle = "Live monitor and 1-click AnyDesk connection to all fleet workstations", Category = "REMOTE", Icon = "👑", TargetTag = "FleetAdminConsole" },
-
-            // Hub 7: IT Complaints & AI Service Desk
-            new() { Title = "Register IT Support Complaint Ticket", Subtitle = "Log workstation, printer, or network incidents with auto-diagnostics", Category = "HELPDESK", Icon = "📋", TargetTag = "SubmitComplaint" },
-            new() { Title = "AI Intelligent IT Diagnostic & Intake Assistant", Subtitle = "Interactive conversational triage bot with clarifying questions & quick fixes", Category = "HELPDESK", Icon = "🤖", TargetTag = "AiComplaintBot" },
-            new() { Title = "Central IT Service Desk Admin Panel", Subtitle = "Admin dashboard to manage, update, and resolve incident tickets", Category = "HELPDESK", Icon = "👑", TargetTag = "TicketAdminDesk" },
-            new() { Title = "Track My Submitted Complaints", Subtitle = "View real-time resolution progress and technician notes for this PC", Category = "HELPDESK", Icon = "📂", TargetTag = "MyTickets" },
-
-            // Hub 8: Threat Defense & Security Hardening
+            // Hub 6: Endpoint Threat Defense & Security Hardening
             new() { Title = "Zero-Trust Process & Ransomware Shield", Subtitle = "Scan memory, kill rogue Temp/AppData binaries & hash lookup", Category = "SECURITY", Icon = "🛡️", TargetTag = "ProcessShield" },
             new() { Title = "CIS Windows Enterprise Security Hardening", Subtitle = "10 enterprise compliance benchmarks: UAC, SMBv1, LLMNR, Firewall", Category = "SECURITY", Icon = "⚡", TargetTag = "SecurityHardening" },
             new() { Title = "USB Endpoint DLP & Device Guardian", Subtitle = "Hardware mass storage lock, Read-Only enforcement & pen drive audit", Category = "SECURITY", Icon = "🔒", TargetTag = "UsbDlpGuardian" },
             new() { Title = "Active Socket & Network Port Threat Hunter", Subtitle = "Flag open SMB, RDP, RPC, reverse shells and block remote IPs", Category = "SECURITY", Icon = "📡", TargetTag = "PortThreatHunter" },
             new() { Title = "Emergency Incident Forensics & Triage Collector", Subtitle = "1-click forensic package: processes, sockets, event logs, autoruns", Category = "SECURITY", Icon = "📦", TargetTag = "ForensicsCollector" },
             new() { Title = "SSL/TLS & Corporate Domain Health Inspector", Subtitle = "Live certificate expiry, TLS protocol and latency for svll.in & APIs", Category = "SECURITY", Icon = "🌐", TargetTag = "CertHealthInspector" },
+
+#if BUILD_ADMIN
+            // Hub 7: Admin Command Center
+            new() { Title = "Fleet Device Management & Admin Console", Subtitle = "Live monitor and 1-click AnyDesk connection to all fleet workstations", Category = "ADMIN", Icon = "👑", TargetTag = "AdminCommandCenter" },
+#endif
 
             // Fast Instant Actions
             new() {

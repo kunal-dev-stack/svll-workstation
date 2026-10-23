@@ -4,7 +4,7 @@
 ; =========================================================================
 
 #define MyAppName "SVLL IT Support Workstation"
-#define MyAppVersion "8.0"
+#define MyAppVersion "8.1"
 #define MyAppPublisher "Shree Vasu Logistics Limited"
 #define MyAppURL "https://svll.in"
 #define MyAppExeName "SVLL-IT-Workstation-User.exe"
@@ -21,7 +21,7 @@ DefaultDirName={autopf}\ShreeVasuLogistics\ITWorkstation
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\release
-OutputBaseFilename=SVLL-IT-Workstation-User-v8.0-Setup
+OutputBaseFilename=SVLL-IT-Workstation-User-v8.1-Setup
 SetupIconFile=app_logo.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -38,7 +38,6 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\publish-user\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app_logo.ico"; DestDir: "{app}"; DestName: "app_logo.ico"; Flags: ignoreversion
-Source: "..\Complain Log sheet IT - New Complaint.csv"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"

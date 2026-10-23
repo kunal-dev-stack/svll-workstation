@@ -1,6 +1,6 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - Relay Server Automated Installer
-# Target: SVLL IT Relay Server (v1.0)
+# Target: SVLL IT Relay Server (v1.1)
 # Developed by: Kunal Turkar
 # Compatible with Windows 10/11 & Windows Server (x64)
 # =========================================================================
@@ -19,7 +19,7 @@ if (-not $isAdmin) {
 
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host "   SHREE VASU LOGISTICS LIMITED - RELAY SERVER v1.0 DEPLOYMENT" -ForegroundColor Cyan
+Write-Host "   SHREE VASU LOGISTICS LIMITED - RELAY SERVER v1.1 DEPLOYMENT" -ForegroundColor Cyan
 Write-Host "   Central Hub for Fleet Telemetry & Remote Control | Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
@@ -55,10 +55,10 @@ if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 }
 
-$serverZipUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/server-v1.0/SVLL-Relay-Server-v1.0-win-x64.zip"
-$tempZip = Join-Path $env:TEMP "SVLL-Relay-Server-v1.0-win-x64.zip"
+$serverZipUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/server-v1.1/SVLL-Relay-Server-v1.1-win-x64.zip"
+$tempZip = Join-Path $env:TEMP "SVLL-Relay-Server-v1.1-win-x64.zip"
 
-Write-Host "`n[2/5] Downloading SVLL Relay Server v1.0 package..." -ForegroundColor Yellow
+Write-Host "`n[2/5] Downloading SVLL Relay Server v1.1 package..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $serverZipUrl -Destination $tempZip -ErrorAction Stop
 } catch {

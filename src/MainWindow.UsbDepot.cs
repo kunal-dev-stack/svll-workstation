@@ -42,8 +42,13 @@ public partial class MainWindow
     private TextBlock _lblUsbBatchStatus = null!;
     private Button _btnBatchInstall = null!;
     private Button _btnAbortBatch = null!;
+    private CheckBox _chkInteractiveMode = null!;
     private CheckBox _chkCreateRestorePoint = null!;
     private CheckBox _chkSaveDeployJson = null!;
+    private TextBlock _lblMetricPkgCount = null!;
+    private TextBlock _lblMetricTotalSize = null!;
+    private TextBlock _lblMetricSelectedCount = null!;
+    private TextBlock _lblMetricDriveInfo = null!;
     private bool _isBatchInstalling = false;
     private CancellationTokenSource? _batchCancelCts;
     private string _activeUsbFilter = "ALL";
@@ -218,7 +223,7 @@ public partial class MainWindow
         var root = new StackPanel();
 
         // 1. USB Selection & Drive Status Dock
-        var driveDock = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
+        var driveDock = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
 
         var lblDrive = new TextBlock
         {
@@ -244,9 +249,38 @@ public partial class MainWindow
         btnRescanDrives.Click += (s, e) => RefreshUsbDrivesList();
         driveDock.Children.Add(btnRescanDrives);
 
+        var btnOpenExplorer = new Button
+        {
+            Content = "📂 Open in Explorer",
+            ToolTip = "Opens the selected USB depot directory in Windows Explorer",
+            FontSize = 11,
+            Padding = new Thickness(10, 4, 10, 4),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Margin = new Thickness(6, 0, 0, 0)
+        };
+        DockPanel.SetDock(btnOpenExplorer, Dock.Right);
+        btnOpenExplorer.Click += (s, e) =>
+        {
+            string target = _txtCustomFolderPath?.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(target) && Directory.Exists(target))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{target}\"", UseShellExecute = true });
+                }
+                catch { }
+            }
+            else
+            {
+                MessageBox.Show("Please select a valid drive first.", "Explorer", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        };
+        driveDock.Children.Add(btnOpenExplorer);
+
         var btnBrowseFolder = new Button
         {
-            Content = "📂 Browse Folder...",
+            Content = "📁 Browse Folder...",
             FontSize = 11,
             Padding = new Thickness(10, 4, 10, 4),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
@@ -296,7 +330,15 @@ public partial class MainWindow
         };
         root.Children.Add(_txtCustomFolderPath);
 
-        // 2. Filter & Action Strip
+        // 2. Depot Health & Capacity KPI Cards
+        var metricGrid = new UniformGrid { Columns = 4, Margin = new Thickness(0, 0, 0, 12) };
+        metricGrid.Children.Add(CreateDepotMetricCard("PACKAGES FOUND", "📦", out _lblMetricPkgCount));
+        metricGrid.Children.Add(CreateDepotMetricCard("DEPOT SIZE", "💾", out _lblMetricTotalSize));
+        metricGrid.Children.Add(CreateDepotMetricCard("SELECTED PACKAGES", "☑️", out _lblMetricSelectedCount));
+        metricGrid.Children.Add(CreateDepotMetricCard("TARGET STORAGE", "🔌", out _lblMetricDriveInfo));
+        root.Children.Add(metricGrid);
+
+        // 3. Filter & Action Strip
         var filterStrip = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
 
         var btnScanNow = new Button
@@ -315,9 +357,9 @@ public partial class MainWindow
 
         var btnSelectAll = new Button
         {
-            Content = "☑️ Select All",
+            Content = "☑️ All",
             FontSize = 10.5,
-            Padding = new Thickness(8, 4, 8, 4),
+            Padding = new Thickness(7, 4, 7, 4),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             Margin = new Thickness(0, 0, 4, 0)
@@ -325,11 +367,35 @@ public partial class MainWindow
         btnSelectAll.Click += (s, e) => SetAllUsbItemsSelection(true);
         filterStrip.Children.Add(btnSelectAll);
 
+        var btnSelectSw = new Button
+        {
+            Content = "📦 Software",
+            FontSize = 10.5,
+            Padding = new Thickness(7, 4, 7, 4),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnSelectSw.Click += (s, e) => SelectUsbItemsByCategory(UsbItemCategory.Software);
+        filterStrip.Children.Add(btnSelectSw);
+
+        var btnSelectDrv = new Button
+        {
+            Content = "🔧 Drivers",
+            FontSize = 10.5,
+            Padding = new Thickness(7, 4, 7, 4),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnSelectDrv.Click += (s, e) => SelectUsbItemsByCategory(UsbItemCategory.Driver);
+        filterStrip.Children.Add(btnSelectDrv);
+
         var btnDeselectAll = new Button
         {
-            Content = "⬜ Deselect All",
+            Content = "⬜ None",
             FontSize = 10.5,
-            Padding = new Thickness(8, 4, 8, 4),
+            Padding = new Thickness(7, 4, 7, 4),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             Margin = new Thickness(0, 0, 10, 0)
@@ -396,10 +462,10 @@ public partial class MainWindow
 
         root.Children.Add(filterStrip);
 
-        // 3. Scanned Packages ListView
+        // 4. Scanned Packages ListView
         _listUsbItems = new ListView
         {
-            Height = 280,
+            Height = 290,
             FontSize = 11,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
@@ -417,7 +483,7 @@ public partial class MainWindow
         gv.Columns.Add(chkCol);
 
         // Column 2: Type / Category Badge
-        var badgeCol = new GridViewColumn { Header = "Type", Width = 95 };
+        var badgeCol = new GridViewColumn { Header = "Type", Width = 100 };
         var badgeFactory = new FrameworkElementFactory(typeof(Border));
         badgeFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
         badgeFactory.SetValue(Border.PaddingProperty, new Thickness(6, 2, 6, 2));
@@ -439,11 +505,11 @@ public partial class MainWindow
 
         // Column 3: Name & Relative Path
         gv.Columns.Add(new GridViewColumn { Header = "Package / Driver Name", Width = 230, DisplayMemberBinding = new Binding("Name") });
-        gv.Columns.Add(new GridViewColumn { Header = "Relative Folder", Width = 160, DisplayMemberBinding = new Binding("RelativePath") });
-        gv.Columns.Add(new GridViewColumn { Header = "Size", Width = 80, DisplayMemberBinding = new Binding("FileSizeFormatted") });
+        gv.Columns.Add(new GridViewColumn { Header = "Relative Folder", Width = 150, DisplayMemberBinding = new Binding("RelativePath") });
+        gv.Columns.Add(new GridViewColumn { Header = "Size", Width = 75, DisplayMemberBinding = new Binding("FileSizeFormatted") });
 
         // Column 4: Command / Silent Arguments (Editable)
-        var cmdCol = new GridViewColumn { Header = "Silent Execution Command & Switches", Width = 310 };
+        var cmdCol = new GridViewColumn { Header = "Execution Command & Switches (Double-click or Right-click to Run)", Width = 310 };
         var cmdFactory = new FrameworkElementFactory(typeof(TextBox));
         cmdFactory.SetBinding(TextBox.TextProperty, new Binding("SilentCommand") { Mode = BindingMode.TwoWay });
         cmdFactory.SetValue(TextBox.FontSizeProperty, 10.5);
@@ -454,7 +520,7 @@ public partial class MainWindow
         gv.Columns.Add(cmdCol);
 
         // Column 5: Status
-        var statusCol = new GridViewColumn { Header = "Status", Width = 110 };
+        var statusCol = new GridViewColumn { Header = "Status", Width = 120 };
         var statusFactory = new FrameworkElementFactory(typeof(TextBlock));
         statusFactory.SetBinding(TextBlock.TextProperty, new Binding("Status"));
         statusFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
@@ -466,12 +532,75 @@ public partial class MainWindow
         gv.Columns.Add(statusCol);
 
         _listUsbItems.View = gv;
+
+        // Context Menu for individual run & preset switching
+        var cm = new ContextMenu();
+        var miRunSilent = new MenuItem { Header = "⚡ Run Silently Now" };
+        miRunSilent.Click += async (s, e) =>
+        {
+            if (_listUsbItems.SelectedItem is UsbDepotItem item)
+                await RunSinglePackageAsync(item, false);
+        };
+        var miRunGui = new MenuItem { Header = "🖥️ Run Interactive GUI Wizard Now" };
+        miRunGui.Click += async (s, e) =>
+        {
+            if (_listUsbItems.SelectedItem is UsbDepotItem item)
+                await RunSinglePackageAsync(item, true);
+        };
+        var miExplore = new MenuItem { Header = "📂 Open Containing Folder in Explorer" };
+        miExplore.Click += (s, e) =>
+        {
+            if (_listUsbItems.SelectedItem is UsbDepotItem item && File.Exists(item.FullPath))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"/select,\"{item.FullPath}\"", UseShellExecute = true });
+                }
+                catch { }
+            }
+        };
+
+        var miPresets = new MenuItem { Header = "⚙️ Change Silent Switch Preset" };
+        var pInno = new MenuItem { Header = "Inno Setup (/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-)" };
+        pInno.Click += (s, e) => ChangeItemPreset("INNO");
+        var pNsis = new MenuItem { Header = "NSIS Setup (/S)" };
+        pNsis.Click += (s, e) => ChangeItemPreset("NSIS");
+        var pWix = new MenuItem { Header = "WiX / Burn Bundle (/install /quiet /norestart)" };
+        pWix.Click += (s, e) => ChangeItemPreset("WIX");
+        var pMsi = new MenuItem { Header = "Windows Installer (/qn /norestart ALLUSERS=1)" };
+        pMsi.Click += (s, e) => ChangeItemPreset("MSI");
+        var pNone = new MenuItem { Header = "No Flags (Standard GUI Wizard)" };
+        pNone.Click += (s, e) => ChangeItemPreset("NONE");
+
+        miPresets.Items.Add(pInno);
+        miPresets.Items.Add(pNsis);
+        miPresets.Items.Add(pWix);
+        miPresets.Items.Add(pMsi);
+        miPresets.Items.Add(pNone);
+
+        cm.Items.Add(miRunSilent);
+        cm.Items.Add(miRunGui);
+        cm.Items.Add(new Separator());
+        cm.Items.Add(miExplore);
+        cm.Items.Add(miPresets);
+
+        _listUsbItems.ContextMenu = cm;
+
+        // Double-click to prompt run
+        _listUsbItems.MouseDoubleClick += async (s, e) =>
+        {
+            if (_listUsbItems.SelectedItem is UsbDepotItem item)
+            {
+                await PromptRunSinglePackageAsync(item);
+            }
+        };
+
         root.Children.Add(_listUsbItems);
 
-        // 4. Batch Installation Progress & Action Execution Bar
+        // 5. Batch Installation Progress & Action Execution Bar
         _progUsbBatch = new ProgressBar
         {
-            Height = 6,
+            Height = 7,
             Margin = new Thickness(0, 0, 0, 6),
             Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
             Background = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
@@ -481,7 +610,7 @@ public partial class MainWindow
 
         _lblUsbBatchStatus = new TextBlock
         {
-            Text = "Select packages above and click 'Install Selected from USB' to begin sequential silent deployment.",
+            Text = "Select packages above and click 'Install Selected from USB' to begin sequential deployment.",
             FontSize = 11,
             Foreground = TextSubtle,
             Margin = new Thickness(0, 0, 0, 10)
@@ -522,9 +651,22 @@ public partial class MainWindow
         var optStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         DockPanel.SetDock(optStack, Dock.Right);
 
+        _chkInteractiveMode = new CheckBox
+        {
+            Content = "🖥️ Run Interactive GUI (Show Setup Wizards)",
+            ToolTip = "When checked, installs software with visible windows instead of trying background silent mode",
+            IsChecked = false,
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = SvllBlue,
+            Margin = new Thickness(0, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        optStack.Children.Add(_chkInteractiveMode);
+
         _chkCreateRestorePoint = new CheckBox
         {
-            Content = "Create System Restore Point before install",
+            Content = "Create Restore Point",
             IsChecked = false,
             FontSize = 10.5,
             Margin = new Thickness(0, 0, 12, 0),
@@ -534,7 +676,7 @@ public partial class MainWindow
 
         _chkSaveDeployJson = new CheckBox
         {
-            Content = "Save deploy.json manifest to USB",
+            Content = "Save Manifest",
             IsChecked = true,
             FontSize = 10.5,
             VerticalAlignment = VerticalAlignment.Center
@@ -545,6 +687,38 @@ public partial class MainWindow
         root.Children.Add(actionDock);
 
         card.Child = root;
+        return card;
+    }
+
+    private Border CreateDepotMetricCard(string title, string icon, out TextBlock valueLabel)
+    {
+        var card = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12, 8, 12, 8),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+
+        var sp = new StackPanel();
+        var hStack = new StackPanel { Orientation = Orientation.Horizontal };
+        hStack.Children.Add(new TextBlock { Text = icon + " ", FontSize = 12 });
+        hStack.Children.Add(new TextBlock { Text = title, FontSize = 9.5, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
+        sp.Children.Add(hStack);
+
+        valueLabel = new TextBlock
+        {
+            Text = "--",
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark,
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        sp.Children.Add(valueLabel);
+
+        card.Child = sp;
         return card;
     }
 
@@ -967,6 +1141,7 @@ public partial class MainWindow
                 _cmbUsbDrives.Items.Add(new ComboBoxItem { Content = "No ready drives detected. Click Browse Folder...", Tag = "" });
                 _cmbUsbDrives.SelectedIndex = 0;
             }
+            UpdateDepotMetrics();
         }
         catch (Exception ex)
         {
@@ -984,6 +1159,8 @@ public partial class MainWindow
             // Default driver export directory to this drive
             string modelFolder = string.IsNullOrEmpty(_detectedOemModel) ? "PC_Drivers" : SanitizeFileName(_detectedOemModel);
             _txtExportTargetDir.Text = Path.Combine(rootPath, "SVLL_Depot", "Drivers", modelFolder);
+
+            UpdateDepotMetrics();
 
             // Auto scan this drive
             _ = ScanUsbDepotDirectoryAsync();
@@ -1115,6 +1292,7 @@ public partial class MainWindow
         _progUsbBatch.Visibility = Visibility.Collapsed;
 
         ApplyUsbFilter();
+        UpdateDepotMetrics();
         _lblUsbBatchStatus.Text = $"Scan complete. Found {_allUsbItems.Count} package(s) on depot.";
         Log($"[USB DEPOT] Scanned {rootPath}: found {_allUsbItems.Count} deployable packages.");
     }
@@ -1192,82 +1370,185 @@ public partial class MainWindow
             StatusColor = "#64748B"
         };
 
-        // Classify Category & Detect Silent Install Arguments
+        // Classify Category & Detect Silent/Interactive Install Arguments
         switch (ext)
         {
             case ".msi":
                 item.Category = UsbItemCategory.Software;
-                item.CategoryBadge = "[MSI SETUP]";
+                item.CategoryBadge = "[MSI]";
                 item.CategoryColor = "#2563EB"; // Blue
-                item.SilentCommand = $"msiexec.exe /i \"{f.FullName}\" /qn /norestart";
+                item.InstallerType = "Windows Installer (MSI)";
+                item.SilentCommand = $"msiexec.exe /i \"{f.FullName}\" /qn /norestart ALLUSERS=1";
+                item.InteractiveCommand = $"msiexec.exe /i \"{f.FullName}\"";
                 break;
 
             case ".inf":
                 item.Category = UsbItemCategory.Driver;
-                item.CategoryBadge = "[DRIVER INF]";
+                item.CategoryBadge = "[DRIVER]";
                 item.CategoryColor = "#10B981"; // Emerald
+                item.InstallerType = "Hardware Driver (INF)";
                 item.SilentCommand = $"pnputil.exe /add-driver \"{f.FullName}\" /install";
+                item.InteractiveCommand = $"pnputil.exe /add-driver \"{f.FullName}\" /install";
                 break;
 
             case ".ps1":
                 item.Category = UsbItemCategory.Script;
-                item.CategoryBadge = "[POWERSHELL]";
+                item.CategoryBadge = "[PS1]";
                 item.CategoryColor = "#8B5CF6"; // Purple
+                item.InstallerType = "PowerShell Script";
                 item.SilentCommand = $"powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{f.FullName}\"";
+                item.InteractiveCommand = $"powershell.exe -NoProfile -ExecutionPolicy Bypass -NoExit -File \"{f.FullName}\"";
                 break;
 
             case ".bat":
             case ".cmd":
                 item.Category = UsbItemCategory.Script;
-                item.CategoryBadge = "[BATCH CMD]";
+                item.CategoryBadge = "[BATCH]";
                 item.CategoryColor = "#D97706"; // Amber
-                item.SilentCommand = $"cmd.exe /c \"{f.FullName}\"";
+                item.InstallerType = "Batch Automation Script";
+                item.SilentCommand = $"cmd.exe /c call \"{f.FullName}\"";
+                item.InteractiveCommand = $"cmd.exe /k call \"{f.FullName}\"";
                 break;
 
             case ".exe":
             default:
                 item.Category = UsbItemCategory.Software;
-                item.CategoryBadge = "[EXE SETUP]";
-                item.CategoryColor = "#0284C7"; // Sky Blue
-                item.SilentCommand = DetectSilentExeSwitches(f);
+                var (silentCmd, interactiveCmd, installerType, badge, color) = DetectExeInstallerProfile(f);
+                item.SilentCommand = silentCmd;
+                item.InteractiveCommand = interactiveCmd;
+                item.InstallerType = installerType;
+                item.CategoryBadge = badge;
+                item.CategoryColor = color;
                 break;
         }
 
         return item;
     }
 
-    private string DetectSilentExeSwitches(FileInfo f)
+    private (string silentCmd, string interactiveCmd, string installerType, string badge, string color) DetectExeInstallerProfile(FileInfo f)
     {
         string name = f.Name.ToLowerInvariant();
+        string interactive = $"\"{f.FullName}\"";
 
-        if (name.Contains("chrome") || name.Contains("firefox") || name.Contains("edge"))
+        // 1. Specific known applications
+        if (name.Contains("chrome") || name.Contains("firefox") || name.Contains("edge") || name.Contains("brave"))
         {
-            return $"\"{f.FullName}\" /silent /install";
+            return ($"\"{f.FullName}\" /silent /install", interactive, "Web Browser", "[BROWSER]", "#0284C7");
         }
         if (name.Contains("anydesk"))
         {
-            return $"\"{f.FullName}\" --install \"C:\\Program Files (x86)\\AnyDesk\" --start-with-win --silent";
+            return ($"\"{f.FullName}\" --install \"C:\\Program Files (x86)\\AnyDesk\" --start-with-win --silent", interactive, "AnyDesk Remote", "[ANYDESK]", "#EF4444");
         }
         if (name.Contains("teamviewer"))
         {
-            return $"\"{f.FullName}\" /S";
+            return ($"\"{f.FullName}\" /S", interactive, "TeamViewer", "[TEAMVIEWER]", "#2563EB");
         }
-        if (name.Contains("7z") || name.Contains("7-zip") || name.Contains("vlc") || name.Contains("notepad++"))
+        if (name.Contains("zoom"))
         {
-            return $"\"{f.FullName}\" /S";
+            return ($"\"{f.FullName}\" /silent", interactive, "Zoom Client", "[ZOOM]", "#0284C7");
         }
         if (name.Contains("adobe") || name.Contains("acrobat") || name.Contains("reader"))
         {
-            return $"\"{f.FullName}\" /sAll /rs /msi EULA_ACCEPT=YES";
+            return ($"\"{f.FullName}\" /sAll /rs /msi EULA_ACCEPT=YES", interactive, "Adobe Reader", "[ADOBE]", "#DC2626");
+        }
+        if (name.Contains("vcredist") || name.Contains("vc_redist"))
+        {
+            return ($"\"{f.FullName}\" /install /quiet /norestart", interactive, "Visual C++ Runtime", "[VCREDIST]", "#6366F1");
+        }
+        if (name.Contains("dotnet") || name.Contains("windowsdesktop-runtime") || name.Contains("aspnetcore-runtime"))
+        {
+            return ($"\"{f.FullName}\" /install /quiet /norestart", interactive, ".NET Runtime", "[DOTNET]", "#8B5CF6");
+        }
+        if (name.Contains("python-"))
+        {
+            return ($"\"{f.FullName}\" /quiet InstallAllUsers=1 PrependPath=1", interactive, "Python Runtime", "[PYTHON]", "#3B82F6");
+        }
+        if (name.Contains("node-v"))
+        {
+            return ($"\"{f.FullName}\" /quiet /norestart", interactive, "Node.js Runtime", "[NODEJS]", "#10B981");
+        }
+        if (name.Contains("git-") || name.Contains("git_"))
+        {
+            return ($"\"{f.FullName}\" /VERYSILENT /NORESTART", interactive, "Git for Windows", "[GIT]", "#F97316");
+        }
+        if (name.Contains("7z") || name.Contains("7-zip") || name.Contains("vlc") || name.Contains("notepad++") ||
+            name.Contains("winrar") || name.Contains("filezilla") || name.Contains("putty") || name.Contains("wireshark") || name.Contains("audacity"))
+        {
+            return ($"\"{f.FullName}\" /S", interactive, "NSIS Setup", "[NSIS]", "#06B6D4");
+        }
+        if (name.Contains("vscode") || name.Contains("vscodesetup"))
+        {
+            return ($"\"{f.FullName}\" /VERYSILENT /NORESTART /MERGETASKS=\"!runcode,desktopicon\"", interactive, "VS Code", "[VSCODE]", "#0284C7");
+        }
+        if (name.Contains("rustup"))
+        {
+            return ($"\"{f.FullName}\" -y", interactive, "Rustup", "[RUST]", "#D97706");
+        }
+        if (name.Contains("powershell-") || name.Contains("pwsh"))
+        {
+            return ($"\"{f.FullName}\" /quiet /norestart", interactive, "PowerShell", "[PWSH]", "#2563EB");
         }
 
-        // Standard Universal Silent Switches for Inno Setup / NSIS / InstallShield
-        return $"\"{f.FullName}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-";
+        // 2. Binary inspection for standard installer signatures
+        try
+        {
+            using var fs = new FileStream(f.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            // Check first 32 KB
+            byte[] headBuffer = new byte[Math.Min(32768, (int)fs.Length)];
+            int headRead = fs.Read(headBuffer, 0, headBuffer.Length);
+            string headStr = Encoding.ASCII.GetString(headBuffer, 0, headRead);
+
+            if (headStr.Contains("NullsoftInst"))
+            {
+                return ($"\"{f.FullName}\" /S", interactive, "NSIS Setup", "[NSIS]", "#06B6D4");
+            }
+            if (headStr.Contains("Inno Setup"))
+            {
+                return ($"\"{f.FullName}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-", interactive, "Inno Setup", "[INNO]", "#0284C7");
+            }
+            if (headStr.Contains("Burn") || headStr.Contains("WixBundle"))
+            {
+                return ($"\"{f.FullName}\" /install /quiet /norestart", interactive, "WiX / Burn", "[WIX/BURN]", "#6366F1");
+            }
+            if (headStr.Contains("InstallShield"))
+            {
+                return ($"\"{f.FullName}\" /s /v\"/qn /norestart\"", interactive, "InstallShield", "[ISHIELD]", "#8B5CF6");
+            }
+
+            // Check tail (last 64 KB)
+            if (fs.Length > 65536)
+            {
+                fs.Seek(-65536, SeekOrigin.End);
+                byte[] tailBuffer = new byte[65536];
+                int tailRead = fs.Read(tailBuffer, 0, tailBuffer.Length);
+                string tailStr = Encoding.ASCII.GetString(tailBuffer, 0, tailRead);
+
+                if (tailStr.Contains("Inno Setup"))
+                {
+                    return ($"\"{f.FullName}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-", interactive, "Inno Setup", "[INNO]", "#0284C7");
+                }
+                if (tailStr.Contains("NullsoftInst"))
+                {
+                    return ($"\"{f.FullName}\" /S", interactive, "NSIS Setup", "[NSIS]", "#06B6D4");
+                }
+                if (tailStr.Contains("Burn") || tailStr.Contains("WixBundle"))
+                {
+                    return ($"\"{f.FullName}\" /install /quiet /norestart", interactive, "WiX / Burn", "[WIX/BURN]", "#6366F1");
+                }
+            }
+        }
+        catch
+        {
+            // Ignore stream read errors and fallback to default
+        }
+
+        // Default heuristic: Inno/General silent flags
+        return ($"\"{f.FullName}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-", interactive, "Universal EXE", "[EXE SETUP]", "#0284C7");
     }
 
     private void ApplyUsbFilter()
     {
-        string query = _txtUsbSearch.Text.Trim().ToLowerInvariant();
+        string query = _txtUsbSearch?.Text?.Trim().ToLowerInvariant() ?? "";
 
         var filtered = _allUsbItems.Where(it =>
         {
@@ -1290,7 +1571,10 @@ public partial class MainWindow
             return true;
         }).ToList();
 
-        _listUsbItems.ItemsSource = filtered;
+        if (_listUsbItems != null)
+        {
+            _listUsbItems.ItemsSource = filtered;
+        }
     }
 
     private void SetAllUsbItemsSelection(bool select)
@@ -1299,6 +1583,146 @@ public partial class MainWindow
         {
             it.IsSelected = select;
         }
+        _listUsbItems.Items.Refresh();
+        UpdateDepotMetrics();
+    }
+
+    private void SelectUsbItemsByCategory(UsbItemCategory cat)
+    {
+        foreach (var it in _allUsbItems)
+        {
+            it.IsSelected = (it.Category == cat);
+        }
+        _listUsbItems.Items.Refresh();
+        UpdateDepotMetrics();
+    }
+
+    private void UpdateDepotMetrics()
+    {
+        if (_lblMetricPkgCount == null) return;
+
+        int totalCount = _allUsbItems.Count;
+        long totalBytes = _allUsbItems.Sum(x => x.FileSizeBytes);
+        int selectedCount = _allUsbItems.Count(x => x.IsSelected);
+
+        _lblMetricPkgCount.Text = $"{totalCount} Package{(totalCount == 1 ? "" : "s")}";
+        _lblMetricTotalSize.Text = FormatBytes(totalBytes);
+        _lblMetricSelectedCount.Text = $"{selectedCount} of {totalCount} Selected";
+
+        if (_cmbUsbDrives?.SelectedItem is ComboBoxItem cb && cb.Content != null)
+        {
+            string drvText = cb.Content.ToString() ?? "";
+            int paren = drvText.IndexOf('(');
+            if (paren > 0) drvText = drvText.Substring(0, paren).Trim();
+            _lblMetricDriveInfo.Text = drvText;
+        }
+        else
+        {
+            _lblMetricDriveInfo.Text = "No Drive Selected";
+        }
+    }
+
+    private void ChangeItemPreset(string preset)
+    {
+        if (_listUsbItems.SelectedItem is UsbDepotItem item)
+        {
+            switch (preset)
+            {
+                case "INNO":
+                    item.SilentCommand = $"\"{item.FullPath}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-";
+                    item.CategoryBadge = "[INNO]";
+                    item.CategoryColor = "#0284C7";
+                    break;
+                case "NSIS":
+                    item.SilentCommand = $"\"{item.FullPath}\" /S";
+                    item.CategoryBadge = "[NSIS]";
+                    item.CategoryColor = "#06B6D4";
+                    break;
+                case "WIX":
+                    item.SilentCommand = $"\"{item.FullPath}\" /install /quiet /norestart";
+                    item.CategoryBadge = "[WIX/BURN]";
+                    item.CategoryColor = "#6366F1";
+                    break;
+                case "MSI":
+                    item.SilentCommand = $"msiexec.exe /i \"{item.FullPath}\" /qn /norestart ALLUSERS=1";
+                    item.CategoryBadge = "[MSI]";
+                    item.CategoryColor = "#2563EB";
+                    break;
+                case "NONE":
+                    item.SilentCommand = $"\"{item.FullPath}\"";
+                    item.CategoryBadge = "[GUI]";
+                    item.CategoryColor = "#64748B";
+                    break;
+            }
+            _listUsbItems.Items.Refresh();
+        }
+    }
+
+    private async Task PromptRunSinglePackageAsync(UsbDepotItem item)
+    {
+        var res = MessageBox.Show(
+            $"Deploy '{item.Name}' now?\n\n" +
+            "• Click YES for Interactive GUI Mode (displays installer wizard)\n" +
+            "• Click NO for Silent Background Mode\n" +
+            "• Click CANCEL to abort",
+            "Deploy Package", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+        if (res == MessageBoxResult.Yes)
+        {
+            await RunSinglePackageAsync(item, true);
+        }
+        else if (res == MessageBoxResult.No)
+        {
+            await RunSinglePackageAsync(item, false);
+        }
+    }
+
+    private async Task RunSinglePackageAsync(UsbDepotItem item, bool interactive)
+    {
+        if (_isBatchInstalling)
+        {
+            MessageBox.Show("A batch deployment is currently active. Please wait or abort the queue first.", "Depot Busy", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        item.Status = "Installing...";
+        item.StatusColor = "#2563EB";
+        _listUsbItems.Items.Refresh();
+
+        string cmd = interactive ? item.InteractiveCommand : item.SilentCommand;
+        if (string.IsNullOrEmpty(cmd)) cmd = item.SilentCommand;
+
+        Log($"\n[MANUAL DEPLOY] Launching {item.Name} (Interactive={interactive})...");
+        Log($"    Command: {cmd}");
+
+        try
+        {
+            using var cts = new CancellationTokenSource();
+            int exitCode = await RunDepotProcessAsync(cmd, cts.Token, interactive);
+            if (exitCode == 0 || exitCode == 3010)
+            {
+                item.Status = exitCode == 3010 ? "✅ Done (Reboot Req)" : "✅ Installed";
+                item.StatusColor = "#16A34A";
+                Log($"    Status: SUCCESS (Exit Code {exitCode})");
+            }
+            else
+            {
+                item.Status = $"❌ Error ({exitCode})";
+                item.StatusColor = "#DC2626";
+                Log($"    Status: FAILED with Exit Code {exitCode}");
+                if (!interactive)
+                {
+                    Log($"    [HINT] Try right-clicking this item and selecting '🖥️ Run Interactive GUI Wizard Now' if silent flags are unsupported.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            item.Status = "❌ Failed";
+            item.StatusColor = "#DC2626";
+            Log($"    Status: EXCEPTION: {ex.Message}");
+        }
+
         _listUsbItems.Items.Refresh();
     }
 
@@ -1328,10 +1752,13 @@ public partial class MainWindow
             return;
         }
 
+        bool isInteractive = _chkInteractiveMode?.IsChecked == true;
+        string modeNotice = isInteractive ? "Running in INTERACTIVE GUI Mode (installer wizards will display)." : "Running in SILENT AUTOMATED Mode.";
+
         var confirm = MessageBox.Show(
-            $"Are you ready to batch-install {selected.Count} package(s) from USB?\n\n" +
-            "The workstation will execute all installations silently in sequence.",
-            "Confirm Batch Installation", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            $"Are you ready to deploy {selected.Count} package(s) from USB?\n\n" +
+            $"{modeNotice}\n\nProceed with installation queue?",
+            "Confirm USB Deployment", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
         if (confirm != MessageBoxResult.Yes) return;
 
@@ -1345,7 +1772,7 @@ public partial class MainWindow
         _progUsbBatch.Value = 0;
 
         Log($"\n=======================================================");
-        Log($"[USB BATCH DEPLOYMENT STARTED] Installing {selected.Count} packages...");
+        Log($"[USB BATCH DEPLOYMENT STARTED] Installing {selected.Count} packages (Interactive={isInteractive})...");
         Log($"=======================================================");
 
         // 1. Optional System Restore Point
@@ -1375,13 +1802,16 @@ public partial class MainWindow
             _lblUsbBatchStatus.Text = $"[{i + 1}/{selected.Count}] Installing {item.Name}...";
             _progUsbBatch.Value = i;
 
+            string cmdToRun = isInteractive ? item.InteractiveCommand : item.SilentCommand;
+            if (string.IsNullOrEmpty(cmdToRun)) cmdToRun = item.SilentCommand;
+
             Log($"\n--> [{i + 1}/{selected.Count}] DEPLOYING: {item.Name} ({item.CategoryBadge})");
-            Log($"    Command: {item.SilentCommand}");
+            Log($"    Command: {cmdToRun}");
 
             int exitCode = -1;
             try
             {
-                exitCode = await RunDepotProcessAsync(item.SilentCommand, _batchCancelCts.Token);
+                exitCode = await RunDepotProcessAsync(cmdToRun, _batchCancelCts.Token, isInteractive);
                 if (exitCode == 0 || exitCode == 3010) // 3010 = reboot required (success)
                 {
                     item.Status = exitCode == 3010 ? "✅ Done (Reboot Req)" : "✅ Installed";
@@ -1395,6 +1825,10 @@ public partial class MainWindow
                     item.StatusColor = "#DC2626"; // Red
                     failCount++;
                     Log($"    Status: FAILED with Exit Code: {exitCode}");
+                    if (!isInteractive)
+                    {
+                        Log($"    [HINT] If silent mode failed, right-click '{item.Name}' and choose '🖥️ Run Interactive GUI Wizard Now' or check 'Run Interactive GUI'.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1439,7 +1873,7 @@ public partial class MainWindow
         }
     }
 
-    private async Task<int> RunDepotProcessAsync(string commandLine, CancellationToken ct)
+    private async Task<int> RunDepotProcessAsync(string commandLine, CancellationToken ct, bool forceInteractive = false)
     {
         return await Task.Run(() =>
         {
@@ -1475,48 +1909,106 @@ public partial class MainWindow
                 }
             }
 
-            using var p = new Process
+            // CRITICAL FIX: Determine correct WorkingDirectory so companion files (.cab, archives, scripts) resolve properly
+            string workDir = "";
+            try
             {
-                StartInfo = new ProcessStartInfo
+                if (File.Exists(exe))
+                {
+                    workDir = Path.GetDirectoryName(exe) ?? "";
+                }
+                else if (!string.IsNullOrEmpty(_txtCustomFolderPath?.Text) && Directory.Exists(_txtCustomFolderPath.Text))
+                {
+                    workDir = _txtCustomFolderPath.Text;
+                }
+            }
+            catch { }
+
+            bool isInteractive = forceInteractive || (_chkInteractiveMode != null && _chkInteractiveMode.IsChecked == true);
+
+            if (isInteractive)
+            {
+                Dispatcher.Invoke(() => Log($"    [MODE] Launching in elevated GUI mode (WorkDir: '{workDir}')..."));
+                var psi = new ProcessStartInfo
                 {
                     FileName = exe,
                     Arguments = args,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                }
-            };
+                    WorkingDirectory = workDir,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
 
-            p.OutputDataReceived += (s, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    Dispatcher.Invoke(() => Log($"    [OUT] {e.Data}"));
-                }
-            };
-            p.ErrorDataReceived += (s, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    Dispatcher.Invoke(() => Log($"    [ERR] {e.Data}"));
-                }
-            };
+                using var p = Process.Start(psi);
+                if (p == null) return -1;
 
-            p.Start();
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-
-            while (!p.WaitForExit(500))
-            {
-                if (ct.IsCancellationRequested)
+                while (!p.WaitForExit(500))
                 {
-                    try { p.Kill(); } catch { }
-                    return -999;
+                    if (ct.IsCancellationRequested)
+                    {
+                        try { p.Kill(); } catch { }
+                        return -999;
+                    }
                 }
+
+                return p.ExitCode;
             }
+            else
+            {
+                using var p = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = exe,
+                        Arguments = args,
+                        WorkingDirectory = workDir,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
 
-            return p.ExitCode;
+                p.OutputDataReceived += (s, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Dispatcher.Invoke(() => Log($"    [OUT] {e.Data}"));
+                    }
+                };
+                p.ErrorDataReceived += (s, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Dispatcher.Invoke(() => Log($"    [ERR] {e.Data}"));
+                    }
+                };
+
+                p.Start();
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+
+                // 15-minute timeout protection so stalled silent installers don't hang indefinitely
+                var startTime = DateTime.Now;
+                var maxDuration = TimeSpan.FromMinutes(15);
+
+                while (!p.WaitForExit(500))
+                {
+                    if (ct.IsCancellationRequested)
+                    {
+                        try { p.Kill(); } catch { }
+                        return -999;
+                    }
+
+                    if (DateTime.Now - startTime > maxDuration)
+                    {
+                        Dispatcher.Invoke(() => Log($"    [TIMEOUT] Process '{exe}' exceeded 15 minute limit without finishing. Terminating..."));
+                        try { p.Kill(); } catch { }
+                        return -1001;
+                    }
+                }
+
+                return p.ExitCode;
+            }
         });
     }
 

@@ -1,6 +1,6 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - Admin Workstation Automated Installer
-# Target: SVLL IT Support Workstation (Admin Edition v8.0)
+# Target: SVLL IT Support Workstation (Admin Edition v8.1)
 # Developed by: Kunal Turkar
 # Compatible with Windows 10/11 & Windows Server (x64)
 # =========================================================================
@@ -25,7 +25,7 @@ if (-not $isAdmin) {
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "   SHREE VASU LOGISTICS LIMITED - ADMIN CONSOLE DEPLOYMENT" -ForegroundColor Cyan
-Write-Host "   Version: Admin Edition v8.0 | Developed by Kunal Turkar" -ForegroundColor Cyan
+Write-Host "   Version: Admin Edition v8.1 | Developed by Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
 # 2. Corporate Server Pre-configured (Zero Input Required)
@@ -55,7 +55,6 @@ $secConfig = @{
     PasswordSalt = if ($existingConfig -and $existingConfig.PasswordSalt) { $existingConfig.PasswordSalt } else { "" }
     LastPasswordChange = if ($existingConfig -and $existingConfig.LastPasswordChange) { $existingConfig.LastPasswordChange } else { (Get-Date).ToString("o") }
     SharedFleetDirectory = if ($existingConfig -and $existingConfig.SharedFleetDirectory) { $existingConfig.SharedFleetDirectory } else { "" }
-    SharedTicketDirectory = if ($existingConfig -and $existingConfig.SharedTicketDirectory) { $existingConfig.SharedTicketDirectory } else { "" }
     RelayServerUrl = $ServerUrl
     MeshCentralUrl = if ($MeshServerUrl) { $MeshServerUrl } elseif ($existingConfig -and $existingConfig.MeshCentralUrl) { $existingConfig.MeshCentralUrl } else { "$ServerUrl:8086" }
 } | ConvertTo-Json -Depth 5
@@ -63,11 +62,11 @@ $secConfig = @{
 Set-Content -Path $cfgPath -Value $secConfig -Force
 Write-Host "[+] Configured Admin Security and Relay settings." -ForegroundColor Green
 
-# 4. Download Admin Workstation v8.0 Setup
-$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.0/SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
-$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.0-Setup.exe"
+# 4. Download Admin Workstation v8.1 Setup
+$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.1/SVLL-IT-Workstation-Admin-v8.1-Setup.exe"
+$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.1-Setup.exe"
 
-Write-Host "`n[1/2] Downloading SVLL Workstation Admin v8.0..." -ForegroundColor Yellow
+Write-Host "`n[1/2] Downloading SVLL Workstation Admin v8.1..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
 } catch {

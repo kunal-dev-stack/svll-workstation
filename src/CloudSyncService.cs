@@ -43,7 +43,6 @@ public class CloudSyncService
 
     // Events the UI can subscribe to
     public event Action<List<RemoteDeviceItem>>? FleetUpdated;
-    public event Action<ComplaintTicket>? AdminReplyReceived;
     public event Action<bool>? RelayConnected; // true = online, false = offline
 
     public bool IsRelayReachable { get; private set; } = false;
@@ -133,12 +132,6 @@ public class CloudSyncService
                 }
 #endif
 
-                // Reply poll: every 120 seconds (User build, but Admin gets it too for visibility)
-                if (replyPollTick >= 120)
-                {
-                    replyPollTick = 0;
-                    await PollTicketRepliesAsync();
-                }
             }
             catch (OperationCanceledException) { break; }
             catch { /* never crash the background loop */ }
@@ -328,112 +321,7 @@ public class CloudSyncService
         catch { }
     }
 
-    // -------------------------------------------------------------------------
-    // SUBMIT TICKET TO RELAY — called from ComplaintTicketService
-    // -------------------------------------------------------------------------
-    public async Task<string?> SubmitTicketAsync(ComplaintTicket ticket)
-    {
-        if (!IsRelayReachable || string.IsNullOrEmpty(_relayBaseUrl)) return null;
-        try
-        {
-            var response = await _http.PostAsJsonAsync($"{_relayBaseUrl}/api/ticket", ticket);
-            if (response.IsSuccessStatusCode)
-            {
-                string json = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<Dictionary<string, string>>(json,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                string? cloudId = result?.GetValueOrDefault("cloudTicketId");
-                if (!string.IsNullOrEmpty(cloudId))
-                {
-                    if (!_state.SubmittedCloudTicketIds.Contains(cloudId))
-                        _state.SubmittedCloudTicketIds.Add(cloudId);
-                    SaveState();
-                    return cloudId;
-                }
-            }
-        }
-        catch { }
-        return null;
-    }
 
-    // -------------------------------------------------------------------------
-    // POLL TICKET REPLIES — check if admin replied to any submitted tickets
-    // -------------------------------------------------------------------------
-    public async Task PollTicketRepliesAsync()
-    {
-        if (!IsRelayReachable || _state.SubmittedCloudTicketIds.Count == 0) return;
-        try
-        {
-            foreach (string cloudId in _state.SubmittedCloudTicketIds.ToList())
-            {
-                if (_state.NotifiedReplyIds.Contains(cloudId)) continue;
-
-                var response = await _http.GetAsync($"{_relayBaseUrl}/api/ticket/{Uri.EscapeDataString(cloudId)}/reply");
-                if (!response.IsSuccessStatusCode) continue;
-
-                string json = await response.Content.ReadAsStringAsync();
-                if (string.IsNullOrWhiteSpace(json) || json == "null") continue;
-
-                var ticket = JsonSerializer.Deserialize<ComplaintTicket>(json,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                if (ticket != null && !string.IsNullOrEmpty(ticket.AdminReply))
-                {
-                    _state.NotifiedReplyIds.Add(cloudId);
-                    SaveState();
-
-                    // Fire event on UI thread
-                    Application.Current?.Dispatcher.Invoke(() =>
-                    {
-                        AdminReplyReceived?.Invoke(ticket);
-                    });
-                }
-            }
-        }
-        catch { }
-    }
-
-    // -------------------------------------------------------------------------
-    // ADMIN: RESOLVE TICKET AND SEND REPLY
-    // -------------------------------------------------------------------------
-#if BUILD_ADMIN
-    public async Task<bool> ResolveTicketAsync(string cloudTicketId, string status, string adminReply, string adminNotes)
-    {
-        if (!IsRelayReachable) return false;
-        try
-        {
-            var payload = new
-            {
-                Status = status,
-                AdminReply = adminReply,
-                AdminNotes = adminNotes,
-                AdminReplyAt = DateTime.Now
-            };
-            var response = await _http.PatchAsJsonAsync($"{_relayBaseUrl}/api/ticket/{Uri.EscapeDataString(cloudTicketId)}", payload);
-            return response.IsSuccessStatusCode;
-        }
-        catch { }
-        return false;
-    }
-
-    public async Task<List<ComplaintTicket>> GetAllTicketsAsync()
-    {
-        if (!IsRelayReachable) return new List<ComplaintTicket>();
-        try
-        {
-            var response = await _http.GetAsync($"{_relayBaseUrl}/api/tickets");
-            if (response.IsSuccessStatusCode)
-            {
-                string json = await response.Content.ReadAsStringAsync();
-                var tickets = JsonSerializer.Deserialize<List<ComplaintTicket>>(json,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                return tickets ?? new List<ComplaintTicket>();
-            }
-        }
-        catch { }
-        return new List<ComplaintTicket>();
-    }
-#endif
 
     // -------------------------------------------------------------------------
     // RELAY REACHABILITY CHECK

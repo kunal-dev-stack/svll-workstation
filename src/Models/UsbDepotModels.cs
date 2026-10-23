@@ -23,6 +23,8 @@ public class UsbDepotItem
     public string CategoryBadge { get; set; } = "[EXE]";
     public string CategoryColor { get; set; } = "#2563EB";
     public string SilentCommand { get; set; } = "";
+    public string InteractiveCommand { get; set; } = "";
+    public string InstallerType { get; set; } = "EXE";
     public string Status { get; set; } = "Ready";
     public string StatusColor { get; set; } = "#64748B"; // Slate
 }

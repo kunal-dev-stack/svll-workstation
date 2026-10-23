@@ -225,16 +225,16 @@ public class DashboardAiService
             };
         }
 
-        // Complaint / IT Ticket / Service Desk
-        if (lower.Contains("ticket") || lower.Contains("complaint") || lower.Contains("report") || lower.Contains("helpdesk") || lower.Contains("support") || lower.Contains("raise issue"))
+        // Task Manager / Process Control / Performance
+        if (lower.Contains("process") || lower.Contains("task") || lower.Contains("freeze") || lower.Contains("hang") || lower.Contains("slow") || lower.Contains("kill") || lower.Contains("manager"))
         {
             return new DashboardAiResponse
             {
-                Answer = "📋 **SVLL IT Service Desk:** You can submit an official IT support complaint ticket synchronized directly with the enterprise CSV log sheet (`Complain Log sheet IT - New Complaint.csv`) and IT Admin Console. Automated hardware telemetry is captured and attached to your ticket.",
-                ActionTag = "OpenSubmitComplaint",
-                ActionTitle = "📋 Register IT Support Complaint Ticket",
-                ActionDescription = "Opens the official IT Service Desk intake form with live auto-sync to the central log sheet.",
-                Suggestions = new List<string> { "Track My Tickets", "Admin Service Desk", "AI Diagnostic Intake" }
+                Answer = "⚡ **Interactive Task Manager:** You can inspect all running processes, memory consumption, active threads, and terminate high-load or unresponsive tasks with persistent selection and 1-click execution.",
+                ActionTag = "OpenTaskManager",
+                ActionTitle = "⚡ Open Interactive Task Manager",
+                ActionDescription = "Opens the full real-time process controller to inspect threads, memory, and close tasks.",
+                Suggestions = new List<string> { "1-Click Turbo Boost", "Purge Temp Files", "S.M.A.R.T. Drive Health" }
             };
         }
 
@@ -308,10 +308,10 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "🏢 **Boss ERP Client Guidance:** Boss ERP session timeouts and disconnects occur when database connection pooling drops or network latency to the central dispatch server exceeds 150ms. Restart Boss client, verify Gateway ping, or file an IT ticket if the database server is unresponsive.",
-                ActionTag = "OpenSubmitComplaint",
-                ActionTitle = "📋 File Boss ERP Support Ticket",
-                ActionDescription = "Registers an urgent ERP incident directly with the SVLL IT Helpdesk team.",
+                Answer = "🏢 **Boss ERP Client Guidance:** Boss ERP session timeouts and disconnects occur when database connection pooling drops or network latency to the central dispatch server exceeds 150ms. Restart Boss client, verify Gateway ping, or inspect active network sockets.",
+                ActionTag = "OpenWmsLatency",
+                ActionTitle = "🏢 Check ERP & WMS Latency",
+                ActionDescription = "Tests real-time round-trip latency to the central logistics ERP database.",
                 Suggestions = new List<string> { "Ping Gateway Diagnostic", "Flush DNS Resolver", "1-Click Turbo Boost" }
             };
         }
@@ -345,10 +345,10 @@ public class DashboardAiService
             return new DashboardAiResponse
             {
                 Answer = "📧 **Outlook Email Troubleshooting:** If Outlook displays 'Disconnected' or send/receive failures, verify internet connectivity first. Corrupted local OST files or expired corporate credentials can be resolved by repairing the Outlook profile via Control Panel > Mail or restarting the Microsoft Exchange connectivity service.",
-                ActionTag = "OpenSubmitComplaint",
-                ActionTitle = "📋 File Outlook Mail Ticket",
-                ActionDescription = "Report corporate mail synchronization issues to IT Support.",
-                Suggestions = new List<string> { "Flush DNS", "Ping Gateway Diagnostic", "Register IT Ticket" }
+                ActionTag = "OpenNetwork",
+                ActionTitle = "🌐 Network & DNS Profiles",
+                ActionDescription = "Inspect network connectivity and switch DNS presets.",
+                Suggestions = new List<string> { "Flush DNS", "Ping Gateway Diagnostic", "1-Click Turbo Boost" }
             };
         }
 
@@ -357,11 +357,11 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "📹 **Security CCTV Camera Triage:** If a depot camera is showing down or incorrect timestamping, verify PoE (Power over Ethernet) switch port lights and check whether the camera IP responds to ICMP ping. Report camera hardware faults directly to IT for rapid physical or remote reconfiguration.",
-                ActionTag = "OpenSubmitComplaint",
-                ActionTitle = "📋 Report Camera Incident",
-                ActionDescription = "Logs a Camera Down complaint with live CSV sync.",
-                Suggestions = new List<string> { "Ping Gateway Diagnostic", "Register IT Ticket", "Track My Tickets" }
+                Answer = "📹 **Security CCTV Camera Triage:** If a depot camera is showing down or incorrect timestamping, verify PoE (Power over Ethernet) switch port lights and check whether the camera IP responds to ICMP ping.",
+                ActionTag = "OpenPingMonitor",
+                ActionTitle = "⚡ Launch 24/7 Ping Watchdog",
+                ActionDescription = "Continuously ping depot cameras, routers, and gateways.",
+                Suggestions = new List<string> { "Ping Gateway Diagnostic", "Subnet IP Scanner", "Wi-Fi Diagnostics" }
             };
         }
 
@@ -370,7 +370,7 @@ public class DashboardAiService
         {
             return new DashboardAiResponse
             {
-                Answer = "🤖 **SVLL AI Quick Support Copilot Features:**\nI can answer **any question** (IT, Windows, Boss ERP, hardware, networking, or general questions) and give you **1-click execution** for all workstation tools:\n• ⚡ **Turbo Boost** (Release RAM & speed up PC)\n• 🖨️ **Print Spooler** (Purge stuck jobs & restart service)\n• 🌐 **Network Diagnostics** (Flush DNS & ping gateway)\n• 🧹 **Temp Purge** (Clean junk & empty Recycle Bin)\n• 📋 **IT Complaints** (Auto-sync to company CSV log sheet)\n• 🔌 **USB Depot** & 🗑️ **App Uninstaller**.",
+                Answer = "🤖 **SVLL AI Quick Support Copilot Features:**\nI can answer **any question** (IT, Windows, Boss ERP, hardware, networking, or general questions) and give you **1-click execution** for all workstation tools:\n• ⚡ **Turbo Boost** (Release RAM & speed up PC)\n• ⚡ **Task Manager** (Inspect processes, memory & close tasks)\n• 🖨️ **Print Spooler** (Purge stuck jobs & restart service)\n• 🌐 **Network Diagnostics** (Flush DNS & ping gateway)\n• 🧹 **Temp Purge** (Clean junk & empty Recycle Bin)\n• 🔌 **USB Depot** & 🗑️ **App Uninstaller**.",
                 ActionTag = "OpenLibrary",
                 ActionTitle = "📖 Open 37-Scenario Command Playbook",
                 ActionDescription = "Explore complete PowerShell and CMD recipes for enterprise fixes.",

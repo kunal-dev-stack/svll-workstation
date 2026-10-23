@@ -107,9 +107,9 @@ public partial class MainWindow : Window
     private TextBlock? _lblTopBarCpu;
     private TextBlock? _lblTopBarRam;
 
-    // Terminal Drawer Toggle State
-    private RowDefinition _terminalRow = new RowDefinition { Height = new GridLength(185) };
-    private bool _isTerminalCollapsed = false;
+    // Terminal Drawer Toggle State (Minimized at startup)
+    private RowDefinition _terminalRow = new RowDefinition { Height = new GridLength(32) };
+    private bool _isTerminalCollapsed = true;
     private Button? _btnToggleTerminal;
     private Grid? _terminalInputBar;
 
@@ -129,11 +129,12 @@ public partial class MainWindow : Window
         {
             Id = "Hub_Monitoring",
             Title = "LIVE MONITORING & TRIAGE",
-            Subtitle = "System Vitals, Continuous Watchdog & Latency Tests",
+            Subtitle = "System Vitals, Task Manager, Watchdog & Latency Tests",
             Glyph = "\uE80F",
             SubTools = new()
             {
                 ("Dashboard", "Executive Dashboard", "📊"),
+                ("TaskManager", "Task Manager & Processes", "⚡"),
                 ("PingMonitor", "24/7 Ping Watchdog", "⚡"),
                 ("WmsLatency", "WMS & ERP Latency", "🏢"),
                 ("SpeedTest", "Internet Speed Test", "🚀")
@@ -175,18 +176,20 @@ public partial class MainWindow : Window
         new HubInfo
         {
             Id = "Hub_Diagnostics",
-            Title = "FLEET DIAGNOSTICS & HELPDESK",
-            Subtitle = "OS Repairs, Print Spooler, Event Analyzer & Support Bundle",
+            Title = "FLEET DIAGNOSTICS & SUPPORT",
+            Subtitle = "OS Repairs, S.M.A.R.T. Health, Task Manager, Remote Support & Logs",
             Glyph = "\uE90F",
             SubTools = new()
             {
+                ("TaskManager", "Detailed Task Manager", "⚡"),
                 ("Repair", "Windows OS Repair", "🩺"),
                 ("StorageSmart", "S.M.A.R.T. Drive Health", "💾"),
                 ("Printer", "Print Spooler Diagnostic", "🖨️"),
-                ("Services", "Services & Processes", "⚡"),
+                ("Services", "Windows Services", "⚙️"),
                 ("EventLog", "Event Log Analyzer", "⚠️"),
                 ("Health", "PC Health & Battery", "🔋"),
                 ("AssetPassport", "Asset Passport & QR", "🛡️"),
+                ("RemoteClient", "Remote Support (AnyDesk)", "🔴"),
                 ("SupportBundle", "IT Support Bundle", "📦")
             }
         },
@@ -221,23 +224,6 @@ public partial class MainWindow : Window
                 ("PortThreatHunter", "Socket & Port Threat Hunter", "📡"),
                 ("ForensicsCollector", "Incident Forensics Collector", "📦"),
                 ("CertHealthInspector", "SSL/TLS & Domain Health", "🌐")
-            }
-        },
-        new HubInfo
-        {
-            Id = "Hub_ServiceDesk",
-            Title = "IT SERVICE DESK & HELPDESK",
-            Subtitle = "Raise Tickets, AI Diagnostic Assistant & Track Requests",
-            Glyph = "\uE8BD",
-            SubTools = new()
-            {
-                ("SubmitComplaint", "Raise Support Ticket", "📋"),
-                ("AiComplaintBot", "AI Diagnostic Assistant", "🤖"),
-                ("MyTickets", "My Open Tickets", "📂"),
-                ("RemoteClient", "My Remote Client (AnyDesk)", "🔴"),
-#if BUILD_ADMIN
-                ("TicketAdminDesk", "Admin Ticket Desk", "👑"),
-#endif
             }
         },
 #if BUILD_ADMIN
@@ -335,8 +321,6 @@ public partial class MainWindow : Window
             }
             catch { }
 
-            // v8.0: Subscribe to admin reply notifications
-            CloudSyncService.Instance.AdminReplyReceived += OnAdminReplyReceived;
 
 #if BUILD_ADMIN
             // Admin build: subscribe to live fleet updates
@@ -381,75 +365,6 @@ public partial class MainWindow : Window
     // -------------------------------------------------------------------------
     // v8.0 Cloud sync event handlers
     // -------------------------------------------------------------------------
-
-    private void OnAdminReplyReceived(SVLL_IT_Workstation.Models.ComplaintTicket ticket)
-    {
-        // Show Windows toast-style popup notification
-        try
-        {
-            var notif = new Window
-            {
-                Title = "SVLL IT — Ticket Reply",
-                Width = 400,
-                Height = 200,
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Left = SystemParameters.PrimaryScreenWidth - 420,
-                Top = SystemParameters.PrimaryScreenHeight - 220,
-                WindowStyle = WindowStyle.ToolWindow,
-                ResizeMode = ResizeMode.NoResize,
-                Topmost = true,
-                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(240, 253, 244))
-            };
-            var sp = new System.Windows.Controls.StackPanel { Margin = new Thickness(16) };
-            sp.Children.Add(new System.Windows.Controls.TextBlock
-            {
-                Text = "✅ Admin Reply Received!",
-                FontSize = 13,
-                FontWeight = FontWeights.Bold,
-                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 101, 52)),
-                Margin = new Thickness(0, 0, 0, 6)
-            });
-            sp.Children.Add(new System.Windows.Controls.TextBlock
-            {
-                Text = $"Ticket: {ticket.Title}",
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(15, 23, 42)),
-                Margin = new Thickness(0, 0, 0, 4)
-            });
-            sp.Children.Add(new System.Windows.Controls.TextBlock
-            {
-                Text = ticket.AdminReply,
-                FontSize = 11,
-                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(30, 64, 175)),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 10)
-            });
-            var btnView = new System.Windows.Controls.Button
-            {
-                Content = "📂 View My Tickets",
-                Padding = new Thickness(12, 6, 12, 6),
-                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(22, 163, 74)),
-                Foreground = System.Windows.Media.Brushes.White,
-                BorderThickness = new Thickness(0),
-                Cursor = System.Windows.Input.Cursors.Hand,
-                FontWeight = FontWeights.Bold
-            };
-            btnView.Click += (s, e) => { NavigateTo("MyTickets"); notif.Close(); };
-            sp.Children.Add(btnView);
-            notif.Content = sp;
-            notif.Show();
-
-            // Auto-close after 12 seconds
-            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(12) };
-            timer.Tick += (s, e) => { timer.Stop(); try { notif.Close(); } catch { } };
-            timer.Start();
-        }
-        catch { }
-
-        // Also invalidate MyTickets view cache so it refreshes
-        _viewCache.Remove("MyTickets");
-    }
 
 #if BUILD_ADMIN
     private void OnCloudFleetUpdated(List<SVLL_IT_Workstation.Models.RemoteDeviceItem> devices)
@@ -1034,17 +949,9 @@ public partial class MainWindow : Window
         itemSocket.Click += (s, e) => NavigateTo("SocketInspector");
         quickMenu.Items.Add(itemSocket);
 
-        var itemLogSheet = new MenuItem { Header = "📊  Open Complaint Log Sheet (.CSV)", FontWeight = FontWeights.SemiBold };
-        itemLogSheet.Click += (s, e) =>
-        {
-            try
-            {
-                string csvPath = ComplaintTicketService.GetActiveCsvPath();
-                Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
-            }
-            catch { }
-        };
-        quickMenu.Items.Add(itemLogSheet);
+        var itemTaskMgr = new MenuItem { Header = "⚡  Interactive Task Manager & Processes", FontWeight = FontWeights.SemiBold };
+        itemTaskMgr.Click += (s, e) => NavigateTo("TaskManager");
+        quickMenu.Items.Add(itemTaskMgr);
 
         quickMenu.Items.Add(new Separator());
 
@@ -1056,20 +963,6 @@ public partial class MainWindow : Window
         var itemFleet = new MenuItem { Header = "👑  Fleet Device Admin Console", FontWeight = FontWeights.SemiBold };
         itemFleet.Click += (s, e) => NavigateTo("FleetAdminConsole");
         quickMenu.Items.Add(itemFleet);
-#endif
-
-        var itemComplaint = new MenuItem { Header = "📋  Register IT Support Complaint", FontWeight = FontWeights.SemiBold };
-        itemComplaint.Click += (s, e) => NavigateTo("SubmitComplaint");
-        quickMenu.Items.Add(itemComplaint);
-
-        var itemAi = new MenuItem { Header = "🤖  AI Diagnostic & Triage Assistant", FontWeight = FontWeights.SemiBold };
-        itemAi.Click += (s, e) => NavigateTo("AiComplaintBot");
-        quickMenu.Items.Add(itemAi);
-
-#if BUILD_ADMIN
-        var itemDesk = new MenuItem { Header = "👑  IT Service Desk Admin Panel", FontWeight = FontWeights.SemiBold };
-        itemDesk.Click += (s, e) => NavigateTo("TicketAdminDesk");
-        quickMenu.Items.Add(itemDesk);
 #endif
 
         quickMenu.Items.Add(new Separator());
@@ -1113,33 +1006,22 @@ public partial class MainWindow : Window
         };
         rightStack.Children.Add(btnQuickMenu);
 
-        // Direct Top Status Bar Complaint Sheet Button
-        var btnTopCsv = new Button
+        // Direct Top Status Bar Task Manager Button
+        var btnTopTask = new Button
         {
-            Content = "📑 CSV Sheet",
+            Content = "⚡ Task Manager",
             FontSize = 10.5,
             FontWeight = FontWeights.Bold,
             Padding = new Thickness(9, 3, 9, 3),
             Margin = new Thickness(6, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
-            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(134, 239, 172)),
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            Foreground = SvllBlue,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
             BorderThickness = new Thickness(1),
             Cursor = Cursors.Hand
         };
-        btnTopCsv.Click += (s, e) =>
-        {
-            try
-            {
-                string csvPath = ComplaintTicketService.GetActiveCsvPath();
-                Process.Start(new ProcessStartInfo { FileName = csvPath, UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Could not open CSV log sheet: {ex.Message}", "CSV Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        };
-        rightStack.Children.Add(btnTopCsv);
+        btnTopTask.Click += (s, e) => NavigateTo("TaskManager");
+        rightStack.Children.Add(btnTopTask);
 
         Grid.SetColumn(rightStack, 2);
         grid.Children.Add(rightStack);
@@ -1318,14 +1200,13 @@ public partial class MainWindow : Window
 
         string hubBadgeText = hub.Id switch
         {
-            "Hub_Monitoring" => "HUB 1  •  TRIAGE",
-            "Hub_Network" => "HUB 2  •  NOC",
-            "Hub_Optimization" => "HUB 3  •  OPTIMIZATION",
-            "Hub_Diagnostics" => "HUB 4  •  DIAGNOSTICS",
-            "Hub_Playbook" => "HUB 5  •  DEPLOYMENT",
-            "Hub_Remote" => "HUB 6  •  REMOTE FLEET",
-            "Hub_Complaints" => "HUB 7  •  SERVICE DESK",
-            "Hub_Security" => "HUB 8  •  SECURITY HARDENING",
+            "Hub_Monitoring" => "HUB 1  •  LIVE MONITORING & TRIAGE",
+            "Hub_Network" => "HUB 2  •  NETWORK OPERATIONS (NOC)",
+            "Hub_Optimization" => "HUB 3  •  SYSTEM OPTIMIZATION",
+            "Hub_Diagnostics" => "HUB 4  •  FLEET DIAGNOSTICS & SUPPORT",
+            "Hub_Playbook" => "HUB 5  •  PLAYBOOK & DEPLOYMENT",
+            "Hub_Security" => "HUB 6  •  ENDPOINT SECURITY & HARDENING",
+            "Hub_AdminCenter" => "HUB 7  •  ADMIN COMMAND CENTER",
             _ => "WORKSPACE"
         };
 
@@ -1510,6 +1391,7 @@ public partial class MainWindow : Window
         return tag switch
         {
             "Dashboard" => BuildDashboardView(),
+            "TaskManager" => BuildTaskManagerView(),
             "PingMonitor" => BuildPingMonitorView(),
             "SpeedTest" => BuildSpeedTestView(),
             "Network" => BuildNetworkView(),
@@ -1547,10 +1429,6 @@ public partial class MainWindow : Window
             "FleetAdminConsole" => BuildAdminCommandCenterView(), // legacy redirect
             "AdminCommandCenter" => BuildAdminCommandCenterView(),
 #endif
-            "SubmitComplaint" => BuildSubmitComplaintView(),
-            "AiComplaintBot" => BuildAiComplaintBotView(),
-            "TicketAdminDesk" => BuildTicketAdminDeskView(),
-            "MyTickets" => BuildMyTicketsView(),
             "ProcessShield" => BuildProcessShieldView(),
             "SecurityHardening" => BuildSecurityHardeningView(),
             "UsbDlpGuardian" => BuildUsbDlpGuardianView(),
@@ -1652,7 +1530,7 @@ public partial class MainWindow : Window
 
         _btnToggleTerminal = new Button
         {
-            Content = "▼ Minimize",
+            Content = "▲ Expand Terminal",
             FontSize = 10,
             Padding = new Thickness(6, 2, 6, 2),
             Margin = new Thickness(6, 0, 0, 0),
@@ -1698,13 +1576,14 @@ public partial class MainWindow : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(10, 6, 10, 6),
-            TextWrapping = TextWrapping.Wrap
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed
         };
         Grid.SetRow(_txtConsole, 1);
         grid.Children.Add(_txtConsole);
 
         // Input bar
-        var inputBar = new Grid { Margin = new Thickness(6, 4, 6, 6) };
+        var inputBar = new Grid { Margin = new Thickness(6, 4, 6, 6), Visibility = Visibility.Collapsed };
         _terminalInputBar = inputBar;
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         inputBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });

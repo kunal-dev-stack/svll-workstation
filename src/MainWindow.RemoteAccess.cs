@@ -69,7 +69,7 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
             Margin = new Thickness(10, 0, 0, 0),
-            Child = new TextBlock { Text = "HUB 6 • ENDPOINT ACCESS", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
+            Child = new TextBlock { Text = "HUB 4 • ENDPOINT ACCESS", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = SvllBlue }
         });
         headerLeft.Children.Add(titleRow);
         headerLeft.Children.Add(new TextBlock

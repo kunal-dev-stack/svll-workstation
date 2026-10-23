@@ -1,6 +1,6 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - Client Workstation Automated Installer
-# Target: SVLL IT Support Workstation (User Edition v8.0)
+# Target: SVLL IT Support Workstation (User Edition v8.1)
 # Developed by: Kunal Turkar
 # Compatible with Windows 10/11 & Windows Server (x64)
 # =========================================================================
@@ -25,7 +25,7 @@ if (-not $isAdmin) {
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "   SHREE VASU LOGISTICS LIMITED - WORKSTATION DEPLOYMENT AGENT" -ForegroundColor Cyan
-Write-Host "   Version: User Edition v8.0 | Developed by Kunal Turkar" -ForegroundColor Cyan
+Write-Host "   Version: User Edition v8.1 | Developed by Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
 # 2. Corporate Server Pre-configured (Zero User Input Required)
@@ -49,7 +49,6 @@ $secConfig = @{
     PasswordSalt = ""
     LastPasswordChange = (Get-Date).ToString("o")
     SharedFleetDirectory = ""
-    SharedTicketDirectory = ""
     RelayServerUrl = $ServerUrl
     MeshCentralUrl = if ($MeshServerUrl) { $MeshServerUrl } else { "$ServerUrl:8086" }
 } | ConvertTo-Json -Depth 5
@@ -57,11 +56,11 @@ $secConfig = @{
 Set-Content -Path (Join-Path $programDataDir "admin_security.json") -Value $secConfig -Force
 Write-Host "[+] Pre-configured server connection in system profile." -ForegroundColor Green
 
-# 4. Download and Install SVLL Workstation User Edition v8.0
-$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.0/SVLL-IT-Workstation-User-v8.0-Setup.exe"
-$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.0-Setup.exe"
+# 4. Download and Install SVLL Workstation User Edition v8.1
+$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.1/SVLL-IT-Workstation-User-v8.1-Setup.exe"
+$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.1-Setup.exe"
 
-Write-Host "`n[1/3] Downloading SVLL Workstation User v8.0..." -ForegroundColor Yellow
+Write-Host "`n[1/3] Downloading SVLL Workstation User v8.1..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
 } catch {

@@ -1,4 +1,5 @@
-﻿35308938fe0db8260cc9db2076ec2bd55e9afd247f05db1e40090b44756ac04e  RELEASE_NOTES_v8.0.md
-161016e18997896ee9b7060ad87fdb89ab2bf2a6c2c2d29487bddb157aefb234  SVLL-IT-Workstation-Admin-v8.0-Setup.exe
-ed1699ca948d8ebf7d20129385bbf28174813786ef2be90e98f6cba8b50c6b6c  SVLL-IT-Workstation-User-v8.0-Setup.exe
-ed1699ca948d8ebf7d20129385bbf28174813786ef2be90e98f6cba8b50c6b6c  SVLL-IT-Workstation-v8.0-Setup.exe
+﻿4f45a95bc2cf91834d60a3dbcff049e37cb12d0be200389d33f767b2092e2d99  RELEASE_NOTES_v8.1.md
+f049a6a475dc9cb812a24b10e82e03543afb8ed022e91b3ea3b860a089b47b2b  SVLL-IT-Workstation-Admin-v8.1-Setup.exe
+018be2a85571f8bc3c604f5cffc7f9f2dd572db7aa8d6f83a586a09df645a11c  SVLL-IT-Workstation-User-v8.1-Setup.exe
+018be2a85571f8bc3c604f5cffc7f9f2dd572db7aa8d6f83a586a09df645a11c  SVLL-IT-Workstation-v8.1-Setup.exe
+1705be217974e77625760ac7bebe77fed880e2a4db2b28f3a3b925da3324833e  SVLL-Relay-Server-v1.1-win-x64.zip

@@ -343,7 +343,7 @@ public static class DashboardHtml
             <div class="brand-badge">SVLL IT</div>
             <div class="brand-title">
                 <h1>Fleet Relay & Telemetry Server</h1>
-                <p>Version 1.0 &bull; Central Control Hub for Shree Vasu Logistics Workstations</p>
+                <p>Version 1.1 &bull; Central Control Hub for Shree Vasu Logistics Workstations</p>
             </div>
         </div>
         <div class="header-meta">
