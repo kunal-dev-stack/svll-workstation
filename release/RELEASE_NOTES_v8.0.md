@@ -57,9 +57,9 @@ To manage your office fleet from your personal PC:
 #### A. Office Server PC Setup (e.g. `192.168.10.222`)
 On your office PC or dedicated server machine, open PowerShell as Administrator and run:
 ```powershell
-irm https://tinyurl.com/svll-server | iex
+irm https://tinyurl.com/2y52b5x3 | iex
 ```
-*(Or from GitHub raw: `irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-server.ps1 | iex`)*
+*(Direct GitHub command: `irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-server.ps1 | iex`)*
 - Automatically registers the `SvllRelay` Windows Service (.NET 8 with Windows Service Control Manager integration).
 - Opens TCP Port 5000 in Windows Firewall.
 - Starts the SQLite database (`svll_relay.db`) and web dashboard at `http://localhost:5000/`.
@@ -67,9 +67,9 @@ irm https://tinyurl.com/svll-server | iex
 #### B. Personal / Admin PC Setup (Kunal's PC)
 On your laptop or admin desktop, open PowerShell as Administrator and run:
 ```powershell
-irm https://tinyurl.com/svll-admin | iex
+irm https://tinyurl.com/29nky5an | iex
 ```
-*(Or from GitHub raw: `irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-admin.ps1 | iex`)*
+*(Direct GitHub command: `irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-admin.ps1 | iex`)*
 - Installs the **Admin Edition** and launches into the **Admin Command Center**.
 - Click **⚙️ Server Config** in the top bar to set your Office Server IP (e.g. `http://192.168.10.222:5000`).
 - The banner instantly turns green (**🟢 Relay Server Connected**), and live fleet heartbeat cards load automatically.
@@ -77,9 +77,9 @@ irm https://tinyurl.com/svll-admin | iex
 #### C. User PC Deployment (All Employees / Branches)
 On any user workstation, open PowerShell as Administrator and run:
 ```powershell
-irm https://tinyurl.com/svll-tool | iex
+irm https://tinyurl.com/268fpfhl | iex
 ```
-*(Or from GitHub raw: `irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install.ps1 | iex`)*
+*(Direct GitHub command: `irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install.ps1 | iex`)*
 - Installs the **User Edition** silently.
 - Auto-detects/installs AnyDesk, configures RDP, and fires an instant heartbeat with machine specs to the Office Server.
 - The machine appears immediately on your Admin Command Center dashboard!
