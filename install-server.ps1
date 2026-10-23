@@ -135,6 +135,6 @@ foreach ($ip in $localIps) {
     Write-Host "       Network LAN:  http://$($ip):5000/" -ForegroundColor Yellow
 }
 Write-Host "`n   ⚡ USER WORKSTATION INSTALLATION COMMANDS (Run on Employee PCs):" -ForegroundColor Cyan
-Write-Host "       Internet:     irm https://tinyurl.com/svll-it-tool | iex" -ForegroundColor Green
+Write-Host "       Internet:     irm https://tinyurl.com/svll-tool | iex" -ForegroundColor Green
 Write-Host "       Local LAN:    irm http://$($primaryIp):5000/install.ps1 | iex" -ForegroundColor Green
 Write-Host "=========================================================================`n" -ForegroundColor Green

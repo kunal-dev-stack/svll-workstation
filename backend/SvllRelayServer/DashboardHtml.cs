@@ -362,7 +362,7 @@ public static class DashboardHtml
             <p>Run this command on any employee PC to install workstation, auto-install MeshAgent & connect to this panel:</p>
         </div>
         <div class="code-snippet">
-            <span id="clientCmd">irm https://tinyurl.com/svll-it-tool | iex</span>
+            <span id="clientCmd">irm https://tinyurl.com/svll-tool | iex</span>
             <button class="copy-btn" onclick="copyText('clientCmd')">Copy</button>
         </div>
     </div>
