@@ -38,41 +38,51 @@ if (-not $MeshServerUrl) {
 $ServerUrl = $ServerUrl.TrimEnd('/')
 Write-Host "[+] Connecting to SVLL Relay Server: $ServerUrl" -ForegroundColor Green
 
-# 3. Pre-create Application Data Directory & Configure Relay Settings
+# 3. Preserve Application Data Directory & Configure Relay Settings
 $programDataDir = "C:\ProgramData\SVLL-IT-Workstation"
+$cfgPath = Join-Path $programDataDir "admin_security.json"
 if (-not (Test-Path $programDataDir)) {
     New-Item -ItemType Directory -Path $programDataDir -Force | Out-Null
 }
 
+$existingConfig = $null
+if (Test-Path $cfgPath) {
+    try { $existingConfig = Get-Content $cfgPath -Raw | ConvertFrom-Json } catch { }
+}
+
 $secConfig = @{
-    PasswordHash = ""
-    PasswordSalt = ""
-    LastPasswordChange = (Get-Date).ToString("o")
-    SharedFleetDirectory = ""
+    PasswordHash = if ($existingConfig -and $existingConfig.PasswordHash) { $existingConfig.PasswordHash } else { "" }
+    PasswordSalt = if ($existingConfig -and $existingConfig.PasswordSalt) { $existingConfig.PasswordSalt } else { "" }
+    LastPasswordChange = if ($existingConfig -and $existingConfig.LastPasswordChange) { $existingConfig.LastPasswordChange } else { (Get-Date).ToString("o") }
+    SharedFleetDirectory = if ($existingConfig -and $existingConfig.SharedFleetDirectory) { $existingConfig.SharedFleetDirectory } else { "" }
     RelayServerUrl = $ServerUrl
-    MeshCentralUrl = if ($MeshServerUrl) { $MeshServerUrl } else { "$ServerUrl:8086" }
 } | ConvertTo-Json -Depth 5
 
-Set-Content -Path (Join-Path $programDataDir "admin_security.json") -Value $secConfig -Force
+Set-Content -Path $cfgPath -Value $secConfig -Force
 Write-Host "[+] Pre-configured server connection in system profile." -ForegroundColor Green
 
-# 4. Download and Install SVLL Workstation User Edition v8.1
+# 4. Terminate any running old version and install User Edition v8.1
+Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for clean in-place upgrade..." -ForegroundColor Cyan
+Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+
 $downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.1/SVLL-IT-Workstation-User-v8.1-Setup.exe"
 $tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.1-Setup.exe"
 
-Write-Host "`n[1/3] Downloading SVLL Workstation User v8.1..." -ForegroundColor Yellow
+Write-Host "[1/3] Downloading latest SVLL Workstation User v8.1..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
 } catch {
     Invoke-WebRequest -Uri $downloadUrl -OutFile $tempExe -UseBasicParsing
 }
 
-Write-Host "[2/3] Installing Workstation silently..." -ForegroundColor Yellow
-$proc = Start-Process -FilePath $tempExe -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -PassThru
+Write-Host "[2/3] Performing in-place upgrade silently..." -ForegroundColor Yellow
+$proc = Start-Process -FilePath $tempExe -ArgumentList "/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -PassThru
 if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
-    Write-Warning "Setup returned non-zero code: $($proc.ExitCode)"
+    Write-Warning "Setup returned code: $($proc.ExitCode)"
 }
 Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
+
 
 # 5. Configure Ultra Remote Engine (UltraViewer-style Zero-Touch Remote Access)
 Write-Host "`n[3/3] Configuring Ultra Remote Engine (Auto-Reflected Partner ID & Password)..." -ForegroundColor Yellow

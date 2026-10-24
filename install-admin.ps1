@@ -57,11 +57,15 @@ $secConfig = @{
 Set-Content -Path $cfgPath -Value $secConfig -Force
 Write-Host "[+] Configured Admin Security and Relay settings." -ForegroundColor Green
 
-# 4. Download Admin Workstation v8.1 Setup
+# 4. Terminate any running old version and install Admin Edition v8.1
+Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for clean in-place upgrade..." -ForegroundColor Cyan
+Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
+
 $downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.1/SVLL-IT-Workstation-Admin-v8.1-Setup.exe"
 $tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.1-Setup.exe"
 
-Write-Host "`n[1/2] Downloading SVLL Workstation Admin v8.1..." -ForegroundColor Yellow
+Write-Host "[1/2] Downloading latest SVLL Workstation Admin v8.1..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
 } catch {
@@ -69,22 +73,25 @@ try {
 }
 
 # 5. Install Admin Workstation
-Write-Host "[2/2] Installing Admin Console silently..." -ForegroundColor Yellow
-$proc = Start-Process -FilePath $tempExe -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -PassThru
+Write-Host "[2/2] Performing in-place upgrade of Admin Console silently..." -ForegroundColor Yellow
+$proc = Start-Process -FilePath $tempExe -ArgumentList "/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -PassThru
 if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
-    Write-Warning "Setup returned non-zero code: $($proc.ExitCode)"
+    Write-Warning "Setup returned code: $($proc.ExitCode)"
 }
 Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
 
 # 6. Ensure Ultra Remote Viewer is installed on Admin PC for 1-Click Connect
 Write-Host "`nChecking Ultra Remote Viewer on Admin PC..." -ForegroundColor Yellow
 $ultraCandidates = @(
+    "C:\Program Files\ShreeVasuLogistics\ITWorkstationAdmin\tools\rustdesk.exe",
+    "C:\Program Files (x86)\ShreeVasuLogistics\ITWorkstationAdmin\tools\rustdesk.exe",
     "C:\Program Files\RustDesk\rustdesk.exe",
     "C:\Program Files (x86)\RustDesk\rustdesk.exe",
     "$env:ProgramData\SVLL-IT-Workstation\tools\rustdesk.exe"
 )
 $ultraExe = $null
 foreach ($p in $ultraCandidates) { if (Test-Path $p) { $ultraExe = $p; break } }
+
 
 if (-not $ultraExe) {
     Write-Host "Downloading and configuring Ultra Remote Engine for Admin Console..." -ForegroundColor Yellow
