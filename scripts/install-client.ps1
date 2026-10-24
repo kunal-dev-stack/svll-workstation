@@ -25,7 +25,7 @@ if (-not $isAdmin) {
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "   SHREE VASU LOGISTICS LIMITED - WORKSTATION DEPLOYMENT AGENT" -ForegroundColor Cyan
-Write-Host "   Version: User Edition v8.1 | Developed by Kunal Turkar" -ForegroundColor Cyan
+Write-Host "   Version: User Edition v8.2 | Developed by Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
 # 2. Corporate Server Pre-configured (Zero User Input Required)
@@ -61,17 +61,17 @@ $secConfig = @{
 Set-Content -Path $cfgPath -Value $secConfig -Force
 Write-Host "[+] Pre-configured server connection in system profile." -ForegroundColor Green
 
-# 4. Terminate any running old version and install User Edition v8.1
+# 4. Terminate any running old version and install User Edition v8.2
 Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for clean in-place upgrade..." -ForegroundColor Cyan
 Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Stop-Service -Name "RustDesk" -Force -ErrorAction SilentlyContinue
 Get-Process -Name "rustdesk*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.1/SVLL-IT-Workstation-User-v8.1-Setup.exe"
-$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.1-Setup.exe"
+$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.2/SVLL-IT-Workstation-User-v8.2-Setup.exe"
+$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.2-Setup.exe"
 
-Write-Host "[1/3] Downloading latest SVLL Workstation User v8.1..." -ForegroundColor Yellow
+Write-Host "[1/3] Downloading latest SVLL Workstation User v8.2..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
 } catch {

@@ -529,13 +529,32 @@ public static class UltraRemoteService
                 UseShellExecute = true
             };
             Process.Start(psi);
+            LogRemoteConnectionAudit(target, target == targetIp ? "Direct LAN Peer-to-Peer" : "Ultra Remote Partner ID", true);
             return true;
         }
         catch (Exception ex)
         {
+            LogRemoteConnectionAudit(target, target == targetIp ? "Direct LAN Peer-to-Peer" : "Ultra Remote Partner ID", false, ex.Message);
             MessageBox.Show($"Could not launch Ultra Remote session: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Audit logging for all initiated remote access sessions (Phase 4 audit compliance).
+    /// Logs timestamp, operator, target, and outcome without recording secrets.
+    /// </summary>
+    public static void LogRemoteConnectionAudit(string target, string mode, bool success, string? error = null)
+    {
+        try
+        {
+            string auditDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\audit");
+            if (!Directory.Exists(auditDir)) Directory.CreateDirectory(auditDir);
+            string logFile = Path.Combine(auditDir, "remote_connections.log");
+            string entry = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC}] OPERATOR: {Environment.UserName} | TARGET: {target} | MODE: {mode} | SUCCESS: {success}" + (error != null ? $" | ERROR: {error}" : "") + Environment.NewLine;
+            File.AppendAllText(logFile, entry);
+        }
+        catch { }
     }
 
     /// <summary>
