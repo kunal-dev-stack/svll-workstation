@@ -419,7 +419,7 @@ public static class DashboardHtml
                     <th>Serial Number</th>
                     <th>OS &amp; Build</th>
                     <th>CPU / RAM</th>
-                    <th>AnyDesk / Mesh</th>
+                    <th>⚡ Ultra Remote / Access</th>
                     <th>Last Heartbeat</th>
                 </tr>
             </thead>
@@ -557,6 +557,14 @@ public static class DashboardHtml
                     ? `<a href="anydesk:${d.anyDeskId}" class="anydesk-link">${d.anyDeskId}</a>`
                     : '<span style="color:var(--text-muted);">-</span>';
 
+                let ultraRemoteHtml = '';
+                if (d.remoteId) {
+                    const cleanId = d.remoteId.replace(/ /g, '');
+                    ultraRemoteHtml = `<div><strong style="color:#34d399;">⚡ Ultra:</strong> <code style="color:#6ee7b7; cursor:pointer;" onclick="navigator.clipboard.writeText('${cleanId}');alert('Copied Ultra ID: ${d.remoteId}');" title="Click to copy Ultra ID">${d.remoteId}</code></div><div style="font-size:10px; color:#94a3b8;">🔑 <code>${d.remotePassword || 'SVLL@Remote2026'}</code></div>`;
+                } else if (isOnline) {
+                    ultraRemoteHtml = `<div style="font-size:10px; color:#fbbf24; font-style:italic;">⚡ Initializing...</div>`;
+                }
+
                 return `
                     <tr>
                         <td><strong>${d.hostname}</strong></td>
@@ -569,7 +577,7 @@ public static class DashboardHtml
                             <div><div class="progress-mini"><div class="progress-bar" style="width:${d.cpuLoadPercent}%; background:${cpuBarColor};"></div></div><small>CPU ${d.cpuLoadPercent}%</small></div>
                             <div><div class="progress-mini"><div class="progress-bar" style="width:${d.ramUsagePercent}%; background:${ramBarColor};"></div></div><small>RAM ${d.ramUsagePercent}%</small></div>
                         </td>
-                        <td>${anydesk}<br>${meshBadge}</td>
+                        <td>${ultraRemoteHtml}${anydesk !== '<span style="color:var(--text-muted);">-</span>' ? '<div style="font-size:10px; margin-top:2px;">AnyDesk: ' + anydesk + '</div>' : ''}${meshBadge}</td>
                         <td style="color:var(--text-muted); font-size:12px;">${formatDate(d.lastSeen)}</td>
                     </tr>
                 `;

@@ -26,4 +26,7 @@ public static class BuildConstants
     /// <summary>Default corporate server IP for Shree Vasu Logistics</summary>
     public const string DefaultRelayUrl = "http://192.168.10.222:5000";
     public const string DefaultMeshCentralUrl = "http://192.168.10.222:8086";
+
+    /// <summary>Corporate unattended access password for 1-click zero-password remote control via AnyDesk</summary>
+    public const string DefaultRemotePassword = "SVLL@Remote2026";
 }

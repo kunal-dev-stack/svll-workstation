@@ -35,6 +35,14 @@ public class RemoteDeviceItem
     public double DiskFreePercent { get; set; } = 0.0;
     /// <summary>Whether MeshAgent Windows service is running</summary>
     public bool MeshAgentRunning { get; set; } = false;
+
+    // --- Ultra-Style Remote Control fields (UltraViewer / RustDesk integration) ---
+    /// <summary>Unique remote partner ID (like UltraViewer ID, e.g. "948 213 502")</summary>
+    public string RemoteId { get; set; } = "";
+    /// <summary>Unattended access password for zero-touch 1-click connect</summary>
+    public string RemotePassword { get; set; } = "SVLL@Remote2026";
+    /// <summary>Active remote engine: "UltraRemote", "AnyDesk", or "Mesh"</summary>
+    public string RemoteEngine { get; set; } = "UltraRemote";
 }
 
 public class ComplaintTicket

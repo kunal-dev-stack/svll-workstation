@@ -184,17 +184,126 @@ public partial class MainWindow
 
         anyDeskPanel.Children.Add(new TextBlock
         {
-            Text = "🔴 Local AnyDesk Remote Identifier",
+            Text = "⚡ Ultra Remote Identifier & Corporate Access",
             FontSize = 13.5,
             FontWeight = FontWeights.Bold,
             Foreground = TextDark
         });
         anyDeskPanel.Children.Add(new TextBlock
         {
-            Text = "Your unique 9-to-10 digit AnyDesk address allows IT engineers to securely connect and resolve issues remotely.",
+            Text = "Your unique partner ID and unattended password are automatically reflected to the IT Admin Command Center. Zero acceptance is required from you when IT initiates a support session.",
             FontSize = 10.5,
             Foreground = TextSubtle,
-            Margin = new Thickness(0, 3, 0, 12)
+            Margin = new Thickness(0, 3, 0, 10)
+        });
+
+        // ⚡ Built-in Ultra Remote Box
+        var ultraBox = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16, 12, 16, 12),
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        var ultraGrid = new Grid();
+        ultraGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        ultraGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var ultraStack = new StackPanel();
+        ultraStack.Children.Add(new TextBlock
+        {
+            Text = "THIS WORKSTATION ULTRA REMOTE (AUTO-REFLECTED TO IT ADMIN)",
+            FontSize = 9.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52))
+        });
+
+        string localUltraId = UltraRemoteService.GetRemoteId();
+        if (string.IsNullOrEmpty(localUltraId)) localUltraId = "Auto-Generating...";
+
+        var lblUltraId = new TextBlock
+        {
+            Text = localUltraId,
+            FontSize = 24,
+            FontWeight = FontWeights.Black,
+            FontFamily = new FontFamily("Consolas, Courier New"),
+            Foreground = new SolidColorBrush(Color.FromRgb(5, 150, 105)),
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        ultraStack.Children.Add(lblUltraId);
+
+        var passRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        passRow.Children.Add(new TextBlock { Text = "Unattended Password: ", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark });
+        passRow.Children.Add(new TextBlock { Text = UltraRemoteService.DefaultPassword, FontSize = 12, FontWeight = FontWeights.ExtraBold, FontFamily = new FontFamily("Consolas"), Foreground = new SolidColorBrush(Color.FromRgb(30, 64, 175)) });
+        ultraStack.Children.Add(passRow);
+
+        ultraStack.Children.Add(new TextBlock
+        {
+            Text = "🟢 Zero-Touch Active: IT Admin can connect directly from the Command Center without you needing to accept or configure anything.",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap
+        });
+        Grid.SetColumn(ultraStack, 0);
+        ultraGrid.Children.Add(ultraStack);
+
+        var ultraActions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var btnCopyUltraId = new Button
+        {
+            Content = "📋 Copy ID",
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnCopyUltraId.Click += (s, e) =>
+        {
+            Clipboard.SetText(lblUltraId.Text.Replace(" ", ""));
+            MessageBox.Show($"Ultra Remote ID [{lblUltraId.Text}] copied to clipboard.", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        ultraActions.Children.Add(btnCopyUltraId);
+
+        var btnRefreshUltra = new Button
+        {
+            Content = "🔄",
+            ToolTip = "Refresh Ultra Remote ID",
+            FontSize = 12,
+            Padding = new Thickness(8, 6, 8, 6),
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnRefreshUltra.Click += (s, e) =>
+        {
+            string newId = UltraRemoteService.GetRemoteId();
+            if (!string.IsNullOrEmpty(newId))
+            {
+                lblUltraId.Text = newId;
+                FleetRegistryService.Instance.LocalDevice.RemoteId = newId;
+            }
+        };
+        ultraActions.Children.Add(btnRefreshUltra);
+
+        Grid.SetColumn(ultraActions, 1);
+        ultraGrid.Children.Add(ultraActions);
+        ultraBox.Child = ultraGrid;
+        anyDeskPanel.Children.Add(ultraBox);
+
+        // Fallback AnyDesk Display Box
+        anyDeskPanel.Children.Add(new TextBlock
+        {
+            Text = "🔴 AnyDesk Fallback Identifier",
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark,
+            Margin = new Thickness(0, 4, 0, 4)
         });
 
         // AnyDesk ID Big Display Box
@@ -1125,6 +1234,31 @@ public partial class MainWindow
 
         // Col 1: Telemetry, AnyDesk ID, Hardware Vitals (v8.0)
         var col1 = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+
+        bool hasUltra = !string.IsNullOrEmpty(dev.RemoteId) && dev.RemoteId != "N/A" && dev.RemoteId != "Not Configured";
+        if (hasUltra)
+        {
+            var ultraRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 3) };
+            ultraRow.Children.Add(new TextBlock { Text = "⚡ Ultra Remote ID: ", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) });
+            ultraRow.Children.Add(new TextBlock
+            {
+                Text = dev.RemoteId,
+                FontSize = 13,
+                FontWeight = FontWeights.ExtraBold,
+                FontFamily = new FontFamily("Consolas, Courier New"),
+                Foreground = new SolidColorBrush(Color.FromRgb(5, 150, 105))
+            });
+            ultraRow.Children.Add(new TextBlock
+            {
+                Text = $"  🔑 {(string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword)}",
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = TextSubtle,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            col1.Children.Add(ultraRow);
+        }
+
         var idRow = new StackPanel { Orientation = Orientation.Horizontal };
         idRow.Children.Add(new TextBlock { Text = "AnyDesk: ", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
         idRow.Children.Add(new TextBlock
@@ -1200,6 +1334,31 @@ public partial class MainWindow
 
         // Col 2: Action Buttons (Zero-Password Mesh, AnyDesk, RDP, Ping)
         var col2 = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        // ⚡ Ultra Remote 1-Click Connect Button
+        if (hasUltra)
+        {
+            var btnConnectUltra = new Button
+            {
+                Content = "⚡ 1-Click Connect",
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+                Foreground = Brushes.White,
+                Padding = new Thickness(10, 6, 10, 6),
+                Margin = new Thickness(0, 0, 6, 0),
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                ToolTip = $"1-Click Unattended Remote Control via Ultra Remote Engine\nID: {dev.RemoteId}\nPassword: {(string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword)}"
+            };
+            btnConnectUltra.Click += (s, e) =>
+            {
+                string p = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
+                UltraRemoteService.LaunchRemoteConnection(dev.RemoteId, p);
+                Log($"[REMOTE ACCESS] Admin launched 1-click Ultra Remote session to {dev.Hostname} ({dev.RemoteId}).");
+            };
+            col2.Children.Add(btnConnectUltra);
+        }
 
         // v8.0: Zero-Password Remote Control (MeshCentral)
         var btnConnectMesh = new Button
@@ -1506,8 +1665,8 @@ public partial class MainWindow
         var dlg = new Window
         {
             Title = "⚙️ SVLL Server Settings (Relay & MeshCentral)",
-            Width = 520,
-            Height = 360,
+            Width = 540,
+            Height = 460,
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
             ResizeMode = ResizeMode.NoResize,
             Background = BgCard
@@ -1546,38 +1705,69 @@ public partial class MainWindow
         sp.Children.Add(txtRelay);
 
         // MeshCentral URL
-        sp.Children.Add(new TextBlock { Text = "🌐 MeshCentral Server URL (Zero-Password Remote):", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark });
+        sp.Children.Add(new TextBlock { Text = "🌐 MeshCentral Server URL (Optional Browser Remote):", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextDark });
         var txtMesh = new TextBox
         {
             Text = AdminAuthService.Instance.GetMeshCentralUrl(),
             Height = 28,
             FontSize = 11,
             Padding = new Thickness(6, 4, 6, 4),
-            Margin = new Thickness(0, 4, 0, 16),
+            Margin = new Thickness(0, 4, 0, 8),
             BorderBrush = BorderMuted
         };
         sp.Children.Add(txtMesh);
 
-        var lblStatus = new TextBlock { FontSize = 10.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) };
+        // Informational Box about Remote Access
+        var infoBox = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(240, 249, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(186, 230, 253)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10, 8, 10, 8),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        var infoStack = new StackPanel();
+        infoStack.Children.Add(new TextBlock
+        {
+            Text = "💡 Cross-Office Remote Control Architecture:",
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161))
+        });
+        infoStack.Children.Add(new TextBlock
+        {
+            Text = "• AnyDesk 1-Click Remote: Connects instantly across different offices with corporate unattended password (SVLL@Remote2026). No router port forwarding required!\n" +
+                   "• Relay Server (Port 5000): Handles real-time heartbeats, live vitals, and service desk tickets.\n" +
+                   "• MeshCentral (Port 8086): Optional self-hosted browser console if web-based desktop is desired.",
+            FontSize = 9.5,
+            Foreground = TextDark,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 3, 0, 0)
+        });
+        infoBox.Child = infoStack;
+        sp.Children.Add(infoBox);
+
+        var lblStatus = new TextBlock { FontSize = 10.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12), TextWrapping = TextWrapping.Wrap };
         sp.Children.Add(lblStatus);
 
         // Buttons
         var btnRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
 
-        var btnTest = new Button
+        var btnTestRelay = new Button
         {
             Content = "⚡ Test Relay",
             FontSize = 11,
-            Padding = new Thickness(14, 6, 14, 6),
+            Padding = new Thickness(12, 6, 12, 6),
             Margin = new Thickness(0, 0, 8, 0),
             Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
             BorderBrush = BorderMuted,
             Cursor = Cursors.Hand
         };
-        btnTest.Click += async (s, e) =>
+        btnTestRelay.Click += async (s, e) =>
         {
-            btnTest.IsEnabled = false;
-            lblStatus.Text = "⏳ Testing connection...";
+            btnTestRelay.IsEnabled = false;
+            lblStatus.Text = "⏳ Testing Relay Server connection...";
             lblStatus.Foreground = TextSubtle;
             try
             {
@@ -1597,15 +1787,50 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
-                lblStatus.Text = $"🔴 Connection failed: {ex.Message}";
+                lblStatus.Text = $"🔴 Relay Server failed: {ex.Message}";
                 lblStatus.Foreground = SvllRed;
             }
             finally
             {
-                btnTest.IsEnabled = true;
+                btnTestRelay.IsEnabled = true;
             }
         };
-        btnRow.Children.Add(btnTest);
+        btnRow.Children.Add(btnTestRelay);
+
+        var btnTestMesh = new Button
+        {
+            Content = "🌐 Test Mesh",
+            FontSize = 11,
+            Padding = new Thickness(12, 6, 12, 6),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnTestMesh.Click += async (s, e) =>
+        {
+            btnTestMesh.IsEnabled = false;
+            lblStatus.Text = "⏳ Testing MeshCentral connection...";
+            lblStatus.Foreground = TextSubtle;
+            try
+            {
+                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(4) };
+                string testUrl = txtMesh.Text.Trim().TrimEnd('/');
+                var res = await http.GetAsync(testUrl);
+                lblStatus.Text = "🟢 MeshCentral Server is online and responding!";
+                lblStatus.Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52));
+            }
+            catch
+            {
+                lblStatus.Text = "⚪ MeshCentral is offline or not installed. (AnyDesk handles 1-click cross-office remote control).";
+                lblStatus.Foreground = TextSubtle;
+            }
+            finally
+            {
+                btnTestMesh.IsEnabled = true;
+            }
+        };
+        btnRow.Children.Add(btnTestMesh);
 
         var btnSave = new Button
         {

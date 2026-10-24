@@ -118,8 +118,83 @@ if ($meshSvc) {
     }
 }
 
-# 6. Configure Remote Access & Telemetry
-Write-Host "`n[4/4] Configuring Remote Access (AnyDesk & RDP) & Telemetry..." -ForegroundColor Yellow
+# 6. Configure Ultra Remote Engine (UltraViewer-style Zero-Touch Remote Access)
+Write-Host "`n[4/5] Configuring Ultra Remote Engine (Auto-Reflected Partner ID & Password)..." -ForegroundColor Yellow
+
+$ultraExe = $null
+$ultraCandidates = @(
+    "C:\Program Files\RustDesk\rustdesk.exe",
+    "C:\Program Files (x86)\RustDesk\rustdesk.exe",
+    "$env:ProgramData\SVLL-IT-Workstation\tools\rustdesk.exe"
+)
+foreach ($p in $ultraCandidates) { if (Test-Path $p) { $ultraExe = $p; break } }
+
+if (-not $ultraExe) {
+    Write-Host "Downloading Ultra Remote Engine..." -ForegroundColor Yellow
+    $toolsDir = "$env:ProgramData\SVLL-IT-Workstation\tools"
+    if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null }
+    $ultraExe = Join-Path $toolsDir "rustdesk.exe"
+    try {
+        Invoke-WebRequest -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe" -OutFile $ultraExe -UseBasicParsing -TimeoutSec 45
+        Start-Process -FilePath $ultraExe -ArgumentList "--install" -Wait -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        Write-Host "[+] Ultra Remote service registered successfully." -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not install Ultra Remote automatically: $($_.Exception.Message)"
+    }
+}
+
+# Set permanent corporate unattended access password
+if (Test-Path $ultraExe) {
+    try {
+        Start-Process -FilePath $ultraExe -ArgumentList "--password SVLL@Remote2026" -NoNewWindow -Wait
+        Write-Host "[+] Permanent unattended password configured (SVLL@Remote2026)." -ForegroundColor Green
+    } catch { }
+}
+
+# Detect Ultra Remote Partner ID
+$ultraId = ""
+if (Test-Path $ultraExe) {
+    try {
+        $idOut = Join-Path $env:TEMP "ultra_id.txt"
+        Start-Process -FilePath $ultraExe -ArgumentList "--get-id" -NoNewWindow -Wait -PassThru -RedirectStandardOutput $idOut
+        if (Test-Path $idOut) {
+            $rawUltra = (Get-Content $idOut -Raw -ErrorAction SilentlyContinue).Trim()
+            Remove-Item $idOut -Force -ErrorAction SilentlyContinue
+            $digits = ($rawUltra -replace '\D','').Trim()
+            if ($digits.Length -ge 6) {
+                if ($digits.Length -eq 9) { $ultraId = "$($digits.Substring(0,3)) $($digits.Substring(3,3)) $($digits.Substring(6,3))" }
+                elseif ($digits.Length -eq 10) { $ultraId = "$($digits.Substring(0,3)) $($digits.Substring(3,3)) $($digits.Substring(6,4))" }
+                else { $ultraId = $digits }
+            }
+        }
+    } catch { }
+}
+if (-not $ultraId) {
+    $tomlPaths = @(
+        "$env:APPDATA\RustDesk\config\RustDesk2.toml",
+        "$env:APPDATA\RustDesk\config\RustDesk.toml",
+        "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk2.toml",
+        "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk.toml"
+    )
+    foreach ($tp in $tomlPaths) {
+        if (Test-Path $tp) {
+            $m = Select-String -Path $tp -Pattern 'id\s*=\s*[''"]?(\d+)[''"]?' -ErrorAction SilentlyContinue
+            if ($m -and $m.Matches.Groups[1].Value) {
+                $rawDigits = $m.Matches.Groups[1].Value
+                if ($rawDigits.Length -eq 9) { $ultraId = "$($rawDigits.Substring(0,3)) $($rawDigits.Substring(3,3)) $($rawDigits.Substring(6,3))" }
+                else { $ultraId = $rawDigits }
+                break
+            }
+        }
+    }
+}
+if ($ultraId) {
+    Write-Host "[+] Ultra Remote Partner ID: $ultraId (Password: SVLL@Remote2026)" -ForegroundColor Green
+}
+
+# 7. Configure Fallback Remote Access & Telemetry
+Write-Host "`n[5/5] Configuring Fallback Access (AnyDesk & RDP) & Telemetry..." -ForegroundColor Yellow
 
 # Ensure AnyDesk is installed
 $adExe = $null
@@ -137,6 +212,17 @@ if (-not $adExe) {
         if ($adExe) { Write-Host "[+] AnyDesk installed successfully." -ForegroundColor Green }
     } catch {
         Write-Warning "AnyDesk silent install skipped: $($_.Exception.Message)"
+    }
+}
+
+# Configure unattended access password for 1-click zero-password remote control
+if ($adExe) {
+    Write-Host "Configuring AnyDesk 1-Click Zero-Password Unattended Remote Access..." -ForegroundColor Yellow
+    try {
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c echo SVLL@Remote2026 | `"$adExe`" --set-password" -NoNewWindow -Wait -WindowStyle Hidden
+        Write-Host "[+] AnyDesk unattended password (SVLL@Remote2026) configured." -ForegroundColor Green
+    } catch {
+        Write-Warning "Could not set AnyDesk unattended password: $($_.Exception.Message)"
     }
 }
 
@@ -217,6 +303,9 @@ $heartbeatPayload = @{
     MeshNodeId = $meshNodeId
     MeshAgentRunning = $meshInstalled
     LastSeen = (Get-Date).ToUniversalTime().ToString("o")
+    RemoteId = if ($ultraId) { $ultraId } else { "" }
+    RemotePassword = "SVLL@Remote2026"
+    RemoteEngine = "UltraRemote"
 } | ConvertTo-Json
 
 try {
@@ -225,7 +314,7 @@ try {
         "Content-Type" = "application/json"
     }
     $res = Invoke-RestMethod -Uri "$ServerUrl/api/heartbeat" -Method Post -Body $heartbeatPayload -Headers $headers -TimeoutSec 6 -ErrorAction Stop
-    Write-Host "[+] Machine telemetry & AnyDesk ID reflected to Server Panel successfully!" -ForegroundColor Green
+    Write-Host "[+] Machine telemetry & Ultra Remote ID ($ultraId) reflected to Server Panel successfully!" -ForegroundColor Green
 } catch {
     Write-Host "[i] Server panel reached upon workstation startup." -ForegroundColor Yellow
 }
@@ -245,5 +334,6 @@ Write-Host "   MAC Address:    $mac" -ForegroundColor White
 Write-Host "   Serial Number:  $serial" -ForegroundColor White
 Write-Host "   Relay Server:   $ServerUrl" -ForegroundColor Cyan
 Write-Host "   Server Panel:   Reflected & Online" -ForegroundColor Green
+Write-Host "   ⚡ Ultra Remote:  $([string]$(if($ultraId){"ID: $ultraId  🔑 SVLL@Remote2026 (Zero-Touch Unattended)"}else{'Configured & Initializing in Background'}))" -ForegroundColor Green
 Write-Host "   MeshAgent:      $([string]$(if($meshInstalled){'Active (Password-less Remote Ready)'}else{'Inactive'}))" -ForegroundColor Cyan
 Write-Host "=========================================================================`n" -ForegroundColor Green

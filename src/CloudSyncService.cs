@@ -152,13 +152,36 @@ public class CloudSyncService
             {
                 _state.LastHeartbeatSent = DateTime.Now;
                 SaveState();
+
+                // Check for server-directed self-healing commands (e.g. provision Ultra Remote)
+                try
+                {
+                    var doc = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonDocument>();
+                    if (doc != null && doc.RootElement.TryGetProperty("command", out var cmdElem))
+                    {
+                        string? cmd = cmdElem.GetString();
+                        if (cmd == "provision-ultra-remote")
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                bool ok = await UltraRemoteService.EnsureProvisionedAsync();
+                                if (ok)
+                                {
+                                    await Task.Delay(3000);
+                                    await SendHeartbeatAsync();
+                                }
+                            });
+                        }
+                    }
+                }
+                catch { }
             }
         }
         catch { }
     }
 
     // -------------------------------------------------------------------------
-    // LOCAL DEVICE INFO COLLECTION (v8.0 — full telemetry)
+    // LOCAL DEVICE INFO COLLECTION (v8.1 — full telemetry + Ultra Remote)
     // -------------------------------------------------------------------------
     public RemoteDeviceItem CollectLocalDeviceInfo()
     {
@@ -176,6 +199,9 @@ public class CloudSyncService
         // Get MeshAgent status and node ID
         (bool meshRunning, string meshNodeId) = MeshAgentService.GetStatus();
 
+        // Get Ultra Remote (UltraViewer / RustDesk) status and partner ID
+        (bool ultraInstalled, string ultraId, string ultraPass) = UltraRemoteService.GetStatus();
+
         // Get CPU and RAM
         double cpu = GetCpuLoad();
         double ram = GetRamUsage();
@@ -190,6 +216,9 @@ public class CloudSyncService
             LoggedInUser = Environment.UserName,
             AnyDeskId = local.AnyDeskId,
             AnyDeskInstalled = local.AnyDeskInstalled,
+            RemoteId = !string.IsNullOrEmpty(ultraId) ? ultraId : local.RemoteId,
+            RemotePassword = ultraPass,
+            RemoteEngine = UltraRemoteService.EngineName,
             RdpEnabled = local.RdpEnabled,
             Status = local.Status,
             SupportRequestMessage = local.SupportRequestMessage,

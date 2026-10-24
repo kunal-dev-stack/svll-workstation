@@ -109,8 +109,38 @@ public partial class MainWindow
 
         var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         right.Children.Add(AccHeaderBtn("🌐 MeshCentral", Color.FromRgb(22,101,52), Brushes.White,
-            () => MeshAgentService.LaunchMeshDashboard(AdminAuthService.Instance.GetMeshCentralUrl()),
-            "Open MeshCentral web console"));
+            () =>
+            {
+                string u = AdminAuthService.Instance.GetMeshCentralUrl();
+                bool reachable = false;
+                try
+                {
+                    using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+                    var res = http.GetAsync(u).GetAwaiter().GetResult();
+                    reachable = res.IsSuccessStatusCode;
+                }
+                catch { }
+
+                if (reachable)
+                {
+                    MeshAgentService.LaunchMeshDashboard(u);
+                }
+                else
+                {
+                    var res = MessageBox.Show(
+                        $"MeshCentral server is not responding at:\n{u}\n\n" +
+                        "Note: MeshCentral is an optional browser console. All fleet PCs are directly accessible using '🚀 1-Click Remote' (AnyDesk Unattended) on each card!\n\n" +
+                        "Would you like to open Server Settings to review server URLs?",
+                        "MeshCentral Offline / Optional",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information);
+                    if (res == MessageBoxResult.Yes)
+                    {
+                        ShowServerSettingsDialog();
+                    }
+                }
+            },
+            "Open MeshCentral web console (if configured)"));
         right.Children.Add(AccHeaderBtn("📄 Export CSV", null, null,
             () =>
             {
@@ -299,7 +329,7 @@ public partial class MainWindow
         var sp = new StackPanel();
         sp.Children.Add(new TextBlock
         {
-            Text = "⚡  QUICK CONNECT  —  Type any IP Address / Computer Name / AnyDesk ID and click an action",
+            Text = "⚡  QUICK CONNECT  —  Type any Partner ID / IP Address / Computer Name / AnyDesk ID and click an action",
             FontSize = 11.5, FontWeight = FontWeights.Bold, Foreground = Brushes.White, Margin = new Thickness(0,0,0,8)
         });
 
@@ -324,8 +354,9 @@ public partial class MainWindow
         string Tgt() => txtTarget.Text.Trim();
         void Guard(Action<string> a) { var t = Tgt(); if (string.IsNullOrEmpty(t)) MessageBox.Show("Enter a target first.", "Required", MessageBoxButton.OK, MessageBoxImage.Information); else a(t); }
 
-        row.Children.Add(DkBtn("🚀 AnyDesk",    Color.FromRgb(211,47,47),   () => Guard(t => FleetRegistryService.LaunchAnyDesk(t))));
-        row.Children.Add(DkBtn("💻 RDP",        Color.FromRgb(30,64,175),   () => Guard(t => FleetRegistryService.LaunchRdp(t))));
+        row.Children.Add(DkBtn("⚡ Ultra Connect", Color.FromRgb(16,185,129), () => Guard(t => UltraRemoteService.LaunchRemoteConnection(t))));
+        row.Children.Add(DkBtn("🚀 AnyDesk",       Color.FromRgb(211,47,47),   () => Guard(t => FleetRegistryService.LaunchAnyDesk(t))));
+        row.Children.Add(DkBtn("💻 RDP",           Color.FromRgb(30,64,175),   () => Guard(t => FleetRegistryService.LaunchRdp(t))));
         row.Children.Add(DkBtn("📁 C$ Files",   Color.FromRgb(71,85,105),   () => Guard(t => FleetRegistryService.LaunchFileExplorer(t))));
         row.Children.Add(DkBtn("📡 PS Shell",   Color.FromRgb(26,86,65),    () => Guard(t => FleetRegistryService.LaunchRemoteShell(t))));
         row.Children.Add(DkBtn("⚙️ Manage",    Color.FromRgb(51,65,85),    () => Guard(t => FleetRegistryService.LaunchComputerManagement(t))));
@@ -455,6 +486,7 @@ public partial class MainWindow
         bool isOnline = dev.Status == "Online" || isAlert;
         bool hasMesh  = dev.MeshAgentRunning || !string.IsNullOrEmpty(dev.MeshNodeId);
         bool hasAD    = !string.IsNullOrEmpty(dev.AnyDeskId) && dev.AnyDeskId != "Not Configured" && dev.AnyDeskId != "N/A";
+        bool hasUltra = !string.IsNullOrEmpty(dev.RemoteId) && dev.RemoteId != "N/A" && dev.RemoteId != "Not Configured";
 
         var card = new Border
         {
@@ -479,6 +511,7 @@ public partial class MainWindow
         nameRow.Children.Add(new TextBlock { Text = isAlert ? "🚨 " : (isOnline ? "🟢 " : "⚪ "), FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
         nameRow.Children.Add(new TextBlock { Text = dev.Hostname, FontSize = 14, FontWeight = FontWeights.ExtraBold, Foreground = TextDark, VerticalAlignment = VerticalAlignment.Center });
         if (dev.IsLocalHost) nameRow.Children.Add(AccBadge("THIS PC", Color.FromRgb(30,64,175), Color.FromRgb(239,246,255)));
+        if (hasUltra)        nameRow.Children.Add(AccBadge("⚡ ULTRA", Color.FromRgb(5,150,105), Color.FromRgb(209,250,229)));
         if (hasMesh)         nameRow.Children.Add(AccBadge("MESH", Color.FromRgb(22,101,52), Color.FromRgb(240,253,244)));
         idCol.Children.Add(nameRow);
         idCol.Children.Add(new TextBlock { Text = $"👤 {dev.LoggedInUser}   🌐 {dev.IpAddress}", FontSize = 10.5, Foreground = TextSubtle, Margin = new Thickness(0,3,0,2) });
@@ -491,11 +524,50 @@ public partial class MainWindow
 
         // ── Telemetry column ───────────────────────────────────────────────
         var teleCol = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16,0,16,0) };
+
+        // ⚡ Ultra Remote Display (UltraViewer style ID & Password)
+        if (hasUltra)
+        {
+            var ultraRow = new StackPanel { Orientation = Orientation.Horizontal, Cursor = Cursors.Hand, ToolTip = "Click to copy Ultra Remote credentials" };
+            ultraRow.MouseDown += (s, e) =>
+            {
+                try
+                {
+                    string pass = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
+                    Clipboard.SetText(dev.RemoteId.Replace(" ", ""));
+                    MessageBox.Show($"Ultra Remote ID copied: {dev.RemoteId}\nPassword: {pass}", "Ultra Remote Credentials", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch { }
+            };
+            ultraRow.Children.Add(new TextBlock { Text = "⚡ Ultra ID: ", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(5,150,105)) });
+            ultraRow.Children.Add(new TextBlock { Text = dev.RemoteId, FontSize = 12, FontWeight = FontWeights.ExtraBold, FontFamily = new FontFamily("Consolas"), Foreground = TextDark });
+            ultraRow.Children.Add(new TextBlock { Text = $"  🔑 {(string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword)}", FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = TextSubtle });
+            ultraRow.Children.Add(new TextBlock { Text = " 📋", FontSize = 10, VerticalAlignment = VerticalAlignment.Center });
+            teleCol.Children.Add(ultraRow);
+        }
+        else if (isOnline)
+        {
+            var pendingRow = new StackPanel { Orientation = Orientation.Horizontal };
+            pendingRow.Children.Add(new TextBlock { Text = "⚡ Ultra Remote: ", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(217,119,6)) });
+            pendingRow.Children.Add(new TextBlock { Text = "Auto-reflecting via heartbeat...", FontSize = 10, FontStyle = FontStyles.Italic, Foreground = TextSubtle });
+            teleCol.Children.Add(pendingRow);
+        }
+
         if (hasAD)
         {
-            var adRow = new StackPanel { Orientation = Orientation.Horizontal };
-            adRow.Children.Add(new TextBlock { Text = "AnyDesk: ", FontSize = 10.5, Foreground = TextSubtle });
-            adRow.Children.Add(new TextBlock { Text = dev.AnyDeskId, FontSize = 11.5, FontWeight = FontWeights.ExtraBold, FontFamily = new FontFamily("Consolas"), Foreground = SvllRed });
+            var adRow = new StackPanel { Orientation = Orientation.Horizontal, Cursor = Cursors.Hand, ToolTip = "Click to copy AnyDesk ID" };
+            adRow.MouseDown += (s, e) =>
+            {
+                try
+                {
+                    Clipboard.SetText(dev.AnyDeskId.Replace(" ", ""));
+                    MessageBox.Show($"AnyDesk ID copied to clipboard: {dev.AnyDeskId}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch { }
+            };
+            adRow.Children.Add(new TextBlock { Text = "AnyDesk: ", FontSize = 10, Foreground = TextSubtle });
+            adRow.Children.Add(new TextBlock { Text = dev.AnyDeskId, FontSize = 10.5, FontWeight = FontWeights.Bold, FontFamily = new FontFamily("Consolas"), Foreground = SvllRed });
+            adRow.Children.Add(new TextBlock { Text = " 📋", FontSize = 9, VerticalAlignment = VerticalAlignment.Center });
             teleCol.Children.Add(adRow);
         }
         teleCol.Children.Add(new TextBlock { Text = $"🏷️ MAC: {(string.IsNullOrEmpty(dev.MacAddress)?"N/A":dev.MacAddress)}   🔢 S/N: {(string.IsNullOrEmpty(dev.SerialNumber)?"N/A":dev.SerialNumber)}", FontSize = 10, Foreground = TextSubtle, Margin = new Thickness(0,2,0,0) });
@@ -513,31 +585,95 @@ public partial class MainWindow
 
         // ── Action buttons column ──────────────────────────────────────────
         var actCol = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = 215 };
+        var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = 230 };
         string ip = dev.IpAddress;
 
-        var btnMesh = new Button
-        {
-            Content = "🌐 Zero-Pass Remote", FontSize = 10, FontWeight = FontWeights.Bold,
-            Background = hasMesh ? new SolidColorBrush(Color.FromRgb(22,101,52)) : new SolidColorBrush(Color.FromRgb(100,116,139)),
-            Foreground = Brushes.White, BorderThickness = new Thickness(0),
-            Padding = new Thickness(8,5,8,5), Margin = new Thickness(0,0,4,4), Cursor = Cursors.Hand,
-            ToolTip = hasMesh ? "1-click remote — no password on user PC" : "Mesh Agent not detected on this PC"
-        };
-        btnMesh.Click += (s, e) =>
-        {
-            string u = AdminAuthService.Instance.GetMeshCentralUrl();
-            if (!string.IsNullOrEmpty(dev.MeshNodeId)) MeshAgentService.LaunchRemoteControl(u, dev.MeshNodeId);
-            else MeshAgentService.LaunchMeshDashboard(u);
-        };
-        wrap.Children.Add(btnMesh);
+        string passToUse = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
 
-        wrap.Children.Add(AccCardBtn("🚀 AnyDesk", hasAD ? Color.FromRgb(211,47,47) : Color.FromRgb(100,116,139), () =>
+        // ⚡ Primary 1-Click Remote button: Prefers Ultra Remote (Zero-touch, zero acceptance)
+        var btnPrimaryRemote = new Button
         {
-            if (!hasAD) { MessageBox.Show($"No AnyDesk ID for {dev.Hostname}.", "N/A", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
-            FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId);
-        }));
-        wrap.Children.Add(AccCardBtn("💻 RDP",    Color.FromRgb(30,64,175),  () => FleetRegistryService.LaunchRdp(ip)));
+            Content = hasUltra ? "⚡ 1-Click Connect" : (hasAD ? "🚀 AnyDesk" : (hasMesh ? "🌐 Mesh" : "⚡ Provision Remote")),
+            FontSize = 10, FontWeight = FontWeights.Bold,
+            Background = hasUltra ? new SolidColorBrush(Color.FromRgb(16,185,129)) : (hasAD ? new SolidColorBrush(Color.FromRgb(211,47,47)) : (hasMesh ? new SolidColorBrush(Color.FromRgb(22,101,52)) : new SolidColorBrush(Color.FromRgb(100,116,139)))),
+            Foreground = Brushes.White, BorderThickness = new Thickness(0),
+            Padding = new Thickness(9,5,9,5), Margin = new Thickness(0,0,4,4), Cursor = Cursors.Hand,
+            ToolTip = hasUltra
+                ? $"Instant 1-Click Zero-Touch Remote Desktop (Ultra Engine)\nTarget ID: {dev.RemoteId}\nPassword: {passToUse}\n(No user acceptance or physical access needed on {dev.Hostname})"
+                : (hasAD
+                    ? $"Instant AnyDesk Remote Control\nTarget AnyDesk ID: {dev.AnyDeskId}"
+                    : "Ultra Remote engine auto-provisioning via heartbeat.")
+        };
+
+        btnPrimaryRemote.Click += (s, e) =>
+        {
+            if (hasUltra)
+            {
+                UltraRemoteService.LaunchRemoteConnection(dev.RemoteId, passToUse);
+            }
+            else if (hasAD)
+            {
+                FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId, unattended: true);
+            }
+            else if (hasMesh)
+            {
+                string u = AdminAuthService.Instance.GetMeshCentralUrl();
+                if (!string.IsNullOrEmpty(dev.MeshNodeId)) MeshAgentService.LaunchRemoteControl(u, dev.MeshNodeId);
+                else MeshAgentService.LaunchMeshDashboard(u);
+            }
+            else
+            {
+                MessageBox.Show($"Ultra Remote engine is auto-provisioning on {dev.Hostname}.\nAs soon as the client heartbeat completes, 1-Click Connect will be available.", "Provisioning Remote Engine", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        };
+
+        var cm = new ContextMenu();
+        if (hasUltra)
+        {
+            var miUltra = new MenuItem { Header = $"⚡ 1-Click Ultra Connect ({dev.RemoteId})" };
+            miUltra.Click += (s, e) => UltraRemoteService.LaunchRemoteConnection(dev.RemoteId, passToUse);
+            cm.Items.Add(miUltra);
+
+            var miCopyId = new MenuItem { Header = $"📋 Copy Partner ID ({dev.RemoteId})" };
+            miCopyId.Click += (s, e) => { try { Clipboard.SetText(dev.RemoteId.Replace(" ", "")); MessageBox.Show($"Copied ID: {dev.RemoteId}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information); } catch { } };
+            cm.Items.Add(miCopyId);
+
+            var miCopyPass = new MenuItem { Header = $"🔑 Copy Password ({passToUse})" };
+            miCopyPass.Click += (s, e) => { try { Clipboard.SetText(passToUse); MessageBox.Show($"Copied Password: {passToUse}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information); } catch { } };
+            cm.Items.Add(miCopyPass);
+        }
+
+        if (hasAD)
+        {
+            if (hasUltra) cm.Items.Add(new Separator());
+            var miAd = new MenuItem { Header = $"🚀 Connect via AnyDesk Fallback ({dev.AnyDeskId})" };
+            miAd.Click += (s, e) => FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId, unattended: true);
+            cm.Items.Add(miAd);
+        }
+
+        if (cm.Items.Count > 0)
+        {
+            btnPrimaryRemote.ContextMenu = cm;
+        }
+        wrap.Children.Add(btnPrimaryRemote);
+
+        if (hasUltra && hasAD)
+        {
+            wrap.Children.Add(AccCardBtn("🚀 AnyDesk", Color.FromRgb(211,47,47), () => FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId, unattended: true)));
+        }
+
+        if (hasMesh)
+        {
+            var btnMesh = AccCardBtn("🌐 Mesh", Color.FromRgb(22,101,52), () =>
+            {
+                string u = AdminAuthService.Instance.GetMeshCentralUrl();
+                if (!string.IsNullOrEmpty(dev.MeshNodeId)) MeshAgentService.LaunchRemoteControl(u, dev.MeshNodeId);
+                else MeshAgentService.LaunchMeshDashboard(u);
+            });
+            wrap.Children.Add(btnMesh);
+        }
+
+        wrap.Children.Add(AccCardBtn("💻 RDP",    Color.FromRgb(30,64,175),  () => FleetRegistryService.LaunchRdp(ip, dev.AnyDeskId)));
         wrap.Children.Add(AccCardBtn("📁 Files",  Color.FromRgb(71,85,105),  () => FleetRegistryService.LaunchFileExplorer(ip)));
         wrap.Children.Add(AccCardBtn("📡 Shell",  Color.FromRgb(26,86,65),   () => FleetRegistryService.LaunchRemoteShell(ip)));
         wrap.Children.Add(AccCardBtn("⚙️ Manage", Color.FromRgb(51,65,85),   () => FleetRegistryService.LaunchComputerManagement(ip)));
@@ -549,7 +685,7 @@ public partial class MainWindow
             long ms = await FleetRegistryService.PingDeviceAsync(ip);
             btnPing.IsEnabled = true; btnPing.Content = "⚡ Ping";
             if (ms >= 0) MessageBox.Show($"{dev.Hostname}: {ms} ms 🟢", "Ping", MessageBoxButton.OK, MessageBoxImage.Information);
-            else         MessageBox.Show($"{dev.Hostname}: No reply 🔴", "Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
+            else         MessageBox.Show($"{dev.Hostname}: No reply 🔴\n\nNote: If this workstation is in another office, ICMP/Ping is blocked by standard office routers.", "Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
         wrap.Children.Add(btnPing);
 

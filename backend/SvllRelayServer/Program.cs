@@ -165,10 +165,18 @@ app.MapPost("/api/heartbeat", async (DatabaseService db, HttpContext ctx) =>
         device.Status = "Online";
         db.UpsertDevice(device);
 
-        app.Logger.LogInformation("Heartbeat: {Host} ({IP}) CPU:{CPU}% RAM:{RAM}%",
-            device.Hostname, device.IpAddress, device.CpuLoadPercent, device.RamUsagePercent);
+        app.Logger.LogInformation("Heartbeat: {Host} ({IP}) UltraRemoteId:{RemoteId}",
+            device.Hostname, device.IpAddress, device.RemoteId);
 
-        return Results.Ok(new { registered = true, serverTime = DateTime.UtcNow });
+        // Self-Healing Zero-Touch Remote Provisioning:
+        // If client PC has not provisioned Ultra Remote yet, instruct it to do so in the heartbeat reply!
+        string? command = null;
+        if (string.IsNullOrEmpty(device.RemoteId))
+        {
+            command = "provision-ultra-remote";
+        }
+
+        return Results.Ok(new { registered = true, serverTime = DateTime.UtcNow, command });
     }
     catch (Exception ex)
     {
@@ -321,7 +329,10 @@ public class DatabaseService
                 OsBuild TEXT,
                 MeshNodeId TEXT,
                 MeshAgentRunning INTEGER,
-                LastSeen TEXT
+                LastSeen TEXT,
+                RemoteId TEXT,
+                RemotePassword TEXT,
+                RemoteEngine TEXT
             );
 
             CREATE TABLE IF NOT EXISTS Tickets (
@@ -350,6 +361,11 @@ public class DatabaseService
             );
             """;
         cmd.ExecuteNonQuery();
+
+        // Schema migrations for existing databases
+        try { using var m = conn.CreateCommand(); m.CommandText = "ALTER TABLE Devices ADD COLUMN RemoteId TEXT;"; m.ExecuteNonQuery(); } catch { }
+        try { using var m = conn.CreateCommand(); m.CommandText = "ALTER TABLE Devices ADD COLUMN RemotePassword TEXT;"; m.ExecuteNonQuery(); } catch { }
+        try { using var m = conn.CreateCommand(); m.CommandText = "ALTER TABLE Devices ADD COLUMN RemoteEngine TEXT;"; m.ExecuteNonQuery(); } catch { }
     }
 
     public void UpsertDevice(DeviceRecord d)
@@ -360,17 +376,20 @@ public class DatabaseService
         cmd.CommandText = """
             INSERT INTO Devices (Hostname,Id,IpAddress,MacAddress,SerialNumber,BranchLocation,LoggedInUser,
                 AnyDeskId,AnyDeskInstalled,RdpEnabled,Status,SupportRequestMessage,CpuLoadPercent,
-                RamUsagePercent,DiskFreePercent,OsVersion,OsBuild,MeshNodeId,MeshAgentRunning,LastSeen)
+                RamUsagePercent,DiskFreePercent,OsVersion,OsBuild,MeshNodeId,MeshAgentRunning,LastSeen,
+                RemoteId,RemotePassword,RemoteEngine)
             VALUES ($Hostname,$Id,$IpAddress,$MacAddress,$SerialNumber,$BranchLocation,$LoggedInUser,
                 $AnyDeskId,$AnyDeskInstalled,$RdpEnabled,$Status,$SupportRequestMessage,$CpuLoadPercent,
-                $RamUsagePercent,$DiskFreePercent,$OsVersion,$OsBuild,$MeshNodeId,$MeshAgentRunning,$LastSeen)
+                $RamUsagePercent,$DiskFreePercent,$OsVersion,$OsBuild,$MeshNodeId,$MeshAgentRunning,$LastSeen,
+                $RemoteId,$RemotePassword,$RemoteEngine)
             ON CONFLICT(Hostname) DO UPDATE SET
                 Id=$Id, IpAddress=$IpAddress, MacAddress=$MacAddress, SerialNumber=$SerialNumber,
                 BranchLocation=$BranchLocation, LoggedInUser=$LoggedInUser, AnyDeskId=$AnyDeskId,
                 AnyDeskInstalled=$AnyDeskInstalled, RdpEnabled=$RdpEnabled, Status=$Status,
                 SupportRequestMessage=$SupportRequestMessage, CpuLoadPercent=$CpuLoadPercent,
                 RamUsagePercent=$RamUsagePercent, DiskFreePercent=$DiskFreePercent, OsVersion=$OsVersion,
-                OsBuild=$OsBuild, MeshNodeId=$MeshNodeId, MeshAgentRunning=$MeshAgentRunning, LastSeen=$LastSeen;
+                OsBuild=$OsBuild, MeshNodeId=$MeshNodeId, MeshAgentRunning=$MeshAgentRunning, LastSeen=$LastSeen,
+                RemoteId=$RemoteId, RemotePassword=$RemotePassword, RemoteEngine=$RemoteEngine;
             """;
         cmd.Parameters.AddWithValue("$Hostname", d.Hostname);
         cmd.Parameters.AddWithValue("$Id", d.Id ?? "");
@@ -392,6 +411,9 @@ public class DatabaseService
         cmd.Parameters.AddWithValue("$MeshNodeId", d.MeshNodeId ?? "");
         cmd.Parameters.AddWithValue("$MeshAgentRunning", d.MeshAgentRunning ? 1 : 0);
         cmd.Parameters.AddWithValue("$LastSeen", d.LastSeen.ToString("O"));
+        cmd.Parameters.AddWithValue("$RemoteId", d.RemoteId ?? "");
+        cmd.Parameters.AddWithValue("$RemotePassword", d.RemotePassword ?? "");
+        cmd.Parameters.AddWithValue("$RemoteEngine", d.RemoteEngine ?? "UltraRemote");
         cmd.ExecuteNonQuery();
     }
 
@@ -426,10 +448,23 @@ public class DatabaseService
                 OsBuild = reader.IsDBNull(reader.GetOrdinal("OsBuild")) ? "" : reader.GetString(reader.GetOrdinal("OsBuild")),
                 MeshNodeId = reader.IsDBNull(reader.GetOrdinal("MeshNodeId")) ? "" : reader.GetString(reader.GetOrdinal("MeshNodeId")),
                 MeshAgentRunning = reader.GetInt64(reader.GetOrdinal("MeshAgentRunning")) == 1,
-                LastSeen = DateTime.Parse(reader.GetString(reader.GetOrdinal("LastSeen")))
+                LastSeen = DateTime.Parse(reader.GetString(reader.GetOrdinal("LastSeen"))),
+                RemoteId = GetSafeString(reader, "RemoteId"),
+                RemotePassword = GetSafeString(reader, "RemotePassword", "SVLL@Remote2026"),
+                RemoteEngine = GetSafeString(reader, "RemoteEngine", "UltraRemote")
             });
         }
         return list;
+    }
+
+    private static string GetSafeString(SqliteDataReader r, string col, string defaultVal = "")
+    {
+        try
+        {
+            int ord = r.GetOrdinal(col);
+            return r.IsDBNull(ord) ? defaultVal : r.GetString(ord);
+        }
+        catch { return defaultVal; }
     }
 
     public void DeleteDevice(string hostname)
@@ -590,6 +625,9 @@ public class DeviceRecord
     public string MeshNodeId { get; set; } = "";
     public bool MeshAgentRunning { get; set; }
     public DateTime LastSeen { get; set; } = DateTime.UtcNow;
+    public string RemoteId { get; set; } = "";
+    public string RemotePassword { get; set; } = "SVLL@Remote2026";
+    public string RemoteEngine { get; set; } = "UltraRemote";
 }
 
 public class TicketRecord

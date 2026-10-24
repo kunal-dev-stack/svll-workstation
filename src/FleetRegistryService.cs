@@ -170,11 +170,12 @@ public class FleetRegistryService
         string anyDeskId = DetectAnyDeskId();
         bool anyDeskInstalled = !string.IsNullOrEmpty(FindAnyDeskExe());
 
-        // v8.0: additional telemetry fields
+        // v8.0 & v8.1: additional telemetry + Ultra Remote fields
         string serial = GetBiosSerial();
         string osBuild = GetOsBuildNumber();
         double diskFree = GetCDriveFreePercent();
         (bool meshRunning, string meshNodeId) = MeshAgentService.GetStatus();
+        (bool ultraInstalled, string ultraId, string ultraPass) = UltraRemoteService.GetStatus();
 
         _localDevice = new RemoteDeviceItem
         {
@@ -186,6 +187,9 @@ public class FleetRegistryService
             LoggedInUser = user,
             AnyDeskId = anyDeskId,
             AnyDeskInstalled = anyDeskInstalled,
+            RemoteId = ultraId,
+            RemotePassword = ultraPass,
+            RemoteEngine = UltraRemoteService.EngineName,
             RdpEnabled = true,
             QuickAssistAvailable = true,
             Status = "Online",
@@ -543,8 +547,16 @@ public class FleetRegistryService
         }
     }
 
-    public static bool LaunchAnyDesk(string? anyDeskId = null)
+    public static bool LaunchAnyDesk(string? anyDeskId = null, bool unattended = true)
     {
+        string cleanId = string.IsNullOrEmpty(anyDeskId) ? "" : anyDeskId.Replace(" ", "");
+
+        // Copy ID to clipboard if provided so user always has it
+        if (!string.IsNullOrEmpty(cleanId))
+        {
+            try { System.Windows.Clipboard.SetText(cleanId); } catch { }
+        }
+
         string? exe = FindAnyDeskExe();
         if (string.IsNullOrEmpty(exe))
         {
@@ -554,35 +566,114 @@ public class FleetRegistryService
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "anydesk",
-                    Arguments = string.IsNullOrEmpty(anyDeskId) ? "" : anyDeskId.Replace(" ", ""),
+                    Arguments = cleanId,
                     UseShellExecute = true
                 });
                 return true;
             }
-            catch
+            catch { }
+
+            // Prompt Admin to install AnyDesk automatically
+            var res = System.Windows.MessageBox.Show(
+                $"AnyDesk is required for 1-click cross-office remote access but is not installed on this PC.\n\n" +
+                $"Target Machine ID: {cleanId} (Copied to clipboard!)\n" +
+                $"Corporate Remote Password: {BuildConstants.DefaultRemotePassword}\n\n" +
+                $"Would you like to install AnyDesk now?",
+                "Install AnyDesk",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question);
+
+            if (res == System.Windows.MessageBoxResult.Yes)
             {
-                return false;
+                _ = Task.Run(async () =>
+                {
+                    bool ok = await InstallAnyDeskSilentlyAsync();
+                    if (ok)
+                    {
+                        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            LaunchAnyDesk(cleanId, unattended);
+                        });
+                    }
+                    else
+                    {
+                        System.Windows.MessageBox.Show("Could not install AnyDesk automatically. Please download AnyDesk from https://anydesk.com.", "Install Notice", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    }
+                });
             }
+            return false;
         }
 
         try
         {
-            string cleanId = string.IsNullOrEmpty(anyDeskId) ? "" : anyDeskId.Replace(" ", "");
-            Process.Start(new ProcessStartInfo
+            if (unattended && !string.IsNullOrEmpty(cleanId))
             {
-                FileName = exe,
-                Arguments = cleanId,
-                UseShellExecute = true
-            });
-            return true;
+                // Connect with corporate unattended password (pipes password into AnyDesk)
+                // cmd.exe /c "echo SVLL@Remote2026 | "C:\Program Files (x86)\AnyDesk\AnyDesk.exe" 1116833435 --with-password"
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c echo {BuildConstants.DefaultRemotePassword} | \"{exe}\" {cleanId} --with-password",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                Process.Start(psi);
+                return true;
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = cleanId,
+                    UseShellExecute = true
+                });
+                return true;
+            }
         }
         catch
         {
-            return false;
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = exe, Arguments = cleanId, UseShellExecute = true });
+                return true;
+            }
+            catch { return false; }
         }
     }
 
-    public static bool LaunchRdp(string ipAddress)
+    public static async Task<bool> InstallAnyDeskSilentlyAsync()
+    {
+        try
+        {
+            string tempSetup = Path.Combine(Path.GetTempPath(), "AnyDeskSetup.exe");
+            using (var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+            {
+                var bytes = await http.GetByteArrayAsync("https://download.anydesk.com/AnyDesk.exe");
+                await File.WriteAllBytesAsync(tempSetup, bytes);
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = tempSetup,
+                Arguments = "--install \"C:\\Program Files (x86)\\AnyDesk\" --start-with-win --silent",
+                UseShellExecute = true,
+                Verb = "runas"
+            };
+            var proc = Process.Start(psi);
+            if (proc != null)
+            {
+                await proc.WaitForExitAsync();
+            }
+
+            try { File.Delete(tempSetup); } catch { }
+            return !string.IsNullOrEmpty(FindAnyDeskExe());
+        }
+        catch { return false; }
+    }
+
+    public static bool LaunchRdp(string ipAddress, string? anyDeskId = null)
     {
         try
         {
@@ -596,6 +687,10 @@ public class FleetRegistryService
         }
         catch
         {
+            if (!string.IsNullOrEmpty(anyDeskId))
+            {
+                return LaunchAnyDesk(anyDeskId);
+            }
             return false;
         }
     }

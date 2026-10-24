@@ -81,7 +81,55 @@ if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
 }
 Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
 
-# 6. Launch Admin Workstation
+# 6. Ensure Ultra Remote Viewer is installed on Admin PC for 1-Click Connect
+Write-Host "`nChecking Ultra Remote Viewer on Admin PC..." -ForegroundColor Yellow
+$ultraCandidates = @(
+    "C:\Program Files\RustDesk\rustdesk.exe",
+    "C:\Program Files (x86)\RustDesk\rustdesk.exe",
+    "$env:ProgramData\SVLL-IT-Workstation\tools\rustdesk.exe"
+)
+$ultraExe = $null
+foreach ($p in $ultraCandidates) { if (Test-Path $p) { $ultraExe = $p; break } }
+
+if (-not $ultraExe) {
+    Write-Host "Downloading and configuring Ultra Remote Engine for Admin Console..." -ForegroundColor Yellow
+    $toolsDir = "$env:ProgramData\SVLL-IT-Workstation\tools"
+    if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null }
+    $ultraExe = Join-Path $toolsDir "rustdesk.exe"
+    try {
+        Invoke-WebRequest -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe" -OutFile $ultraExe -UseBasicParsing -TimeoutSec 45
+        Start-Process -FilePath $ultraExe -ArgumentList "--install" -Wait -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        Write-Host "[+] Ultra Remote Viewer ready for 1-click connections." -ForegroundColor Green
+    } catch {
+        Write-Warning "Ultra Remote viewer install notice: $($_.Exception.Message)"
+    }
+} else {
+    Write-Host "[+] Ultra Remote Viewer verified on Admin PC." -ForegroundColor Green
+}
+
+# 7. Check AnyDesk as secondary fallback
+Write-Host "`nChecking AnyDesk on Admin PC..." -ForegroundColor Yellow
+$adExe = $null
+$adPaths = @("C:\Program Files (x86)\AnyDesk\AnyDesk.exe", "C:\Program Files\AnyDesk\AnyDesk.exe")
+foreach ($p in $adPaths) { if (Test-Path $p) { $adExe = $p; break } }
+
+if (-not $adExe) {
+    Write-Host "Downloading AnyDesk fallback for Admin Console..." -ForegroundColor Yellow
+    $adTemp = Join-Path $env:TEMP "AnyDeskSetup.exe"
+    try {
+        Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile $adTemp -UseBasicParsing -TimeoutSec 30
+        Start-Process -FilePath $adTemp -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent" -Wait
+        Remove-Item $adTemp -Force -ErrorAction SilentlyContinue
+        Write-Host "[+] AnyDesk ready as secondary fallback." -ForegroundColor Green
+    } catch {
+        Write-Warning "AnyDesk silent install skipped: $($_.Exception.Message)"
+    }
+} else {
+    Write-Host "[+] AnyDesk verified on Admin PC." -ForegroundColor Green
+}
+
+# 7. Launch Admin Workstation
 $adminExe = "$env:ProgramFiles\ShreeVasuLogistics\ITWorkstation\SVLL-IT-Workstation-Admin.exe"
 if (Test-Path $adminExe) {
     Start-Process $adminExe
