@@ -1,11 +1,14 @@
 // =============================================================================
-// SVLL IT Workstation v8.1 — Admin Command Center
-// Unified Fleet Monitor + 1-Click Remote Control Deck
-// Zero-touch remote management with auto-reflected credentials & direct connection
+// SVLL IT Workstation v8.3 — Admin Command Center (Hub 7 Rebuilt)
+// Centralized Executive NOC Deck: 1-Click "Take Remote" + Live Connected Fleet
+// Inbuilt SVLL Mesh Agent Listener, Direct LAN Port 21118, and Real-time Vitals.
 // =============================================================================
 #if BUILD_ADMIN
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -13,24 +16,33 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 using SVLL_IT_Workstation.Models;
 
 namespace SVLL_IT_Workstation;
 
 public partial class MainWindow
 {
-    // ─── shared state for this panel ─────────────────────────────────────────
-    private static System.Windows.Threading.DispatcherTimer? _accAutoRefreshTimer;
-    private StackPanel  _accDeviceCards        = null!;
-    private TextBlock   _accTotalLbl           = null!;
-    private TextBlock   _accOnlineLbl          = null!;
-    private TextBlock   _accOfflineLbl         = null!;
-    private TextBlock   _accAlertLbl           = null!;
-    private TextBox     _accSearchBox          = null!;
-    private CheckBox?   _accUserOnlyChk;
-    private Border      _accRelayBanner        = null!;
-    private Border      _accSelectedTargetDeck = null!;
-    private RemoteDeviceItem? _selectedAccDevice = null;
+    // ─── State for Hub 7 ─────────────────────────────────────────────────────
+    private static DispatcherTimer? _hub7RefreshTimer;
+    private StackPanel _hub7DeviceListPanel = null!;
+    private TextBox _hub7SearchBox = null!;
+    private ComboBox _hub7BranchFilter = null!;
+    private string _hub7StatusFilter = "ALL"; // ALL, ONLINE, ALERTS, MESH
+    private TextBlock _hub7TotalCounter = null!;
+    private TextBlock _hub7OnlineCounter = null!;
+    private TextBlock _hub7MeshCounter = null!;
+    private TextBlock _hub7AlertCounter = null!;
+    private Border _hub7RelayBanner = null!;
+    private Border _hub7TelemetryDeck = null!;
+
+    // Take Remote Card Controls
+    private TextBox _trTargetBox = null!;
+    private PasswordBox _trPasswordBox = null!;
+    private TextBox _trPasswordRevealBox = null!;
+    private CheckBox _trShowPasswordChk = null!;
+    private ComboBox _trModeCombo = null!;
+    private RemoteDeviceItem? _selectedFleetDevice = null;
 
     // ─── Entry Point ─────────────────────────────────────────────────────────
     public UIElement BuildAdminCommandCenterView()
@@ -40,8 +52,8 @@ public partial class MainWindow
         void ShowContent()
         {
             rootGrid.Children.Clear();
-            rootGrid.Children.Add(BuildAccContent());
-            StartAccAutoRefresh();
+            rootGrid.Children.Add(BuildHub7MainContent());
+            StartHub7ServicesAndTimer();
         }
 
         if (!AdminAuthService.Instance.IsAdminMode)
@@ -57,7 +69,7 @@ public partial class MainWindow
         {
             if (!isAdmin)
             {
-                StopAccAutoRefresh();
+                StopHub7ServicesAndTimer();
                 rootGrid.Children.Clear();
                 rootGrid.Children.Add(BuildAdminLockScreen("Admin Command Center", ShowContent));
             }
@@ -66,192 +78,300 @@ public partial class MainWindow
         return rootGrid;
     }
 
-    // ─── Full content ─────────────────────────────────────────────────────────
-    private UIElement BuildAccContent()
+    private void StartHub7ServicesAndTimer()
     {
-        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        var root   = new StackPanel { Margin = new Thickness(8) };
+        // 1. Ensure Inbuilt Mesh Listener is running on Port 5055
+        try
+        {
+            if (!SvllMeshListener.Instance.IsRunning)
+            {
+                SvllMeshListener.Instance.Start(SvllMeshListener.DefaultPort);
+            }
+        }
+        catch { }
 
-        root.Children.Add(BuildAccHeader());
-        root.Children.Add(BuildAccRelayBanner());
-        root.Children.Add(BuildAccMetricsRow());
-        root.Children.Add(BuildAccSelectedTargetDeck());
-        root.Children.Add(BuildAccDirectConnectBar());
-        root.Children.Add(BuildAccSearchBar());
+        // 2. Start UI auto-refresh timer (every 15 seconds)
+        _hub7RefreshTimer?.Stop();
+        _hub7RefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _hub7RefreshTimer.Tick += async (s, e) =>
+        {
+            await CloudSyncService.Instance.PollFleetAsync();
+            Hub7RenderDeviceCards();
+            Hub7UpdateCounters();
+            Hub7RefreshRelayBanner();
+            Hub7RefreshTelemetryDeck();
+        };
+        _hub7RefreshTimer.Start();
+    }
 
-        _accDeviceCards = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
-        AccRenderDeviceCards();
-        root.Children.Add(_accDeviceCards);
+    private void StopHub7ServicesAndTimer()
+    {
+        _hub7RefreshTimer?.Stop();
+        _hub7RefreshTimer = null;
+    }
+
+    // ─── Main Content Layout ─────────────────────────────────────────────────
+    private UIElement BuildHub7MainContent()
+    {
+        var scroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        };
+
+        var root = new StackPanel { Margin = new Thickness(10) };
+
+        // 1. Executive NOC Header
+        root.Children.Add(BuildHub7Header());
+
+        // 2. Status & Inbuilt Mesh Listener Banner
+        root.Children.Add(BuildHub7RelayAndMeshBanner());
+
+        // 3. Four Fleet Quick Metrics Cards
+        root.Children.Add(BuildHub7MetricsRow());
+
+        // 4. CARD 1: "⚡ TAKE REMOTE CONTROL" (Primary Centerpiece)
+        root.Children.Add(BuildHub7TakeRemoteCard());
+
+        // 5. CARD 2: "🖥️ CONNECTED FLEET WORKSTATIONS" (Full Fleet Grid)
+        root.Children.Add(BuildHub7ConnectedDevicesCard());
 
         scroll.Content = root;
         return scroll;
     }
 
-    // ─── Header ───────────────────────────────────────────────────────────────
-    private UIElement BuildAccHeader()
+    // ─── 1. Header ───────────────────────────────────────────────────────────
+    private UIElement BuildHub7Header()
     {
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var card = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16, 12, 16, 12),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var left = new StackPanel();
-        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         titleRow.Children.Add(new TextBlock
         {
             Text = "👑 Admin Command Center",
-            FontSize = 18, FontWeight = FontWeights.ExtraBold, Foreground = TextDark,
+            FontSize = 18,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center
         });
-        titleRow.Children.Add(AccBadge("ADMIN CONTROL", Color.FromRgb(146,64,14), Color.FromRgb(254,243,199)));
-        titleRow.Children.Add(AccBadge("ULTRA ENGINE", Color.FromRgb(5,150,105), Color.FromRgb(209,250,229)));
+        titleRow.Children.Add(Hub7Badge("HUB 7", Color.FromRgb(30, 64, 175), Color.FromRgb(219, 234, 254)));
+        titleRow.Children.Add(Hub7Badge("MESH ACTIVE", Color.FromRgb(5, 150, 105), Color.FromRgb(209, 250, 229)));
+        titleRow.Children.Add(Hub7Badge("DIRECT 21118", Color.FromRgb(124, 58, 237), Color.FromRgb(237, 233, 254)));
         left.Children.Add(titleRow);
+
         left.Children.Add(new TextBlock
         {
-            Text = "Live fleet monitoring, auto-reflected credentials, and 1-click direct remote control.",
-            FontSize = 11, Foreground = TextSubtle
+            Text = "Enterprise Zero-Touch Remote Desktop • Inbuilt Mesh Listener • Live Fleet Telemetry",
+            FontSize = 11,
+            Foreground = TextSubtle
         });
         Grid.SetColumn(left, 0);
-        g.Children.Add(left);
+        grid.Children.Add(left);
 
         var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        right.Children.Add(AccHeaderBtn("📄 Export CSV", null, null,
-            () =>
-            {
-                try
-                {
-                    string csv  = FleetRegistryService.Instance.ExportFleetCsv();
-                    string path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "SVLL_Fleet.csv");
-                    System.IO.File.WriteAllText(path, csv);
-                    MessageBox.Show($"Exported to:\n{path}", "Done", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex) { MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error); }
-            }, "Export all fleet workstation records to CSV"));
-        right.Children.Add(AccHeaderBtn("⚙️ Relay Config", null, null, () => ShowServerSettingsDialog(), "Configure Relay Server URL"));
-        right.Children.Add(AccHeaderBtn("🔄 Refresh Fleet", null, null, async () =>
+
+        // Mesh Listener Dialog Button
+        var btnMeshInfo = Hub7HeaderButton("🛰️ Mesh Listener: :5055", new SolidColorBrush(Color.FromRgb(245, 243, 255)), new SolidColorBrush(Color.FromRgb(124, 58, 237)), () =>
         {
+            ShowInbuiltMeshListenerDialog();
+        }, "View Inbuilt Mesh Listener details & live connected sockets");
+        right.Children.Add(btnMeshInfo);
+
+        // Sync Fleet Button
+        var btnSync = Hub7HeaderButton("🔄 Sync Fleet", Brushes.White, TextDark, async () =>
+        {
+            btnMeshInfo.IsEnabled = false;
             await CloudSyncService.Instance.PollFleetAsync();
-            AccRenderDeviceCards();
-            AccUpdateMetrics();
-            RefreshAccRelayBanner();
-            AccRefreshTargetDeck();
-        }, "Force immediate poll from relay"));
-        right.Children.Add(AccHeaderBtn("🔒 Lock", null, null, () => AdminAuthService.Instance.LockAdmin(), "Lock admin mode"));
-        Grid.SetColumn(right, 1);
-        g.Children.Add(right);
+            Hub7RenderDeviceCards();
+            Hub7UpdateCounters();
+            Hub7RefreshRelayBanner();
+            Hub7RefreshTelemetryDeck();
+            btnMeshInfo.IsEnabled = true;
+        }, "Poll latest heartbeat data from relay and LAN agents");
+        right.Children.Add(btnSync);
 
-        return new Border
+        // Export CSV Button
+        var btnExport = Hub7HeaderButton("📄 Export CSV", Brushes.White, TextDark, () =>
         {
-            Background = BgCard, BorderBrush = BorderMuted, BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12), Padding = new Thickness(16, 12, 16, 12),
-            Margin = new Thickness(0, 0, 0, 10), Child = g
+            try
+            {
+                string csv = FleetRegistryService.Instance.ExportFleetCsv();
+                string path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "SVLL_Fleet_Export.csv");
+                System.IO.File.WriteAllText(path, csv);
+                MessageBox.Show($"Fleet registry exported successfully to:\n{path}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Export failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }, "Export fleet device records to CSV on your Desktop");
+        right.Children.Add(btnExport);
+
+        // Server Settings Button
+        var btnCfg = Hub7HeaderButton("⚙️ Settings", Brushes.White, TextDark, () =>
+        {
+            ShowServerSettingsDialog();
+        }, "Configure Cloud Relay Server URL and network settings");
+        right.Children.Add(btnCfg);
+
+        // Lock Admin Mode
+        var btnLock = Hub7HeaderButton("🔒 Lock", new SolidColorBrush(Color.FromRgb(254, 242, 242)), SvllRed, () =>
+        {
+            AdminAuthService.Instance.LockAdmin();
+        }, "Lock Admin Mode");
+        right.Children.Add(btnLock);
+
+        Grid.SetColumn(right, 1);
+        grid.Children.Add(right);
+
+        card.Child = grid;
+        return card;
+    }
+
+    // ─── 2. Relay & Inbuilt Mesh Listener Banner ──────────────────────────────
+    private UIElement BuildHub7RelayAndMeshBanner()
+    {
+        _hub7RelayBanner = new Border
+        {
+            CornerRadius = new CornerRadius(10),
+            Margin = new Thickness(0, 0, 0, 10)
         };
+        Hub7RefreshRelayBanner();
+        return _hub7RelayBanner;
     }
 
-    // ─── Relay status banner ──────────────────────────────────────────────────
-    private UIElement BuildAccRelayBanner()
+    private void Hub7RefreshRelayBanner()
     {
-        _accRelayBanner = new Border { CornerRadius = new CornerRadius(10), Margin = new Thickness(0, 0, 0, 10) };
-        RefreshAccRelayBanner();
-        return _accRelayBanner;
-    }
+        if (_hub7RelayBanner == null) return;
 
-    private void RefreshAccRelayBanner()
-    {
-        if (_accRelayBanner == null) return;
-        bool ok  = CloudSyncService.Instance.IsRelayReachable;
-        string u = AdminAuthService.Instance.GetRelayServerUrl();
+        bool relayOk = CloudSyncService.Instance.IsRelayReachable;
+        string relayUrl = AdminAuthService.Instance.GetRelayServerUrl();
+        bool meshOk = SvllMeshListener.Instance.IsRunning;
+        int meshCount = SvllMeshListener.Instance.ConnectedCount;
 
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _hub7RelayBanner.Background = relayOk
+            ? new SolidColorBrush(Color.FromRgb(240, 253, 244))
+            : new SolidColorBrush(Color.FromRgb(254, 242, 242));
+        _hub7RelayBanner.BorderBrush = relayOk
+            ? new SolidColorBrush(Color.FromRgb(187, 247, 208))
+            : new SolidColorBrush(Color.FromRgb(254, 202, 202));
+        _hub7RelayBanner.BorderThickness = new Thickness(1.5);
+        _hub7RelayBanner.Padding = new Thickness(14, 8, 14, 8);
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var info = new StackPanel();
-        if (ok)
+
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        titleRow.Children.Add(new TextBlock
         {
-            _accRelayBanner.Background      = new SolidColorBrush(Color.FromRgb(240,253,244));
-            _accRelayBanner.BorderBrush     = new SolidColorBrush(Color.FromRgb(187,247,208));
-            _accRelayBanner.BorderThickness = new Thickness(1.5);
-            _accRelayBanner.Padding         = new Thickness(14, 8, 14, 8);
-            info.Children.Add(new TextBlock { Text = "🟢  Relay Server Connected — " + u, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22,101,52)) });
-            info.Children.Add(new TextBlock { Text = "Fleet syncing every 30 s. User PCs reflect automatically when they send their first heartbeat.", FontSize = 10.5, Foreground = TextSubtle });
-        }
-        else
+            Text = relayOk ? "🟢  Corporate Relay Connected" : "🔴  Relay Server Unreachable",
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = relayOk ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllRed
+        });
+        titleRow.Children.Add(new TextBlock
         {
-            _accRelayBanner.Background      = new SolidColorBrush(Color.FromRgb(254,242,242));
-            _accRelayBanner.BorderBrush     = SvllRed;
-            _accRelayBanner.BorderThickness = new Thickness(1.5);
-            _accRelayBanner.Padding         = new Thickness(14, 10, 14, 10);
-            info.Children.Add(new TextBlock { Text = "🔴  Cannot reach Relay Server  —  " + u, FontSize = 12, FontWeight = FontWeights.Bold, Foreground = SvllRed });
-            info.Children.Add(new TextBlock
-            {
-                Text = "Fix:  (1) On the server PC (192.168.10.222) open PowerShell as Admin and run the server installer.\n" +
-                       "      (2) Check that TCP port 5000 is allowed through Windows Firewall on the server PC.\n" +
-                       "      (3) Both PCs must be on the same LAN or the server port must be forwarded through your router.\n" +
-                       "      (4) Click ⚙️ Relay Config to verify the URL matches the actual server address.",
-                FontSize = 10, Foreground = new SolidColorBrush(Color.FromRgb(185,28,28)),
-                TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0)
-            });
-        }
+            Text = $"  —  {relayUrl}",
+            FontSize = 11,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        info.Children.Add(titleRow);
+
+        var subRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+        subRow.Children.Add(new TextBlock
+        {
+            Text = $"🛰️ Inbuilt Mesh Listener: {(meshOk ? $"ONLINE (Port {SvllMeshListener.Instance.ActivePort}) • {meshCount} Agent(s) Active" : "OFFLINE")}",
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = meshOk ? new SolidColorBrush(Color.FromRgb(109, 40, 217)) : TextSubtle
+        });
+        subRow.Children.Add(new TextBlock
+        {
+            Text = "  •  Fleet auto-syncs every 15s  •  Direct peer-to-peer port 21118 active",
+            FontSize = 10,
+            Foreground = TextSubtle
+        });
+        info.Children.Add(subRow);
+
         Grid.SetColumn(info, 0);
-        g.Children.Add(info);
+        grid.Children.Add(info);
 
         var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         var btnRetry = new Button
         {
-            Content = "⟳ Retry", FontSize = 11, FontWeight = FontWeights.Bold,
-            Background = ok ? new SolidColorBrush(Color.FromRgb(240,253,244)) : SvllRed,
-            Foreground  = ok ? TextSubtle : Brushes.White,
-            BorderBrush = BorderMuted, BorderThickness = new Thickness(ok ? 1 : 0),
-            Padding = new Thickness(12,5,12,5), Margin = new Thickness(0,0,6,0), Cursor = Cursors.Hand
+            Content = "⟳ Reconnect",
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 4, 10, 4),
+            Cursor = Cursors.Hand
         };
         btnRetry.Click += async (s, e) =>
         {
-            btnRetry.Content = "⏳"; btnRetry.IsEnabled = false;
+            btnRetry.Content = "⏳";
+            btnRetry.IsEnabled = false;
             await Task.Run(async () =>
             {
                 CloudSyncService.Instance.Stop();
                 CloudSyncService.Instance.Start(AdminAuthService.Instance.GetRelayServerUrl());
-                await Task.Delay(3500);
+                await Task.Delay(2500);
             });
-            btnRetry.Content = "⟳ Retry"; btnRetry.IsEnabled = true;
-            RefreshAccRelayBanner();
-            AccRenderDeviceCards();
-            AccUpdateMetrics();
-            AccRefreshTargetDeck();
+            btnRetry.Content = "⟳ Reconnect";
+            btnRetry.IsEnabled = true;
+            Hub7RefreshRelayBanner();
+            Hub7RenderDeviceCards();
+            Hub7UpdateCounters();
+            Hub7RefreshTelemetryDeck();
         };
         right.Children.Add(btnRetry);
-        var btnCfg = new Button
-        {
-            Content = "⚙️ Configure", FontSize = 11, Background = Brushes.White,
-            BorderBrush = BorderMuted, Padding = new Thickness(10,5,10,5), Cursor = Cursors.Hand
-        };
-        btnCfg.Click += (s, e) => ShowServerSettingsDialog();
-        right.Children.Add(btnCfg);
-        Grid.SetColumn(right, 1);
-        g.Children.Add(right);
 
-        _accRelayBanner.Child = g;
+        Grid.SetColumn(right, 1);
+        grid.Children.Add(right);
+
+        _hub7RelayBanner.Child = grid;
     }
 
-    // ─── Metric cards ─────────────────────────────────────────────────────────
-    private UIElement BuildAccMetricsRow()
+    // ─── 3. Four Fleet Quick Metrics Cards ────────────────────────────────────
+    private UIElement BuildHub7MetricsRow()
     {
         var grid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
         for (int i = 0; i < 4; i++)
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var devs   = FleetRegistryService.Instance.GetAllDevices();
-        _accTotalLbl   = MakeMetricVal(devs.Count.ToString(), SvllBlue);
-        _accOnlineLbl  = MakeMetricVal(devs.Count(d => d.Status == "Online").ToString(), new SolidColorBrush(Color.FromRgb(22,101,52)));
-        _accAlertLbl   = MakeMetricVal(devs.Count(d => d.Status == "SupportRequested").ToString(), SvllRed);
-        _accOfflineLbl = MakeMetricVal(devs.Count(d => d.Status == "Offline").ToString(), TextSubtle);
+        var devs = FleetRegistryService.Instance.GetAllDevices();
+        int meshCount = SvllMeshListener.Instance.ConnectedCount;
+
+        _hub7TotalCounter = MakeMetricValue(devs.Count.ToString(), SvllBlue);
+        _hub7OnlineCounter = MakeMetricValue(devs.Count(d => d.Status == "Online").ToString(), new SolidColorBrush(Color.FromRgb(22, 101, 52)));
+        _hub7MeshCounter = MakeMetricValue(meshCount.ToString(), new SolidColorBrush(Color.FromRgb(109, 40, 217)));
+        _hub7AlertCounter = MakeMetricValue(devs.Count(d => d.Status == "SupportRequested").ToString(), SvllRed);
 
         (string icon, string label, TextBlock val, string sub, Color bg, Color border)[] cards =
         {
-            ("🖥️", "TOTAL PCs",     _accTotalLbl,   "Registered fleet systems", Color.FromRgb(239,246,255), Color.FromRgb(191,219,254)),
-            ("🟢", "ONLINE NOW",    _accOnlineLbl,  "Active heartbeats & remote ready", Color.FromRgb(240,253,244), Color.FromRgb(187,247,208)),
-            ("🚨", "NEED HELP",     _accAlertLbl,   "User clicked Request Support", Color.FromRgb(254,242,242), Color.FromRgb(252,165,165)),
-            ("⚪", "OFFLINE",       _accOfflineLbl, "No recent heartbeat", Color.FromRgb(248,250,252), Color.FromRgb(226,232,240))
+            ("🖥️", "TOTAL FLEET", _hub7TotalCounter, "Registered workstations", Color.FromRgb(239, 246, 255), Color.FromRgb(191, 219, 254)),
+            ("🟢", "ONLINE NOW", _hub7OnlineCounter, "Ready for 1-click remote", Color.FromRgb(240, 253, 244), Color.FromRgb(187, 247, 208)),
+            ("🛰️", "MESH CONNECTED", _hub7MeshCounter, "Live sockets on port 5055", Color.FromRgb(245, 243, 255), Color.FromRgb(221, 214, 254)),
+            ("🚨", "NEED ASSISTANCE", _hub7AlertCounter, "Active user support beacons", Color.FromRgb(254, 242, 242), Color.FromRgb(254, 202, 202))
         };
 
         for (int i = 0; i < cards.Length; i++)
@@ -259,586 +379,760 @@ public partial class MainWindow
             var (icon, label, val, sub, bg, border) = cards[i];
             var card = new Border
             {
-                Background = new SolidColorBrush(bg), BorderBrush = new SolidColorBrush(border),
-                BorderThickness = new Thickness(1.5), CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(16,12,16,12),
-                Margin  = new Thickness(i==0?0:5, 0, i==3?0:5, 0)
+                Background = new SolidColorBrush(bg),
+                BorderBrush = new SolidColorBrush(border),
+                BorderThickness = new Thickness(1.5),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 10, 14, 10),
+                Margin = new Thickness(i == 0 ? 0 : 4, 0, i == 3 ? 0 : 4, 0)
             };
             var sp = new StackPanel();
             sp.Children.Add(new TextBlock { Text = $"{icon}  {label}", FontSize = 9.5, FontWeight = FontWeights.ExtraBold, Foreground = TextSubtle });
             sp.Children.Add(val);
-            sp.Children.Add(new TextBlock { Text = sub, FontSize = 9.5, Foreground = TextSubtle, Margin = new Thickness(0,2,0,0) });
+            sp.Children.Add(new TextBlock { Text = sub, FontSize = 9.5, Foreground = TextSubtle, Margin = new Thickness(0, 2, 0, 0) });
             card.Child = sp;
             Grid.SetColumn(card, i);
             grid.Children.Add(card);
         }
+
         return grid;
     }
 
-    private TextBlock MakeMetricVal(string text, Brush brush) =>
-        new TextBlock { Text = text, FontSize = 26, FontWeight = FontWeights.ExtraBold, Foreground = brush, Margin = new Thickness(0,4,0,0) };
+    private TextBlock MakeMetricValue(string text, Brush brush) =>
+        new TextBlock { Text = text, FontSize = 24, FontWeight = FontWeights.ExtraBold, Foreground = brush, Margin = new Thickness(0, 2, 0, 0) };
 
-    private void AccUpdateMetrics()
+    private void Hub7UpdateCounters()
     {
         try
         {
             var devs = FleetRegistryService.Instance.GetAllDevices();
-            if (_accTotalLbl   != null) _accTotalLbl.Text   = devs.Count.ToString();
-            if (_accOnlineLbl  != null) _accOnlineLbl.Text  = devs.Count(d => d.Status == "Online").ToString();
-            if (_accAlertLbl   != null) _accAlertLbl.Text   = devs.Count(d => d.Status == "SupportRequested").ToString();
-            if (_accOfflineLbl != null) _accOfflineLbl.Text = devs.Count(d => d.Status == "Offline").ToString();
+            int meshCount = SvllMeshListener.Instance.ConnectedCount;
+
+            if (_hub7TotalCounter != null) _hub7TotalCounter.Text = devs.Count.ToString();
+            if (_hub7OnlineCounter != null) _hub7OnlineCounter.Text = devs.Count(d => d.Status == "Online").ToString();
+            if (_hub7MeshCounter != null) _hub7MeshCounter.Text = meshCount.ToString();
+            if (_hub7AlertCounter != null) _hub7AlertCounter.Text = devs.Count(d => d.Status == "SupportRequested").ToString();
         }
         catch { }
     }
 
-    // ─── Active Selected Target Deck ─────────────────────────────────────────
-    private UIElement BuildAccSelectedTargetDeck()
+    // ─── 4. CARD 1: "⚡ TAKE REMOTE CONTROL" (Primary Centerpiece) ───────────
+    private UIElement BuildHub7TakeRemoteCard()
     {
-        _accSelectedTargetDeck = new Border
+        var card = new Border
         {
+            Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)), // Slate-900 NOC Theme
+            BorderBrush = new SolidColorBrush(Color.FromRgb(16, 185, 129)), // Emerald-500 Glowing Accent
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(14),
-            Margin = new Thickness(0, 0, 0, 12)
-        };
-        AccRefreshTargetDeck();
-        return _accSelectedTargetDeck;
-    }
-
-    private void AccRefreshTargetDeck()
-    {
-        if (_accSelectedTargetDeck == null) return;
-
-        if (_selectedAccDevice == null)
-        {
-            // Empty state: guide admin on how to select
-            _accSelectedTargetDeck.Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)); // Slate-900
-            _accSelectedTargetDeck.BorderBrush = new SolidColorBrush(Color.FromRgb(51, 65, 85)); // Slate-700
-            _accSelectedTargetDeck.BorderThickness = new Thickness(1.5);
-            _accSelectedTargetDeck.Padding = new Thickness(18, 14, 18, 14);
-            _accSelectedTargetDeck.Effect = null;
-
-            var guideGrid = new Grid();
-            guideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            guideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            var iconBox = new Border
+            Padding = new Thickness(18, 14, 18, 14),
+            Margin = new Thickness(0, 0, 0, 12),
+            Effect = new DropShadowEffect
             {
-                Width = 44, Height = 44, CornerRadius = new CornerRadius(10),
-                Background = new SolidColorBrush(Color.FromArgb(40, 16, 185, 129)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
-                BorderThickness = new Thickness(1),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 14, 0),
-                Child = new TextBlock
-                {
-                    Text = "🎯", FontSize = 20, HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                }
-            };
-            Grid.SetColumn(iconBox, 0);
-            guideGrid.Children.Add(iconBox);
-
-            var guideInfo = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
-            titleRow.Children.Add(new TextBlock
-            {
-                Text = "Active Target Remote Deck",
-                FontSize = 14, FontWeight = FontWeights.ExtraBold,
-                Foreground = Brushes.White
-            });
-            titleRow.Children.Add(AccBadge("WAITING FOR SELECTION", Color.FromRgb(245, 158, 11), Color.FromArgb(40, 245, 158, 11)));
-            guideInfo.Children.Add(titleRow);
-
-            guideInfo.Children.Add(new TextBlock
-            {
-                Text = "☑️ Check the box on any user workstation below to automatically reflect its Ultra Remote ID, unattended password, and 1-click connect directly.",
-                FontSize = 11, Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
-                Margin = new Thickness(0, 4, 0, 0)
-            });
-            Grid.SetColumn(guideInfo, 1);
-            guideGrid.Children.Add(guideInfo);
-
-            _accSelectedTargetDeck.Child = guideGrid;
-            return;
-        }
-
-        // Active state with selected workstation
-        var dev = _selectedAccDevice;
-        bool isAlert = dev.Status == "SupportRequested";
-        bool isOnline = dev.Status == "Online" || isAlert;
-        string passToUse = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
-        bool hasUltra = !string.IsNullOrEmpty(dev.RemoteId) && dev.RemoteId != "N/A" && dev.RemoteId != "Not Configured";
-        bool hasAD = !string.IsNullOrEmpty(dev.AnyDeskId) && dev.AnyDeskId != "Not Configured" && dev.AnyDeskId != "N/A";
-
-        _accSelectedTargetDeck.Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)); // Slate-900
-        _accSelectedTargetDeck.BorderBrush = new SolidColorBrush(Color.FromRgb(16, 185, 129)); // Emerald-500
-        _accSelectedTargetDeck.BorderThickness = new Thickness(2);
-        _accSelectedTargetDeck.Padding = new Thickness(20, 16, 20, 16);
-        _accSelectedTargetDeck.Effect = new DropShadowEffect
-        {
-            BlurRadius = 18, ShadowDepth = 2, Opacity = 0.35, Color = Color.FromRgb(16, 185, 129)
+                BlurRadius = 16,
+                ShadowDepth = 2,
+                Opacity = 0.28,
+                Color = Color.FromRgb(16, 185, 129)
+            }
         };
 
-        var deckPanel = new StackPanel();
+        var mainStack = new StackPanel();
 
-        // 1. Target Header Row
-        var topRow = new Grid { Margin = new Thickness(0, 0, 0, 12) };
-        topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        // Card Header Row
+        var headGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var hostInfo = new StackPanel();
-        var hRow = new StackPanel { Orientation = Orientation.Horizontal };
-        hRow.Children.Add(new TextBlock
+        var headLeft = new StackPanel { Orientation = Orientation.Horizontal };
+        headLeft.Children.Add(new TextBlock
         {
-            Text = isAlert ? "🚨 " : (isOnline ? "🟢 " : "⚪ "),
-            FontSize = 16, VerticalAlignment = VerticalAlignment.Center
+            Text = "⚡ TAKE REMOTE CONTROL",
+            FontSize = 15,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center
         });
-        hRow.Children.Add(new TextBlock
-        {
-            Text = dev.Hostname,
-            FontSize = 18, FontWeight = FontWeights.ExtraBold,
-            Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center
-        });
-        hRow.Children.Add(AccBadge(isOnline ? "ONLINE" : "OFFLINE", isOnline ? Color.FromRgb(16, 185, 129) : Color.FromRgb(148, 163, 184), Color.FromArgb(40, 16, 185, 129)));
-        if (!string.IsNullOrEmpty(dev.BranchLocation))
-            hRow.Children.Add(AccBadge($"🏢 {dev.BranchLocation}", Color.FromRgb(56, 189, 248), Color.FromArgb(40, 56, 189, 248)));
-        if (dev.IsLocalHost)
-            hRow.Children.Add(AccBadge("THIS ADMIN PC", Color.FromRgb(168, 85, 247), Color.FromArgb(40, 168, 85, 247)));
+        headLeft.Children.Add(Hub7Badge("1-CLICK DIRECT", Color.FromRgb(16, 185, 129), Color.FromArgb(40, 16, 185, 129)));
+        headLeft.Children.Add(Hub7Badge("60 FPS LAN", Color.FromRgb(56, 189, 248), Color.FromArgb(40, 56, 189, 248)));
+        Grid.SetColumn(headLeft, 0);
+        headGrid.Children.Add(headLeft);
 
-        hostInfo.Children.Add(hRow);
-
-        var subRow = new TextBlock
+        var clearBtn = new Button
         {
-            Text = $"👤 Active User: {dev.LoggedInUser}    🌐 IP Address: {dev.IpAddress}    🪟 OS: {dev.OsVersion}    🕐 Last Seen: {dev.LastSeen:HH:mm:ss}",
-            FontSize = 11, Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
-            Margin = new Thickness(0, 4, 0, 0)
-        };
-        hostInfo.Children.Add(subRow);
-        Grid.SetColumn(hostInfo, 0);
-        topRow.Children.Add(hostInfo);
-
-        // Top Right: Clear selection
-        var btnClear = new Button
-        {
-            Content = "✖ Deselect",
-            FontSize = 11, FontWeight = FontWeights.SemiBold,
+            Content = "✖ Reset Deck",
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
             Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
             Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
             BorderThickness = new Thickness(1),
-            Padding = new Thickness(10, 4, 10, 4),
-            Cursor = Cursors.Hand,
-            VerticalAlignment = VerticalAlignment.Top
-        };
-        btnClear.Click += (s, e) =>
-        {
-            _selectedAccDevice = null;
-            AccRenderDeviceCards();
-            AccRefreshTargetDeck();
-        };
-        Grid.SetColumn(btnClear, 1);
-        topRow.Children.Add(btnClear);
-        deckPanel.Children.Add(topRow);
-
-        // 2. Reflected Credentials Deck (3 columns)
-        var credsGrid = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        credsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.3, GridUnitType.Star) });
-        credsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
-        credsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
-
-        // Cred Box 1: Ultra Remote ID
-        var idBox = BuildCredBox(
-            "⚡ REFLECTED ULTRA REMOTE ID",
-            hasUltra ? dev.RemoteId : (isOnline ? "Auto-reflecting..." : "Offline"),
-            hasUltra ? Color.FromRgb(52, 211, 153) : Color.FromRgb(245, 158, 11),
-            hasUltra ? "📋 Copy ID" : null,
-            () =>
-            {
-                if (hasUltra)
-                {
-                    Clipboard.SetText(dev.RemoteId.Replace(" ", ""));
-                    MessageBox.Show($"Copied Ultra Remote ID: {dev.RemoteId}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-            }
-        );
-        Grid.SetColumn(idBox, 0);
-        credsGrid.Children.Add(idBox);
-
-        // Cred Box 2: Reflected Password
-        var passBox = BuildCredBox(
-            "🔑 UNATTENDED PASSWORD",
-            passToUse,
-            Color.FromRgb(248, 250, 252),
-            "📋 Copy Pass",
-            () =>
-            {
-                Clipboard.SetText(passToUse);
-                MessageBox.Show($"Copied Password: {passToUse}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        );
-        idBox.Margin = new Thickness(0, 0, 8, 0);
-        passBox.Margin = new Thickness(0, 0, 8, 0);
-        Grid.SetColumn(passBox, 1);
-        credsGrid.Children.Add(passBox);
-
-        // Cred Box 3: Direct LAN Listener
-        var lanBox = BuildCredBox(
-            "🌐 DIRECT LAN LISTENER",
-            $"{dev.IpAddress}:21118",
-            Color.FromRgb(56, 189, 248),
-            "📋 Copy IP",
-            () =>
-            {
-                Clipboard.SetText(dev.IpAddress);
-                MessageBox.Show($"Copied IP: {dev.IpAddress}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        );
-        Grid.SetColumn(lanBox, 2);
-        credsGrid.Children.Add(lanBox);
-
-        deckPanel.Children.Add(credsGrid);
-
-        // 3. Primary & Direct Action Buttons Row
-        var actionRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
-
-        // Big Primary Button: 1-Click Connect
-        var btnBigConnect = new Button
-        {
-            Content = hasUltra ? "⚡ 1-Click Connect Directly (Ultra Remote)" : "⚡ Connect via IP (Ultra Remote)",
-            Height = 42, FontSize = 12.5, FontWeight = FontWeights.Bold,
-            Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
-            Foreground = Brushes.White, BorderThickness = new Thickness(0),
-            Padding = new Thickness(20, 8, 20, 8), Margin = new Thickness(0, 0, 10, 0),
+            Padding = new Thickness(8, 3, 8, 3),
             Cursor = Cursors.Hand
         };
-        btnBigConnect.Click += (s, e) =>
+        clearBtn.Click += (s, e) =>
         {
-            UltraRemoteService.LaunchRemoteConnection(dev.RemoteId, passToUse, dev.IpAddress);
+            _selectedFleetDevice = null;
+            if (_trTargetBox != null) _trTargetBox.Text = "";
+            if (_trPasswordBox != null) _trPasswordBox.Password = BuildConstants.DefaultRemotePassword;
+            if (_trPasswordRevealBox != null) _trPasswordRevealBox.Text = BuildConstants.DefaultRemotePassword;
+            Hub7RefreshTelemetryDeck();
+            Hub7RenderDeviceCards();
         };
-        actionRow.Children.Add(btnBigConnect);
+        Grid.SetColumn(clearBtn, 1);
+        headGrid.Children.Add(clearBtn);
 
-        // Big Secondary Button: Direct LAN Connect (Bypasses external servers)
-        var btnDirectLan = new Button
-        {
-            Content = "🌐 Direct LAN Connect (Peer-to-Peer)",
-            Height = 42, FontSize = 12, FontWeight = FontWeights.SemiBold,
-            Background = new SolidColorBrush(Color.FromRgb(2, 132, 199)),
-            Foreground = Brushes.White, BorderThickness = new Thickness(0),
-            Padding = new Thickness(16, 8, 16, 8), Margin = new Thickness(0, 0, 10, 0),
-            Cursor = Cursors.Hand,
-            ToolTip = "Connect directly over office LAN / WAN without relying on any external relay server"
-        };
-        btnDirectLan.Click += (s, e) =>
-        {
-            UltraRemoteService.LaunchDirectIpConnection(dev.IpAddress, passToUse);
-        };
-        actionRow.Children.Add(btnDirectLan);
+        mainStack.Children.Add(headGrid);
 
-        if (hasAD)
+        // Two Column Working Deck:
+        // Left Column (60%): Target Input, Protocol, Password, Action Button & Quick Utilities
+        // Right Column (40%): Live Target Telemetry Pre-Flight Card
+        var deckGrid = new Grid();
+        deckGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.3, GridUnitType.Star) });
+        deckGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
+
+        // Left Column: Interactive Connect Controls
+        var leftControls = new StackPanel { Margin = new Thickness(0, 0, 14, 0) };
+
+        // 1. Target Input Field
+        leftControls.Children.Add(new TextBlock
         {
-            var btnAdFallback = new Button
+            Text = "TARGET WORKSTATION (IP, HOSTNAME OR PARTNER ID)",
+            FontSize = 9.5,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        _trTargetBox = new TextBox
+        {
+            FontSize = 14,
+            FontWeight = FontWeights.Bold,
+            Height = 36,
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            BorderThickness = new Thickness(1.5),
+            Padding = new Thickness(8, 6, 8, 6),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        _trTargetBox.TextChanged += (s, e) =>
+        {
+            string typed = _trTargetBox.Text.Trim();
+            if (!string.IsNullOrEmpty(typed))
             {
-                Content = $"🚀 AnyDesk ({dev.AnyDeskId})",
-                Height = 42, FontSize = 11.5, FontWeight = FontWeights.SemiBold,
-                Background = new SolidColorBrush(Color.FromRgb(220, 38, 38)),
-                Foreground = Brushes.White, BorderThickness = new Thickness(0),
-                Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(0, 0, 10, 0),
-                Cursor = Cursors.Hand,
-                ToolTip = "Launch AnyDesk Unattended Remote Control"
-            };
-            btnAdFallback.Click += (s, e) => FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId, unattended: true);
-            actionRow.Children.Add(btnAdFallback);
-        }
-
-        deckPanel.Children.Add(actionRow);
-
-        // 4. Quick Tools Bar
-        var toolsRow = new StackPanel { Orientation = Orientation.Horizontal };
-        toolsRow.Children.Add(DkDeckToolBtn("💻 RDP Desktop", () => FleetRegistryService.LaunchRdp(dev.IpAddress, dev.AnyDeskId)));
-        toolsRow.Children.Add(DkDeckToolBtn("📁 Browse C$ Files", () => FleetRegistryService.LaunchFileExplorer(dev.IpAddress)));
-        toolsRow.Children.Add(DkDeckToolBtn("📡 Remote PS Shell", () => FleetRegistryService.LaunchRemoteShell(dev.IpAddress)));
-        toolsRow.Children.Add(DkDeckToolBtn("⚙️ Computer Mgmt", () => FleetRegistryService.LaunchComputerManagement(dev.IpAddress)));
-
-        var pingBtn = DkDeckToolBtn("⚡ Ping Check", null!);
-        pingBtn.Click += async (s, e) =>
-        {
-            pingBtn.Content = "⏳ Checking…"; pingBtn.IsEnabled = false;
-            long ms = await FleetRegistryService.PingDeviceAsync(dev.IpAddress);
-            pingBtn.IsEnabled = true; pingBtn.Content = "⚡ Ping Check";
-            if (ms >= 0)
-                MessageBox.Show($"{dev.Hostname} ({dev.IpAddress}) is responding: {ms} ms 🟢", "Ping Reply", MessageBoxButton.OK, MessageBoxImage.Information);
-            else
-                MessageBox.Show($"No ICMP reply from {dev.Hostname} ({dev.IpAddress}) 🔴\n(Workstations across separate subnets or branches may filter ICMP, but Ultra Remote port 21118 will still connect!)", "Ping Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
+                var match = FleetRegistryService.Instance.GetAllDevices().FirstOrDefault(d =>
+                    d.Hostname.Equals(typed, StringComparison.OrdinalIgnoreCase) ||
+                    d.IpAddress.Equals(typed, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrEmpty(d.RemoteId) && d.RemoteId.Replace(" ", "").Equals(typed.Replace(" ", ""), StringComparison.OrdinalIgnoreCase)));
+                if (match != null)
+                {
+                    _selectedFleetDevice = match;
+                }
+            }
+            Hub7RefreshTelemetryDeck();
         };
-        toolsRow.Children.Add(pingBtn);
+        leftControls.Children.Add(_trTargetBox);
 
-        deckPanel.Children.Add(toolsRow);
+        // 2. Protocol Selection & Password Row
+        var row2 = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        row2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        _accSelectedTargetDeck.Child = deckPanel;
-    }
-
-    private Border BuildCredBox(string label, string val, Color valColor, string? btnLabel, Action? onClick)
-    {
-        var box = new Border
+        // Protocol Selector
+        var modeStack = new StackPanel { Margin = new Thickness(0, 0, 6, 0) };
+        modeStack.Children.Add(new TextBlock
         {
-            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)), // Slate-800
+            Text = "CONNECTION PROTOCOL",
+            FontSize = 9.5,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        _trModeCombo = new ComboBox
+        {
+            Height = 32,
+            FontSize = 11.5,
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            Foreground = TextDark,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        _trModeCombo.Items.Add("⚡ Direct LAN IP (Port 21118 - Ultra Fast)");
+        _trModeCombo.Items.Add("🌐 Partner ID (Cross-WAN UltraRemote)");
+        _trModeCombo.Items.Add("🛰️ Inbuilt Mesh Session (Port 5055)");
+        _trModeCombo.Items.Add("🪟 Windows RDP (MSTSC)");
+        _trModeCombo.Items.Add("🔴 AnyDesk Protocol");
+        _trModeCombo.SelectedIndex = 0; // Default to Direct LAN
+        modeStack.Children.Add(_trModeCombo);
+        Grid.SetColumn(modeStack, 0);
+        row2.Children.Add(modeStack);
+
+        // Password Box
+        var passStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
+        passStack.Children.Add(new TextBlock
+        {
+            Text = "UNATTENDED PASSWORD",
+            FontSize = 9.5,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        var passGrid = new Grid();
+        passGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        passGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        _trPasswordBox = new PasswordBox
+        {
+            Password = BuildConstants.DefaultRemotePassword,
+            Height = 32,
+            FontSize = 12,
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            Padding = new Thickness(6, 4, 6, 4),
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        _trPasswordRevealBox = new TextBox
+        {
+            Text = BuildConstants.DefaultRemotePassword,
+            Height = 32,
+            FontSize = 12,
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            Padding = new Thickness(6, 4, 6, 4),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed
+        };
+        _trPasswordBox.PasswordChanged += (s, e) =>
+        {
+            if (_trPasswordRevealBox.Visibility == Visibility.Collapsed)
+                _trPasswordRevealBox.Text = _trPasswordBox.Password;
+        };
+        _trPasswordRevealBox.TextChanged += (s, e) =>
+        {
+            if (_trPasswordRevealBox.Visibility == Visibility.Visible)
+                _trPasswordBox.Password = _trPasswordRevealBox.Text;
+        };
+
+        Grid.SetColumn(_trPasswordBox, 0);
+        Grid.SetColumn(_trPasswordRevealBox, 0);
+        passGrid.Children.Add(_trPasswordBox);
+        passGrid.Children.Add(_trPasswordRevealBox);
+
+        _trShowPasswordChk = new CheckBox
+        {
+            Content = "👁️",
+            ToolTip = "Show/Hide Password",
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand
+        };
+        _trShowPasswordChk.Click += (s, e) =>
+        {
+            bool show = _trShowPasswordChk.IsChecked == true;
+            if (show)
+            {
+                _trPasswordRevealBox.Text = _trPasswordBox.Password;
+                _trPasswordBox.Visibility = Visibility.Collapsed;
+                _trPasswordRevealBox.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                _trPasswordBox.Password = _trPasswordRevealBox.Text;
+                _trPasswordRevealBox.Visibility = Visibility.Collapsed;
+                _trPasswordBox.Visibility = Visibility.Visible;
+            }
+        };
+        Grid.SetColumn(_trShowPasswordChk, 1);
+        passGrid.Children.Add(_trShowPasswordChk);
+
+        passStack.Children.Add(passGrid);
+        Grid.SetColumn(passStack, 1);
+        row2.Children.Add(passStack);
+
+        leftControls.Children.Add(row2);
+
+        // 3. Primary Action Button: "⚡ TAKE REMOTE CONTROL NOW"
+        var btnTakeRemote = new Button
+        {
+            Content = "⚡ TAKE REMOTE CONTROL NOW",
+            FontSize = 14,
+            FontWeight = FontWeights.ExtraBold,
+            Height = 42,
+            Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)), // Emerald-500
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        btnTakeRemote.Click += (s, e) => LaunchTakeRemoteAction();
+        leftControls.Children.Add(btnTakeRemote);
+
+        // 4. Quick Utilities Toolbar
+        var utilRow = new StackPanel { Orientation = Orientation.Horizontal };
+
+        utilRow.Children.Add(Hub7DarkUtilBtn("⚡ Ping Host", async () =>
+        {
+            string target = GetCurrentTargetIpOrHost();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter a target IP or select a device first.", "Target Required", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            long ms = await FleetRegistryService.PingDeviceAsync(target);
+            if (ms >= 0) MessageBox.Show($"Reply from {target}: {ms} ms latency 🟢", "Ping Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            else MessageBox.Show($"No ICMP reply from {target} 🔴\nHost may be offline or firewall blocking ping.", "Ping Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }));
+
+        utilRow.Children.Add(Hub7DarkUtilBtn("💬 Message User", () =>
+        {
+            string target = GetCurrentTargetIpOrHost();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter a target IP or select a device first.", "Target Required", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            PromptAndSendMessageToUser(target);
+        }));
+
+        utilRow.Children.Add(Hub7DarkUtilBtn("💻 Remote Shell", () =>
+        {
+            string target = GetCurrentTargetIpOrHost();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter a target IP or select a device first.", "Target Required", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchRemoteShell(target);
+        }));
+
+        utilRow.Children.Add(Hub7DarkUtilBtn("📂 File Explorer", () =>
+        {
+            string target = GetCurrentTargetIpOrHost();
+            if (string.IsNullOrEmpty(target)) { MessageBox.Show("Please enter a target IP or select a device first.", "Target Required", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+            FleetRegistryService.LaunchFileExplorer(target);
+        }));
+
+        leftControls.Children.Add(utilRow);
+
+        Grid.SetColumn(leftControls, 0);
+        deckGrid.Children.Add(leftControls);
+
+        // Right Column: Target Telemetry Deck
+        _hub7TelemetryDeck = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(14, 10, 14, 10)
+            Padding = new Thickness(14)
         };
+        Hub7RefreshTelemetryDeck();
 
-        var sp = new StackPanel();
-        sp.Children.Add(new TextBlock
+        Grid.SetColumn(_hub7TelemetryDeck, 1);
+        deckGrid.Children.Add(_hub7TelemetryDeck);
+
+        mainStack.Children.Add(deckGrid);
+
+        card.Child = mainStack;
+        return card;
+    }
+
+    private string GetCurrentTargetIpOrHost()
+    {
+        if (_selectedFleetDevice != null && !string.IsNullOrEmpty(_selectedFleetDevice.IpAddress))
+            return _selectedFleetDevice.IpAddress;
+
+        string input = _trTargetBox?.Text.Trim() ?? "";
+        return input;
+    }
+
+    private void LaunchTakeRemoteAction()
+    {
+        string target = _trTargetBox?.Text.Trim() ?? "";
+        string password = _trPasswordBox?.Password ?? BuildConstants.DefaultRemotePassword;
+        int modeIndex = _trModeCombo?.SelectedIndex ?? 0;
+
+        if (string.IsNullOrEmpty(target))
         {
-            Text = label, FontSize = 9.5, FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
-        });
-
-        var valRow = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-        valRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        valRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var valTxt = new TextBlock
-        {
-            Text = val, FontSize = 16, FontWeight = FontWeights.ExtraBold,
-            FontFamily = new FontFamily("Consolas, Courier New"),
-            Foreground = new SolidColorBrush(valColor),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(valTxt, 0);
-        valRow.Children.Add(valTxt);
-
-        if (!string.IsNullOrEmpty(btnLabel) && onClick != null)
-        {
-            var btn = new Button
-            {
-                Content = btnLabel, FontSize = 10, FontWeight = FontWeights.SemiBold,
-                Background = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
-                Foreground = Brushes.White,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(8, 3, 8, 3),
-                Cursor = Cursors.Hand,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            btn.Click += (s, e) => onClick();
-            Grid.SetColumn(btn, 1);
-            valRow.Children.Add(btn);
+            MessageBox.Show("Please enter a target Hostname, IP address, or Partner ID — or click any workstation in the fleet below.",
+                "Target Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _trTargetBox?.Focus();
+            return;
         }
 
-        sp.Children.Add(valRow);
-        box.Child = sp;
-        return box;
-    }
+        // Clean target
+        string cleanTarget = target.Replace(" ", "");
 
-    private Button DkDeckToolBtn(string label, Action? onClick)
-    {
-        var btn = new Button
+        switch (modeIndex)
         {
-            Content = label, FontSize = 10.5, FontWeight = FontWeights.SemiBold,
-            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
-            Foreground = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(10, 5, 10, 5),
-            Margin = new Thickness(0, 0, 6, 0),
-            Cursor = Cursors.Hand
-        };
-        if (onClick != null) btn.Click += (s, e) => onClick();
-        return btn;
+            case 0: // Direct LAN IP (Port 21118)
+                string ip = _selectedFleetDevice?.IpAddress ?? target;
+                UltraRemoteService.LaunchDirectIpConnection(ip, password);
+                break;
+
+            case 1: // Partner ID (UltraRemote)
+                string partnerId = _selectedFleetDevice?.RemoteId ?? cleanTarget;
+                UltraRemoteService.LaunchRemoteConnection(partnerId, password, _selectedFleetDevice?.IpAddress);
+                break;
+
+            case 2: // Inbuilt Mesh Session
+                // Tell agent on remote PC to prepare for remote desktop & trigger connection
+                _ = Task.Run(async () =>
+                {
+                    await SvllMeshListener.Instance.RequestRemoteSessionPrepAsync(target);
+                });
+                string meshIp = _selectedFleetDevice?.IpAddress ?? target;
+                UltraRemoteService.LaunchDirectIpConnection(meshIp, password);
+                break;
+
+            case 3: // Windows RDP
+                string rdpTarget = _selectedFleetDevice?.IpAddress ?? target;
+                FleetRegistryService.LaunchRdp(rdpTarget);
+                break;
+
+            case 4: // AnyDesk
+                string adId = _selectedFleetDevice?.AnyDeskId ?? target;
+                FleetRegistryService.LaunchAnyDesk(adId, true);
+                break;
+        }
     }
 
-    // ─── Direct connect bar ───────────────────────────────────────────────────
-    private UIElement BuildAccDirectConnectBar()
+    // ─── Target Telemetry Pre-Flight Deck ─────────────────────────────────────
+    private void Hub7RefreshTelemetryDeck()
+    {
+        if (_hub7TelemetryDeck == null) return;
+
+        var dev = _selectedFleetDevice;
+        var p = new StackPanel();
+
+        if (dev == null)
+        {
+            p.Children.Add(new TextBlock
+            {
+                Text = "🎯 TARGET PRE-FLIGHT TELEMETRY",
+                FontSize = 10,
+                FontWeight = FontWeights.ExtraBold,
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+
+            p.Children.Add(new TextBlock
+            {
+                Text = "No workstation currently selected.",
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            p.Children.Add(new TextBlock
+            {
+                Text = "• Click 'Take Remote' on any device card below to auto-reflect credentials.\n" +
+                       "• Type any LAN IP address (e.g. 192.168.10.45) for instant direct connection.\n" +
+                       "• Inbuilt Mesh Agent automatically updates CPU, RAM, and Disk telemetry live.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+
+            _hub7TelemetryDeck.Child = p;
+            return;
+        }
+
+        // Active Target Telemetry
+        bool isAlert = dev.Status == "SupportRequested";
+        bool isOnline = dev.Status == "Online" || isAlert;
+
+        var topRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+        topRow.Children.Add(new TextBlock
+        {
+            Text = isAlert ? "🚨 " : (isOnline ? "🟢 " : "⚪ "),
+            FontSize = 14,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        topRow.Children.Add(new TextBlock
+        {
+            Text = dev.Hostname,
+            FontSize = 14,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        topRow.Children.Add(Hub7Badge(isOnline ? "ONLINE" : "OFFLINE", isOnline ? Color.FromRgb(16, 185, 129) : Color.FromRgb(148, 163, 184), Color.FromArgb(40, 16, 185, 129)));
+        p.Children.Add(topRow);
+
+        p.Children.Add(new TextBlock
+        {
+            Text = $"👤 {dev.LoggedInUser}  •  🌐 {dev.IpAddress}  •  🏢 {dev.BranchLocation}",
+            FontSize = 10.5,
+            Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+
+        // Vitals progress bars
+        p.Children.Add(Hub7MiniBar("CPU Load", dev.CpuLoadPercent, Color.FromRgb(56, 189, 248)));
+        p.Children.Add(Hub7MiniBar("RAM Usage", dev.RamUsagePercent, Color.FromRgb(168, 85, 247)));
+        p.Children.Add(Hub7MiniBar("Disk C: Free", dev.DiskFreePercent > 0 ? dev.DiskFreePercent : 45.0, Color.FromRgb(16, 185, 129)));
+
+        // Readiness pills
+        var pillRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        bool meshLive = SvllMeshListener.Instance.GetClient(dev.Hostname) != null;
+        pillRow.Children.Add(Hub7Badge(meshLive ? "🛰️ MESH READY" : "🛰️ MESH AGENT IDLE", meshLive ? Color.FromRgb(16, 185, 129) : Color.FromRgb(148, 163, 184), Color.FromArgb(30, 148, 163, 184)));
+
+        if (!string.IsNullOrEmpty(dev.RemoteId))
+            pillRow.Children.Add(Hub7Badge($"⚡ ID: {dev.RemoteId}", Color.FromRgb(56, 189, 248), Color.FromArgb(30, 56, 189, 248)));
+
+        p.Children.Add(pillRow);
+
+        _hub7TelemetryDeck.Child = p;
+    }
+
+    private UIElement Hub7MiniBar(string label, double percent, Color barColor)
+    {
+        var sp = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
+        var top = new Grid();
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var lbl = new TextBlock { Text = label, FontSize = 9.5, Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)) };
+        var val = new TextBlock { Text = $"{percent:0.#}%", FontSize = 9.5, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+        Grid.SetColumn(lbl, 0);
+        Grid.SetColumn(val, 1);
+        top.Children.Add(lbl);
+        top.Children.Add(val);
+        sp.Children.Add(top);
+
+        var bgBar = new Border
+        {
+            Height = 4,
+            Background = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+            CornerRadius = new CornerRadius(2),
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        var fillGrid = new Grid();
+        fillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Clamp(percent, 0, 100), GridUnitType.Star) });
+        fillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 100 - percent), GridUnitType.Star) });
+
+        var fillBar = new Border
+        {
+            Height = 4,
+            Background = new SolidColorBrush(barColor),
+            CornerRadius = new CornerRadius(2)
+        };
+        Grid.SetColumn(fillBar, 0);
+        fillGrid.Children.Add(fillBar);
+        bgBar.Child = fillGrid;
+        sp.Children.Add(bgBar);
+
+        return sp;
+    }
+
+    // ─── 5. CARD 2: "🖥️ CONNECTED FLEET WORKSTATIONS" (Fleet Grid) ───────────
+    private UIElement BuildHub7ConnectedDevicesCard()
     {
         var card = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(30,41,59)),
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(16,12,16,12),
-            Margin = new Thickness(0,0,0,10)
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 0, 0, 14)
         };
-        var sp = new StackPanel();
-        sp.Children.Add(new TextBlock
+
+        var mainStack = new StackPanel();
+
+        // 1. Toolbar Header Row
+        var toolGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        toolGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        toolGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var toolLeft = new StackPanel();
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        titleRow.Children.Add(new TextBlock
         {
-            Text = "⚡  QUICK CONNECT  —  Type any Partner ID / IP Address / Computer Name / AnyDesk ID and click an action",
-            FontSize = 11.5, FontWeight = FontWeights.Bold, Foreground = Brushes.White, Margin = new Thickness(0,0,0,8)
+            Text = "🖥️ Connected Fleet Workstations",
+            FontSize = 15,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
         });
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
-
-        // Input field
-        var txtTarget = new TextBox
+        titleRow.Children.Add(Hub7Badge("LIVE INVENTORY", Color.FromRgb(30, 64, 175), Color.FromRgb(219, 234, 254)));
+        toolLeft.Children.Add(titleRow);
+        toolLeft.Children.Add(new TextBlock
         {
-            Width = 220, Height = 32, FontSize = 13,
-            FontFamily = new FontFamily("Consolas, Courier New"),
-            FontWeight = FontWeights.Bold,
-            Padding = new Thickness(10,4,10,4),
+            Text = "Real-time list of all office endpoints. Click 'Take Remote' on any workstation for 1-click connection.",
+            FontSize = 10.5,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+        Grid.SetColumn(toolLeft, 0);
+        toolGrid.Children.Add(toolLeft);
+
+        // Filter Controls on Top Right
+        var toolRight = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        // Search Box
+        toolRight.Children.Add(new TextBlock { Text = "🔍", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) });
+        _hub7SearchBox = new TextBox
+        {
+            Width = 180,
+            Height = 28,
+            FontSize = 11,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(4, 2, 4, 2),
             VerticalContentAlignment = VerticalAlignment.Center,
-            Background = new SolidColorBrush(Color.FromRgb(51,65,85)),
-            Foreground = Brushes.White, CaretBrush = Brushes.White,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(100,116,139)),
-            BorderThickness = new Thickness(1),
-            Margin = new Thickness(0,0,8,0)
+            Margin = new Thickness(0, 0, 8, 0)
         };
-        row.Children.Add(txtTarget);
+        _hub7SearchBox.TextChanged += (s, e) => Hub7RenderDeviceCards();
+        toolRight.Children.Add(_hub7SearchBox);
 
-        string Tgt() => txtTarget.Text.Trim();
-        void Guard(Action<string> a) { var t = Tgt(); if (string.IsNullOrEmpty(t)) MessageBox.Show("Enter a target first.", "Required", MessageBoxButton.OK, MessageBoxImage.Information); else a(t); }
-
-        row.Children.Add(DkBtn("⚡ Ultra Connect", Color.FromRgb(16,185,129), () => Guard(t => UltraRemoteService.LaunchRemoteConnection(t))));
-        row.Children.Add(DkBtn("🚀 AnyDesk",       Color.FromRgb(211,47,47),   () => Guard(t => FleetRegistryService.LaunchAnyDesk(t))));
-        row.Children.Add(DkBtn("💻 RDP",           Color.FromRgb(30,64,175),   () => Guard(t => FleetRegistryService.LaunchRdp(t))));
-        row.Children.Add(DkBtn("📁 C$ Files",      Color.FromRgb(71,85,105),   () => Guard(t => FleetRegistryService.LaunchFileExplorer(t))));
-        row.Children.Add(DkBtn("📡 PS Shell",      Color.FromRgb(26,86,65),    () => Guard(t => FleetRegistryService.LaunchRemoteShell(t))));
-        row.Children.Add(DkBtn("⚙️ Manage",        Color.FromRgb(51,65,85),    () => Guard(t => FleetRegistryService.LaunchComputerManagement(t))));
-
-        var btnPing = DkBtn("⚡ Ping", Color.FromRgb(71,85,105), null!);
-        btnPing.Click += async (s, e) =>
+        // Branch Filter Dropdown
+        _hub7BranchFilter = new ComboBox
         {
-            var t = Tgt(); if (string.IsNullOrEmpty(t)) return;
-            btnPing.Content = "⏳"; btnPing.IsEnabled = false;
-            long ms = await FleetRegistryService.PingDeviceAsync(t);
-            btnPing.IsEnabled = true; btnPing.Content = "⚡ Ping";
-            if (ms >= 0) MessageBox.Show($"Reply from {t}: {ms} ms 🟢", "Ping OK", MessageBoxButton.OK, MessageBoxImage.Information);
-            else MessageBox.Show($"No reply from {t} 🔴", "Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Width = 130,
+            Height = 28,
+            FontSize = 11,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0)
         };
-        row.Children.Add(btnPing);
+        _hub7BranchFilter.Items.Add("All Branches");
+        _hub7BranchFilter.Items.Add("Mumbai HQ");
+        _hub7BranchFilter.Items.Add("Delhi Logistics");
+        _hub7BranchFilter.Items.Add("Raipur Hub");
+        _hub7BranchFilter.Items.Add("Ahmedabad");
+        _hub7BranchFilter.Items.Add("Kolkata");
+        _hub7BranchFilter.SelectedIndex = 0;
+        _hub7BranchFilter.SelectionChanged += (s, e) => Hub7RenderDeviceCards();
+        toolRight.Children.Add(_hub7BranchFilter);
 
-        sp.Children.Add(row);
-        card.Child = sp;
+        // Status Filter Buttons
+        toolRight.Children.Add(Hub7FilterPill("ALL", "All", true));
+        toolRight.Children.Add(Hub7FilterPill("ONLINE", "🟢 Online", false));
+        toolRight.Children.Add(Hub7FilterPill("ALERTS", "🚨 Alerts", false));
+        toolRight.Children.Add(Hub7FilterPill("MESH", "🛰️ Mesh", false));
+
+        Grid.SetColumn(toolRight, 1);
+        toolGrid.Children.Add(toolRight);
+
+        mainStack.Children.Add(toolGrid);
+
+        // 2. Container for Device Cards
+        _hub7DeviceListPanel = new StackPanel();
+        Hub7RenderDeviceCards();
+        mainStack.Children.Add(_hub7DeviceListPanel);
+
+        card.Child = mainStack;
         return card;
     }
 
-    private Button DkBtn(string label, Color bg, Action? onClick)
+    private Button Hub7FilterPill(string key, string label, bool isSelected)
     {
         var btn = new Button
         {
-            Content = label, FontSize = 11, FontWeight = FontWeights.SemiBold,
-            Background = new SolidColorBrush(bg), Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(12,6,12,6), Margin = new Thickness(0,0,6,0),
-            Cursor = Cursors.Hand, Height = 32
+            Content = label,
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Background = isSelected ? SvllBlue : Brushes.White,
+            Foreground = isSelected ? Brushes.White : TextSubtle,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
         };
-        if (onClick != null) btn.Click += (s, e) => onClick();
+        btn.Click += (s, e) =>
+        {
+            _hub7StatusFilter = key;
+            // Update styles in parent stack
+            if (btn.Parent is StackPanel sp)
+            {
+                foreach (var child in sp.Children.OfType<Button>())
+                {
+                    child.Background = Brushes.White;
+                    child.Foreground = TextSubtle;
+                }
+            }
+            btn.Background = SvllBlue;
+            btn.Foreground = Brushes.White;
+            Hub7RenderDeviceCards();
+        };
         return btn;
     }
 
-    // ─── Search bar ───────────────────────────────────────────────────────────
-    private UIElement BuildAccSearchBar()
+    // ─── Render Device List ──────────────────────────────────────────────────
+    private void Hub7RenderDeviceCards()
     {
-        var card = new Border
+        if (_hub7DeviceListPanel == null) return;
+        _hub7DeviceListPanel.Children.Clear();
+
+        string query = _hub7SearchBox?.Text.Trim().ToLowerInvariant() ?? "";
+        string branch = _hub7BranchFilter?.SelectedItem?.ToString() ?? "All Branches";
+        var devices = FleetRegistryService.Instance.GetAllDevices();
+
+        var filtered = devices.Where(d =>
         {
-            Background = BgCard, BorderBrush = BorderMuted, BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(10), Padding = new Thickness(12,8,12,8),
-            Margin = new Thickness(0,0,0,8)
-        };
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // Status filter
+            if (_hub7StatusFilter == "ONLINE" && d.Status != "Online" && d.Status != "SupportRequested") return false;
+            if (_hub7StatusFilter == "ALERTS" && d.Status != "SupportRequested") return false;
+            if (_hub7StatusFilter == "MESH" && SvllMeshListener.Instance.GetClient(d.Hostname) == null) return false;
 
-        var searchRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        searchRow.Children.Add(new TextBlock { Text = "🔍", FontSize = 14, Margin = new Thickness(0,0,8,0), VerticalAlignment = VerticalAlignment.Center });
-        _accSearchBox = new TextBox
-        {
-            FontSize = 11.5, Height = 28, Width = 320, Padding = new Thickness(6,2,6,2),
-            BorderBrush = BorderMuted, VerticalContentAlignment = VerticalAlignment.Center
-        };
-        _accSearchBox.TextChanged += (s, e) => AccRenderDeviceCards();
-        searchRow.Children.Add(_accSearchBox);
+            // Branch filter
+            if (branch != "All Branches" && !string.IsNullOrEmpty(d.BranchLocation) &&
+                !d.BranchLocation.Contains(branch, StringComparison.OrdinalIgnoreCase)) return false;
 
-        _accUserOnlyChk = new CheckBox
-        {
-            Content = "👤 User Editions Only",
-            FontSize = 11, FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(12, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Cursor = Cursors.Hand
-        };
-        _accUserOnlyChk.Click += (s, e) => AccRenderDeviceCards();
-        searchRow.Children.Add(_accUserOnlyChk);
+            // Search query
+            if (!string.IsNullOrEmpty(query))
+            {
+                bool match = d.Hostname.ToLower().Contains(query) ||
+                             d.IpAddress.ToLower().Contains(query) ||
+                             d.LoggedInUser.ToLower().Contains(query) ||
+                             (!string.IsNullOrEmpty(d.RemoteId) && d.RemoteId.ToLower().Contains(query)) ||
+                             (!string.IsNullOrEmpty(d.AnyDeskId) && d.AnyDeskId.ToLower().Contains(query)) ||
+                             (!string.IsNullOrEmpty(d.BranchLocation) && d.BranchLocation.ToLower().Contains(query));
+                if (!match) return false;
+            }
 
-        searchRow.Children.Add(new TextBlock
-        {
-            Text = "  Filter by hostname, IP, user, Partner ID, AnyDesk ID…",
-            FontSize = 10, Foreground = TextSubtle, VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(8, 0, 0, 0)
-        });
-        Grid.SetColumn(searchRow, 0);
-        g.Children.Add(searchRow);
-
-        var pill = new Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(240,253,244)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(187,247,208)),
-            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(20),
-            Padding = new Thickness(10,3,10,3), VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = "🟢 Live · auto-sync 30s", FontSize = 9.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22,101,52)) }
-        };
-        Grid.SetColumn(pill, 1);
-        g.Children.Add(pill);
-        card.Child = g;
-        return card;
-    }
-
-    // ─── Device cards ─────────────────────────────────────────────────────────
-    private void AccRenderDeviceCards()
-    {
-        if (_accDeviceCards == null) return;
-        _accDeviceCards.Children.Clear();
-
-        string q        = _accSearchBox?.Text.Trim().ToLowerInvariant() ?? "";
-        bool userOnly   = _accUserOnlyChk?.IsChecked == true;
-        var devices     = FleetRegistryService.Instance.GetAllDevices();
-
-        var filtered = devices
-            .Where(d => (!userOnly || !d.IsLocalHost) &&
-                (string.IsNullOrEmpty(q) ||
-                d.Hostname.ToLower().Contains(q) ||
-                d.IpAddress.ToLower().Contains(q) ||
-                d.LoggedInUser.ToLower().Contains(q) ||
-                d.RemoteId.ToLower().Contains(q) ||
-                d.AnyDeskId.ToLower().Contains(q) ||
-                (!string.IsNullOrEmpty(d.SerialNumber) && d.SerialNumber.ToLower().Contains(q)) ||
-                (!string.IsNullOrEmpty(d.MacAddress)   && d.MacAddress.ToLower().Contains(q))   ||
-                d.BranchLocation.ToLower().Contains(q)))
-            .OrderByDescending(d => d.Status == "SupportRequested")
-            .ThenByDescending(d => d.Status == "Online")
-            .ThenBy(d => d.Hostname)
-            .ToList();
+            return true;
+        })
+        .OrderByDescending(d => d.Status == "SupportRequested")
+        .ThenByDescending(d => d.Status == "Online")
+        .ThenBy(d => d.Hostname)
+        .ToList();
 
         if (filtered.Count == 0)
         {
-            _accDeviceCards.Children.Add(new Border
+            _hub7DeviceListPanel.Children.Add(new Border
             {
-                Background = BgCard, BorderBrush = BorderMuted, BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10), Padding = new Thickness(30),
+                Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                BorderBrush = BorderMuted,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(24),
+                Margin = new Thickness(0, 6, 0, 6),
                 Child = new TextBlock
                 {
                     Text = devices.Count == 0
-                        ? "⚠️  No user PCs have registered yet.\n\n" +
-                          "Install the SVLL User Edition on any user PC — it auto-registers on first launch:\n\n" +
-                          "   irm https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install.ps1 | iex\n\n" +
-                          "The PC will appear here within seconds of installation."
-                        : "🔍  No PCs match your search.",
-                    FontSize = 12, Foreground = TextSubtle, TextWrapping = TextWrapping.Wrap,
-                    HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center
+                        ? "⚠️  No fleet workstations currently registered.\n\n" +
+                          "To install SVLL Workstation on any user PC, run this command in PowerShell as Admin:\n\n" +
+                          "   irm http://192.168.10.222:5000/install.ps1 | iex\n\n" +
+                          "The workstation will automatically auto-provision, configure the mesh agent, and appear here within seconds."
+                        : "🔍  No fleet workstations matched your search filters.",
+                    FontSize = 11.5,
+                    Foreground = TextSubtle,
+                    TextWrapping = TextWrapping.Wrap,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center
                 }
             });
             return;
         }
 
         foreach (var dev in filtered)
-            _accDeviceCards.Children.Add(BuildAccDeviceCard(dev));
+        {
+            _hub7DeviceListPanel.Children.Add(BuildHub7DeviceRowCard(dev));
+        }
     }
 
-    private UIElement BuildAccDeviceCard(RemoteDeviceItem dev)
+    private UIElement BuildHub7DeviceRowCard(RemoteDeviceItem dev)
     {
-        bool isAlert    = dev.Status == "SupportRequested";
-        bool isOnline   = dev.Status == "Online" || isAlert;
-        bool hasAD      = !string.IsNullOrEmpty(dev.AnyDeskId) && dev.AnyDeskId != "Not Configured" && dev.AnyDeskId != "N/A";
-        bool hasUltra   = !string.IsNullOrEmpty(dev.RemoteId) && dev.RemoteId != "N/A" && dev.RemoteId != "Not Configured";
-        bool isSelected = (_selectedAccDevice != null && _selectedAccDevice.Hostname.Equals(dev.Hostname, StringComparison.OrdinalIgnoreCase));
-        string passToUse = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
+        bool isAlert = dev.Status == "SupportRequested";
+        bool isOnline = dev.Status == "Online" || isAlert;
+        bool isSelected = _selectedFleetDevice != null && _selectedFleetDevice.Hostname.Equals(dev.Hostname, StringComparison.OrdinalIgnoreCase);
+        bool hasMesh = SvllMeshListener.Instance.GetClient(dev.Hostname) != null;
 
         var card = new Border
         {
@@ -847,289 +1141,441 @@ public partial class MainWindow
                 : (isSelected ? new SolidColorBrush(Color.FromRgb(240, 253, 250)) : BgCard),
             BorderBrush = isAlert
                 ? SvllRed
-                : (isSelected
-                    ? new SolidColorBrush(Color.FromRgb(16, 185, 129))
-                    : (isOnline ? new SolidColorBrush(Color.FromRgb(187, 247, 208)) : BorderMuted)),
-            BorderThickness = new Thickness(isSelected ? 2.5 : (isAlert ? 2 : 1)),
-            CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(14, 12, 14, 12),
-            Margin  = new Thickness(0, 0, 0, 8),
+                : (isSelected ? new SolidColorBrush(Color.FromRgb(16, 185, 129)) : BorderMuted),
+            BorderThickness = new Thickness(isSelected ? 2 : 1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(14, 10, 14, 10),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.4, GridUnitType.Star) }); // Info
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) }); // Vitals
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) }); // IDs & Mesh
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Actions
+
+        // Col 0: Identity Info
+        var infoStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var nameRow = new StackPanel { Orientation = Orientation.Horizontal };
+        nameRow.Children.Add(new TextBlock
+        {
+            Text = isAlert ? "🚨 " : (isOnline ? "🟢 " : "⚪ "),
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        nameRow.Children.Add(new TextBlock
+        {
+            Text = dev.Hostname,
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        if (dev.IsLocalHost)
+            nameRow.Children.Add(Hub7Badge("THIS ADMIN PC", Color.FromRgb(124, 58, 237), Color.FromRgb(237, 233, 254)));
+        else
+            nameRow.Children.Add(Hub7Badge("USER CLIENT", Color.FromRgb(30, 64, 175), Color.FromRgb(219, 234, 254)));
+
+        if (!string.IsNullOrEmpty(dev.BranchLocation))
+            nameRow.Children.Add(Hub7Badge($"🏢 {dev.BranchLocation}", Color.FromRgb(2, 132, 199), Color.FromRgb(224, 242, 254)));
+
+        infoStack.Children.Add(nameRow);
+
+        var subInfo = new TextBlock
+        {
+            Text = $"👤 {dev.LoggedInUser}  •  🌐 {dev.IpAddress}  •  🪟 {dev.OsVersion}",
+            FontSize = 10,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        infoStack.Children.Add(subInfo);
+
+        if (isAlert && !string.IsNullOrEmpty(dev.SupportRequestMessage))
+        {
+            infoStack.Children.Add(new TextBlock
+            {
+                Text = $"⚠️ User Note: {dev.SupportRequestMessage}",
+                FontSize = 9.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = SvllRed,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+        }
+
+        Grid.SetColumn(infoStack, 0);
+        grid.Children.Add(infoStack);
+
+        // Col 1: Hardware Vitals
+        var vitalsStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
+        vitalsStack.Children.Add(new TextBlock
+        {
+            Text = $"CPU: {dev.CpuLoadPercent:0.#}%    RAM: {dev.RamUsagePercent:0.#}%    DISK C: {(dev.DiskFreePercent > 0 ? dev.DiskFreePercent : 45.0):0.#}%",
+            FontSize = 9.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TextDark
+        });
+        vitalsStack.Children.Add(Hub7MiniBar("CPU", dev.CpuLoadPercent, Color.FromRgb(56, 189, 248)));
+        vitalsStack.Children.Add(Hub7MiniBar("RAM", dev.RamUsagePercent, Color.FromRgb(168, 85, 247)));
+        Grid.SetColumn(vitalsStack, 1);
+        grid.Children.Add(vitalsStack);
+
+        // Col 2: Remote IDs & Mesh Badge
+        var idStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0) };
+        var idRow = new StackPanel { Orientation = Orientation.Horizontal };
+
+        if (!string.IsNullOrEmpty(dev.RemoteId))
+        {
+            var btnCopyId = new Button
+            {
+                Content = $"⚡ ID: {dev.RemoteId}",
+                FontSize = 9.5,
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+                Foreground = SvllBlue,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(6, 2, 6, 2),
+                Margin = new Thickness(0, 0, 4, 0),
+                Cursor = Cursors.Hand,
+                ToolTip = "Click to copy Partner ID"
+            };
+            btnCopyId.Click += (s, e) =>
+            {
+                Clipboard.SetText(dev.RemoteId);
+                MessageBox.Show($"Partner ID '{dev.RemoteId}' copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            idRow.Children.Add(btnCopyId);
+        }
+
+        idRow.Children.Add(Hub7Badge(hasMesh ? "🛰️ MESH ACTIVE" : "🛰️ MESH IDLE",
+            hasMesh ? Color.FromRgb(16, 185, 129) : Color.FromRgb(148, 163, 184),
+            hasMesh ? Color.FromRgb(209, 250, 229) : Color.FromRgb(241, 245, 249)));
+
+        idStack.Children.Add(idRow);
+
+        idStack.Children.Add(new TextBlock
+        {
+            Text = $"Last seen: {dev.LastSeen:HH:mm:ss}  •  Port 21118 Direct",
+            FontSize = 9.5,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+
+        Grid.SetColumn(idStack, 2);
+        grid.Children.Add(idStack);
+
+        // Col 3: Direct Action Buttons
+        var actionRow = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        // ⚡ Take Remote Button
+        var btnTakeRemote = new Button
+        {
+            Content = "⚡ Take Remote",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(0, 0, 4, 0),
             Cursor = Cursors.Hand
         };
+        btnTakeRemote.Click += (s, e) =>
+        {
+            _selectedFleetDevice = dev;
+            if (_trTargetBox != null) _trTargetBox.Text = !string.IsNullOrEmpty(dev.IpAddress) ? dev.IpAddress : dev.Hostname;
+            if (_trPasswordBox != null) _trPasswordBox.Password = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
+            if (_trPasswordRevealBox != null) _trPasswordRevealBox.Text = _trPasswordBox?.Password ?? "";
+            Hub7RefreshTelemetryDeck();
+            Hub7RenderDeviceCards();
 
-        if (isSelected)
-        {
-            card.Effect = new DropShadowEffect { BlurRadius = 14, ShadowDepth = 2, Opacity = 0.25, Color = Color.FromRgb(16, 185, 129) };
-        }
-        else if (isOnline)
-        {
-            card.Effect = new DropShadowEffect { BlurRadius = 10, ShadowDepth = 2, Opacity = 0.07, Color = Colors.Black };
-        }
-
-        card.MouseDown += (s, e) =>
-        {
-            // If user clicked an interactive control directly, let it handle
-            if (e.OriginalSource is Button || e.OriginalSource is CheckBox || e.OriginalSource is TextBox) return;
-            _selectedAccDevice = isSelected ? null : dev;
-            AccRenderDeviceCards();
-            AccRefreshTargetDeck();
+            // Instant 1-Click Launch Direct LAN connection
+            UltraRemoteService.LaunchDirectIpConnection(dev.IpAddress, string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword);
         };
+        actionRow.Children.Add(btnTakeRemote);
 
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) }); // Selection Checkbox
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) }); // Host Identity
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Telemetry & Credentials
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Actions
-
-        // ── Col 0: Selection Checkbox ──────────────────────────────────────
-        var chkSelect = new CheckBox
+        // 🎯 Select Target Deck Button
+        var btnSelect = new Button
         {
-            IsChecked = isSelected,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Cursor = Cursors.Hand,
-            ToolTip = "Select this workstation to auto-reflect its ID & Password in the Control Deck above"
+            Content = "🎯 Select",
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
         };
-        chkSelect.Click += (s, e) =>
+        btnSelect.Click += (s, e) =>
         {
-            _selectedAccDevice = (chkSelect.IsChecked == true) ? dev : null;
-            AccRenderDeviceCards();
-            AccRefreshTargetDeck();
+            _selectedFleetDevice = dev;
+            if (_trTargetBox != null) _trTargetBox.Text = !string.IsNullOrEmpty(dev.IpAddress) ? dev.IpAddress : dev.Hostname;
+            if (_trPasswordBox != null) _trPasswordBox.Password = string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword;
+            if (_trPasswordRevealBox != null) _trPasswordRevealBox.Text = _trPasswordBox?.Password ?? "";
+            Hub7RefreshTelemetryDeck();
+            Hub7RenderDeviceCards();
         };
-        Grid.SetColumn(chkSelect, 0);
-        g.Children.Add(chkSelect);
+        actionRow.Children.Add(btnSelect);
 
-        // ── Col 1: Identity column ─────────────────────────────────────────
-        var idCol = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        var nameRow = new StackPanel { Orientation = Orientation.Horizontal };
-        nameRow.Children.Add(new TextBlock { Text = isAlert ? "🚨 " : (isOnline ? "🟢 " : "⚪ "), FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
-        nameRow.Children.Add(new TextBlock { Text = dev.Hostname, FontSize = 14, FontWeight = FontWeights.ExtraBold, Foreground = TextDark, VerticalAlignment = VerticalAlignment.Center });
-        if (dev.IsLocalHost) nameRow.Children.Add(AccBadge("THIS PC", Color.FromRgb(30,64,175), Color.FromRgb(239,246,255)));
-        if (hasUltra)        nameRow.Children.Add(AccBadge("⚡ ULTRA", Color.FromRgb(5,150,105), Color.FromRgb(209,250,229)));
-        idCol.Children.Add(nameRow);
-        idCol.Children.Add(new TextBlock { Text = $"👤 {dev.LoggedInUser}   🌐 {dev.IpAddress}", FontSize = 10.5, Foreground = TextSubtle, Margin = new Thickness(0,3,0,2) });
-        if (!string.IsNullOrEmpty(dev.BranchLocation))
-            idCol.Children.Add(new TextBlock { Text = $"🏢 {dev.BranchLocation}", FontSize = 10, Foreground = TextSubtle });
-        if (isAlert && !string.IsNullOrEmpty(dev.SupportRequestMessage))
-            idCol.Children.Add(new TextBlock { Text = $"💬 \"{dev.SupportRequestMessage}\"", FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = SvllRed, Margin = new Thickness(0,4,0,0), TextWrapping = TextWrapping.Wrap });
-        Grid.SetColumn(idCol, 1);
-        g.Children.Add(idCol);
-
-        // ── Col 2: Telemetry & Credentials column ─────────────────────────
-        var teleCol = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14,0,14,0) };
-
-        // ⚡ Ultra Remote Display (UltraViewer style ID & Password)
-        if (hasUltra)
+        // 💬 Message User
+        var btnMsg = new Button
         {
-            var ultraRow = new StackPanel { Orientation = Orientation.Horizontal, Cursor = Cursors.Hand, ToolTip = "Click to copy Ultra Remote credentials" };
-            ultraRow.MouseDown += (s, e) =>
-            {
-                try
-                {
-                    Clipboard.SetText(dev.RemoteId.Replace(" ", ""));
-                    MessageBox.Show($"Ultra Remote ID copied: {dev.RemoteId}\nPassword: {passToUse}", "Ultra Remote Credentials", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch { }
-            };
-            ultraRow.Children.Add(new TextBlock { Text = "⚡ Ultra ID: ", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(5,150,105)) });
-            ultraRow.Children.Add(new TextBlock { Text = dev.RemoteId, FontSize = 12.5, FontWeight = FontWeights.ExtraBold, FontFamily = new FontFamily("Consolas"), Foreground = TextDark });
-            ultraRow.Children.Add(new TextBlock { Text = $"   🔑 {passToUse}", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(30, 41, 59)) });
-            ultraRow.Children.Add(new TextBlock { Text = " 📋", FontSize = 10, VerticalAlignment = VerticalAlignment.Center });
-            teleCol.Children.Add(ultraRow);
-        }
-        else if (isOnline)
-        {
-            var pendingRow = new StackPanel { Orientation = Orientation.Horizontal };
-            pendingRow.Children.Add(new TextBlock { Text = "⚡ Ultra Remote: ", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(217,119,6)) });
-            pendingRow.Children.Add(new TextBlock { Text = "Auto-reflecting via heartbeat...", FontSize = 10, FontStyle = FontStyles.Italic, Foreground = TextSubtle });
-            teleCol.Children.Add(pendingRow);
-        }
-
-        if (hasAD)
-        {
-            var adRow = new StackPanel { Orientation = Orientation.Horizontal, Cursor = Cursors.Hand, ToolTip = "Click to copy AnyDesk ID" };
-            adRow.MouseDown += (s, e) =>
-            {
-                try
-                {
-                    Clipboard.SetText(dev.AnyDeskId.Replace(" ", ""));
-                    MessageBox.Show($"AnyDesk ID copied to clipboard: {dev.AnyDeskId}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch { }
-            };
-            adRow.Children.Add(new TextBlock { Text = "AnyDesk: ", FontSize = 10, Foreground = TextSubtle });
-            adRow.Children.Add(new TextBlock { Text = dev.AnyDeskId, FontSize = 10.5, FontWeight = FontWeights.Bold, FontFamily = new FontFamily("Consolas"), Foreground = SvllRed });
-            adRow.Children.Add(new TextBlock { Text = " 📋", FontSize = 9, VerticalAlignment = VerticalAlignment.Center });
-            teleCol.Children.Add(adRow);
-        }
-        teleCol.Children.Add(new TextBlock { Text = $"🏷️ MAC: {(string.IsNullOrEmpty(dev.MacAddress)?"N/A":dev.MacAddress)}   🔢 S/N: {(string.IsNullOrEmpty(dev.SerialNumber)?"N/A":dev.SerialNumber)}", FontSize = 10, Foreground = TextSubtle, Margin = new Thickness(0,2,0,0) });
-        teleCol.Children.Add(new TextBlock { Text = $"🪟 {dev.OsVersion} (Build {(string.IsNullOrEmpty(dev.OsBuild)?"N/A":dev.OsBuild)})   🕐 {dev.LastSeen:HH:mm:ss}", FontSize = 10, Foreground = TextSubtle, Margin = new Thickness(0,2,0,0) });
-        if (dev.CpuLoadPercent > 0 || dev.RamUsagePercent > 0 || dev.DiskFreePercent > 0)
-        {
-            var vitals = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0,4,0,0) };
-            vitals.Children.Add(AccVitalPill($"CPU {dev.CpuLoadPercent}%",      dev.CpuLoadPercent  > 80 ? Color.FromRgb(220,38,38) : Color.FromRgb(30,64,175)));
-            vitals.Children.Add(AccVitalPill($"RAM {dev.RamUsagePercent}%",     dev.RamUsagePercent > 85 ? Color.FromRgb(220,38,38) : Color.FromRgb(107,114,128)));
-            vitals.Children.Add(AccVitalPill($"Free {dev.DiskFreePercent}%",    dev.DiskFreePercent < 15 ? Color.FromRgb(220,38,38) : Color.FromRgb(22,101,52)));
-            teleCol.Children.Add(vitals);
-        }
-        Grid.SetColumn(teleCol, 2);
-        g.Children.Add(teleCol);
-
-        // ── Col 3: Action buttons column ──────────────────────────────────
-        var actCol = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = 230 };
-        string ip = dev.IpAddress;
-
-        // ⚡ Primary 1-Click Remote button: Ultra Remote (Zero-touch, zero acceptance)
-        var btnPrimaryRemote = new Button
-        {
-            Content = hasUltra ? "⚡ 1-Click Connect" : (hasAD ? "🚀 AnyDesk" : "⚡ Direct Connect"),
-            FontSize = 10, FontWeight = FontWeights.Bold,
-            Background = hasUltra ? new SolidColorBrush(Color.FromRgb(16,185,129)) : (hasAD ? new SolidColorBrush(Color.FromRgb(211,47,47)) : new SolidColorBrush(Color.FromRgb(100,116,139))),
-            Foreground = Brushes.White, BorderThickness = new Thickness(0),
-            Padding = new Thickness(9,5,9,5), Margin = new Thickness(0,0,4,4), Cursor = Cursors.Hand,
-            ToolTip = hasUltra
-                ? $"Instant 1-Click Zero-Touch Remote Desktop (Ultra Engine)\nTarget ID: {dev.RemoteId}\nPassword: {passToUse}\n(No user acceptance or physical access needed on {dev.Hostname})"
-                : (hasAD
-                    ? $"Instant AnyDesk Remote Control\nTarget AnyDesk ID: {dev.AnyDeskId}"
-                    : $"Direct LAN Remote Desktop to {dev.Hostname} ({dev.IpAddress})")
+            Content = "💬",
+            ToolTip = "Send toast message to this user",
+            FontSize = 11,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
         };
-
-        btnPrimaryRemote.Click += (s, e) =>
+        btnMsg.Click += (s, e) =>
         {
-            UltraRemoteService.LaunchRemoteConnection(dev.RemoteId, passToUse, dev.IpAddress);
+            PromptAndSendMessageToUser(dev.IpAddress);
         };
+        actionRow.Children.Add(btnMsg);
 
-        var cm = new ContextMenu();
-        if (hasUltra)
+        // ⚡ Ping
+        var btnPing = new Button
         {
-            var miUltra = new MenuItem { Header = $"⚡ 1-Click Ultra Connect ({dev.RemoteId})" };
-            miUltra.Click += (s, e) => UltraRemoteService.LaunchRemoteConnection(dev.RemoteId, passToUse, dev.IpAddress);
-            cm.Items.Add(miUltra);
-
-            var miLan = new MenuItem { Header = $"🌐 Direct LAN Connect ({dev.IpAddress})" };
-            miLan.Click += (s, e) => UltraRemoteService.LaunchDirectIpConnection(dev.IpAddress, passToUse);
-            cm.Items.Add(miLan);
-
-            var miCopyId = new MenuItem { Header = $"📋 Copy Partner ID ({dev.RemoteId})" };
-            miCopyId.Click += (s, e) => { try { Clipboard.SetText(dev.RemoteId.Replace(" ", "")); MessageBox.Show($"Copied ID: {dev.RemoteId}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information); } catch { } };
-            cm.Items.Add(miCopyId);
-
-            var miCopyPass = new MenuItem { Header = $"🔑 Copy Password ({passToUse})" };
-            miCopyPass.Click += (s, e) => { try { Clipboard.SetText(passToUse); MessageBox.Show($"Copied Password: {passToUse}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information); } catch { } };
-            cm.Items.Add(miCopyPass);
-        }
-
-        if (hasAD)
-        {
-            if (hasUltra) cm.Items.Add(new Separator());
-            var miAd = new MenuItem { Header = $"🚀 Connect via AnyDesk Fallback ({dev.AnyDeskId})" };
-            miAd.Click += (s, e) => FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId, unattended: true);
-            cm.Items.Add(miAd);
-        }
-
-        if (cm.Items.Count > 0)
-        {
-            btnPrimaryRemote.ContextMenu = cm;
-        }
-        wrap.Children.Add(btnPrimaryRemote);
-
-        if (hasUltra && hasAD)
-        {
-            wrap.Children.Add(AccCardBtn("🚀 AnyDesk", Color.FromRgb(211,47,47), () => FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId, unattended: true)));
-        }
-
-        wrap.Children.Add(AccCardBtn("💻 RDP",    Color.FromRgb(30,64,175),  () => FleetRegistryService.LaunchRdp(ip, dev.AnyDeskId)));
-        wrap.Children.Add(AccCardBtn("📁 Files",  Color.FromRgb(71,85,105),  () => FleetRegistryService.LaunchFileExplorer(ip)));
-        wrap.Children.Add(AccCardBtn("📡 Shell",  Color.FromRgb(26,86,65),   () => FleetRegistryService.LaunchRemoteShell(ip)));
-        wrap.Children.Add(AccCardBtn("⚙️ Manage", Color.FromRgb(51,65,85),   () => FleetRegistryService.LaunchComputerManagement(ip)));
-
-        var btnPing = AccCardBtn("⚡ Ping", Color.FromRgb(71,85,105), null!);
+            Content = "📶",
+            ToolTip = "Ping this workstation",
+            FontSize = 11,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
+        };
         btnPing.Click += async (s, e) =>
         {
-            btnPing.IsEnabled = false; btnPing.Content = "⏳";
-            long ms = await FleetRegistryService.PingDeviceAsync(ip);
-            btnPing.IsEnabled = true; btnPing.Content = "⚡ Ping";
-            if (ms >= 0) MessageBox.Show($"{dev.Hostname}: {ms} ms 🟢", "Ping", MessageBoxButton.OK, MessageBoxImage.Information);
-            else         MessageBox.Show($"{dev.Hostname}: No reply 🔴\n\nNote: If this workstation is in another office, ICMP/Ping is blocked by standard office routers.", "Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
+            btnPing.IsEnabled = false;
+            long ms = await FleetRegistryService.PingDeviceAsync(dev.IpAddress);
+            btnPing.IsEnabled = true;
+            if (ms >= 0) MessageBox.Show($"Reply from {dev.Hostname} ({dev.IpAddress}): {ms} ms 🟢", "Ping Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            else MessageBox.Show($"No ICMP reply from {dev.Hostname} ({dev.IpAddress}) 🔴", "Ping Timeout", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
-        wrap.Children.Add(btnPing);
+        actionRow.Children.Add(btnPing);
 
-        actCol.Children.Add(wrap);
-        Grid.SetColumn(actCol, 3);
-        g.Children.Add(actCol);
+        // 🗑️ Remove obsolete workstation
+        if (!dev.IsLocalHost)
+        {
+            var btnDel = new Button
+            {
+                Content = "🗑️",
+                ToolTip = "Remove from fleet list",
+                FontSize = 11,
+                Background = Brushes.White,
+                Foreground = SvllRed,
+                BorderBrush = BorderMuted,
+                Padding = new Thickness(6, 4, 6, 4),
+                Cursor = Cursors.Hand
+            };
+            btnDel.Click += (s, e) =>
+            {
+                var res = MessageBox.Show($"Remove '{dev.Hostname}' from the fleet list?", "Confirm Remove", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (res == MessageBoxResult.Yes)
+                {
+                    FleetRegistryService.Instance.RemoveDevice(dev.Hostname);
+                    if (_selectedFleetDevice?.Hostname == dev.Hostname) _selectedFleetDevice = null;
+                    Hub7RenderDeviceCards();
+                    Hub7UpdateCounters();
+                    Hub7RefreshTelemetryDeck();
+                }
+            };
+            actionRow.Children.Add(btnDel);
+        }
 
-        card.Child = g;
+        Grid.SetColumn(actionRow, 3);
+        grid.Children.Add(actionRow);
+
+        card.Child = grid;
         return card;
     }
 
-    private Button AccCardBtn(string label, Color bg, Action? onClick)
+    // ─── Helper Dialogs & Utilities ───────────────────────────────────────────
+    private void PromptAndSendMessageToUser(string target)
+    {
+        var win = new Window
+        {
+            Title = $"Send Message to {target}",
+            Width = 420,
+            Height = 220,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            ResizeMode = ResizeMode.NoResize
+        };
+        var p = new StackPanel { Margin = new Thickness(14) };
+        p.Children.Add(new TextBlock { Text = $"Send Live Notification Toast to: {target}", FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 8) });
+
+        var txtMsg = new TextBox
+        {
+            Height = 60,
+            TextWrapping = TextWrapping.Wrap,
+            AcceptsReturn = true,
+            Text = "SVLL IT Support is checking your system vitals.",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        p.Children.Add(txtMsg);
+
+        var btnSend = new Button
+        {
+            Content = "📤 Send Notification Now",
+            Height = 32,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            Cursor = Cursors.Hand
+        };
+        btnSend.Click += async (s, e) =>
+        {
+            string msg = txtMsg.Text.Trim();
+            if (string.IsNullOrEmpty(msg)) return;
+            win.Close();
+
+            bool sent = await SvllMeshListener.Instance.SendMessageToUserAsync(target, "SVLL IT Workstation Alert", msg);
+            if (sent) MessageBox.Show($"Message successfully sent to {target}!", "Sent", MessageBoxButton.OK, MessageBoxImage.Information);
+            else MessageBox.Show($"Could not deliver directly via Inbuilt Mesh Socket.\nEnsure target is connected on Port 5055.", "Notice", MessageBoxButton.OK, MessageBoxImage.Warning);
+        };
+        p.Children.Add(btnSend);
+
+        win.Content = p;
+        win.ShowDialog();
+    }
+
+    private void ShowInbuiltMeshListenerDialog()
+    {
+        var win = new Window
+        {
+            Title = "SVLL Inbuilt Mesh Listener — Live Sockets Monitor",
+            Width = 560,
+            Height = 440,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen
+        };
+
+        var p = new StackPanel { Margin = new Thickness(16) };
+        p.Children.Add(new TextBlock
+        {
+            Text = "🛰️ Inbuilt SVLL Mesh Agent Listener",
+            FontSize = 16,
+            FontWeight = FontWeights.ExtraBold,
+            Foreground = TextDark
+        });
+
+        p.Children.Add(new TextBlock
+        {
+            Text = $"Status: {(SvllMeshListener.Instance.IsRunning ? "🟢 RUNNING" : "🔴 STOPPED")}  •  Port: {SvllMeshListener.Instance.ActivePort}  •  Active Sockets: {SvllMeshListener.Instance.ConnectedCount}",
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 4, 0, 12)
+        });
+
+        var clientList = SvllMeshListener.Instance.GetAllClients();
+        var scroll = new ScrollViewer { Height = 260, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var listStack = new StackPanel();
+
+        if (clientList.Length == 0)
+        {
+            listStack.Children.Add(new TextBlock
+            {
+                Text = "No user workstation agents are currently connected directly to this listener.\n\n" +
+                       "When users launch SVLL Workstation (User Edition), they connect automatically to Port 5055.",
+                FontSize = 11,
+                Foreground = TextSubtle,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 10, 0, 0)
+            });
+        }
+        else
+        {
+            foreach (var c in clientList)
+            {
+                var row = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+                    BorderBrush = BorderMuted,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10),
+                    Margin = new Thickness(0, 0, 0, 6)
+                };
+                var sp = new StackPanel();
+                sp.Children.Add(new TextBlock { Text = $"🟢 {c.Hostname} ({c.IpAddress})", FontWeight = FontWeights.Bold });
+                sp.Children.Add(new TextBlock { Text = $"User: {c.LoggedInUser} | OS: {c.OsVersion} | CPU: {c.CpuLoad}% | RAM: {c.RamUsage}%", FontSize = 10, Foreground = TextSubtle });
+                sp.Children.Add(new TextBlock { Text = $"Connected at: {c.ConnectedAt:HH:mm:ss} | Last Heartbeat: {c.LastHeartbeat:HH:mm:ss}", FontSize = 9.5, Foreground = TextSubtle });
+                row.Child = sp;
+                listStack.Children.Add(row);
+            }
+        }
+
+        scroll.Content = listStack;
+        p.Children.Add(scroll);
+
+        var btnClose = new Button
+        {
+            Content = "Close",
+            Width = 100,
+            Height = 30,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0),
+            Cursor = Cursors.Hand
+        };
+        btnClose.Click += (s, e) => win.Close();
+        p.Children.Add(btnClose);
+
+        win.Content = p;
+        win.ShowDialog();
+    }
+
+    private Button Hub7HeaderButton(string text, Brush bg, Brush fg, Action onClick, string tooltip)
     {
         var btn = new Button
         {
-            Content = label, FontSize = 10,
-            Background = new SolidColorBrush(bg), Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(8,5,8,5), Margin = new Thickness(0,0,4,4), Cursor = Cursors.Hand
+            Content = text,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Background = bg,
+            Foreground = fg,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 5, 10, 5),
+            Margin = new Thickness(0, 0, 6, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = tooltip
         };
-        if (onClick != null) btn.Click += (s, e) => onClick();
+        btn.Click += (s, e) => onClick();
         return btn;
     }
 
-    private Border AccVitalPill(string text, Color fg) => new Border
+    private Button Hub7DarkUtilBtn(string label, Action onClick)
     {
-        Background = new SolidColorBrush(Color.FromArgb(25,fg.R,fg.G,fg.B)),
-        BorderBrush = new SolidColorBrush(Color.FromArgb(80,fg.R,fg.G,fg.B)),
-        BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4),
-        Padding = new Thickness(6,2,6,2), Margin = new Thickness(0,0,4,0),
-        Child = new TextBlock { Text = text, FontSize = 9.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(fg) }
-    };
-
-    // ─── Auto-refresh ─────────────────────────────────────────────────────────
-    private void StartAccAutoRefresh()
-    {
-        if (_accAutoRefreshTimer?.IsEnabled == true) return;
-        _accAutoRefreshTimer ??= new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        _accAutoRefreshTimer.Tick += async (s, e) =>
+        var btn = new Button
         {
-            try
-            {
-                await CloudSyncService.Instance.PollFleetAsync();
-                AccRenderDeviceCards();
-                AccUpdateMetrics();
-                RefreshAccRelayBanner();
-                AccRefreshTargetDeck();
-            }
-            catch { }
+            Content = label,
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            Foreground = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(0, 0, 6, 0),
+            Cursor = Cursors.Hand
         };
-        _accAutoRefreshTimer.Start();
+        btn.Click += (s, e) => onClick();
+        return btn;
     }
 
-    private void StopAccAutoRefresh() => _accAutoRefreshTimer?.Stop();
-
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-    private static Border AccBadge(string text, Color fg, Color bg) => new Border
+    private static Border Hub7Badge(string text, Color fg, Color bg) => new Border
     {
-        Background = new SolidColorBrush(bg), CornerRadius = new CornerRadius(4),
-        Padding = new Thickness(6,1,6,1), Margin = new Thickness(6,0,0,0),
+        Background = new SolidColorBrush(bg),
+        CornerRadius = new CornerRadius(4),
+        Padding = new Thickness(6, 2, 6, 2),
+        Margin = new Thickness(6, 0, 0, 0),
         VerticalAlignment = VerticalAlignment.Center,
         Child = new TextBlock { Text = text, FontSize = 9, FontWeight = FontWeights.ExtraBold, Foreground = new SolidColorBrush(fg) }
     };
-
-    private Button AccHeaderBtn(string label, Color? bg, Brush? fg, Action onClick, string? tip)
-    {
-        var btn = new Button
-        {
-            Content = label, FontSize = 11,
-            Background = bg.HasValue ? new SolidColorBrush(bg.Value) : new SolidColorBrush(Color.FromRgb(241,245,249)),
-            Foreground = fg ?? TextDark,
-            BorderBrush = BorderMuted, BorderThickness = new Thickness(bg.HasValue ? 0 : 1),
-            Padding = new Thickness(12,5,12,5), Margin = new Thickness(0,0,6,0),
-            Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center
-        };
-        if (!string.IsNullOrEmpty(tip)) btn.ToolTip = tip;
-        btn.Click += async (s, e) => await Task.Run(() => Dispatcher.Invoke(onClick));
-        return btn;
-    }
 }
 #endif

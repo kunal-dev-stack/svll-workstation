@@ -143,22 +143,22 @@ function Publish-GitHubRelease {
     Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
 }
 
-# ── 1. Publish Workstation v8.2 Release (Client & Admin) ───────────────────────────
+# ── 1. Publish Workstation v8.3 Release (Client & Admin) ───────────────────────────
 if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
     $clientAssets = @(
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.2-Setup.exe"
-            Name = "SVLL-IT-Workstation-User-v8.2-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.3-Setup.exe"
+            Name = "SVLL-IT-Workstation-User-v8.3-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.2-Setup.exe"
-            Name = "SVLL-IT-Workstation-Admin-v8.2-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.3-Setup.exe"
+            Name = "SVLL-IT-Workstation-Admin-v8.3-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.2-Setup.exe"
-            Name = "SVLL-IT-Workstation-v8.2-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.3-Setup.exe"
+            Name = "SVLL-IT-Workstation-v8.3-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
@@ -179,9 +179,9 @@ if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
     )
 
     Publish-GitHubRelease `
-        -Tag "v8.2" `
-        -ReleaseName "SVLL IT Support Workstation v8.2 (Dual Editions: Client & Admin)" `
-        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.2.md") `
+        -Tag "v8.3" `
+        -ReleaseName "SVLL IT Support Workstation v8.3 (Dual Editions: Client & Admin)" `
+        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.3.md") `
         -Assets $clientAssets
 }
 

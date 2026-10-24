@@ -24,7 +24,7 @@ if (-not $isAdmin) {
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "   SHREE VASU LOGISTICS LIMITED - ADMIN CONSOLE DEPLOYMENT" -ForegroundColor Cyan
-Write-Host "   Version: Admin Edition v8.2 | Developed by Kunal Turkar" -ForegroundColor Cyan
+Write-Host "   Version: Admin Edition v8.3 | Developed by Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
 # 2. Corporate Server Pre-configured (Zero Input Required)
@@ -57,15 +57,15 @@ $secConfig = @{
 Set-Content -Path $cfgPath -Value $secConfig -Force
 Write-Host "[+] Configured Admin Security and Relay settings." -ForegroundColor Green
 
-# 4. Terminate any running old version and install Admin Edition v8.2
+# 4. Terminate any running old version and install Admin Edition v8.3
 Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for clean in-place upgrade..." -ForegroundColor Cyan
 Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.2/SVLL-IT-Workstation-Admin-v8.2-Setup.exe"
-$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.2-Setup.exe"
+$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.3/SVLL-IT-Workstation-Admin-v8.3-Setup.exe"
+$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.3-Setup.exe"
 
-Write-Host "[1/2] Downloading latest SVLL Workstation Admin v8.2..." -ForegroundColor Yellow
+Write-Host "[1/2] Downloading latest SVLL Workstation Admin v8.3..." -ForegroundColor Yellow
 try {
     Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
 } catch {
@@ -119,6 +119,7 @@ if (-not $ultraExe) {
 # Firewall rules for direct connection
 netsh advfirewall firewall add rule name="UltraRemotePort21118" dir=in action=allow protocol=TCP localport=21118 enable=yes | Out-Null
 netsh advfirewall firewall add rule name="UltraRemoteUDP" dir=in action=allow protocol=UDP localport=21118-21119 enable=yes | Out-Null
+netsh advfirewall firewall add rule name="SvllMeshListenerPort5055" dir=in action=allow protocol=TCP localport=5055 enable=yes | Out-Null
 
 # 7. Check AnyDesk as secondary fallback
 Write-Host "`nChecking AnyDesk on Admin PC..." -ForegroundColor Yellow
@@ -152,7 +153,7 @@ if (Test-Path $adminExe) {
 }
 
 Write-Host "`n=========================================================================" -ForegroundColor Green
-Write-Host "   [+] SVLL ADMIN WORKSTATION v8.2 INSTALLED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "   [+] SVLL ADMIN WORKSTATION v8.3 INSTALLED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "=========================================================================" -ForegroundColor Green
 Write-Host "   Edition:        Admin Edition (Full IT Control & Fleet Management)" -ForegroundColor White
 Write-Host "   Relay Server:   $ServerUrl" -ForegroundColor Cyan

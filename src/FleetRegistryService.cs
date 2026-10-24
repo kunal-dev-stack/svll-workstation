@@ -547,6 +547,52 @@ public class FleetRegistryService
         }
     }
 
+    public void RegisterOrUpdateDevice(RemoteDeviceItem dev)
+    {
+        if (string.IsNullOrEmpty(dev.Hostname)) return;
+        lock (_devices)
+        {
+            var existing = _devices.FirstOrDefault(d => d.Hostname.Equals(dev.Hostname, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                if (!string.IsNullOrEmpty(dev.IpAddress)) existing.IpAddress = dev.IpAddress;
+                if (!string.IsNullOrEmpty(dev.LoggedInUser)) existing.LoggedInUser = dev.LoggedInUser;
+                if (!string.IsNullOrEmpty(dev.OsVersion)) existing.OsVersion = dev.OsVersion;
+                if (!string.IsNullOrEmpty(dev.SerialNumber)) existing.SerialNumber = dev.SerialNumber;
+                if (!string.IsNullOrEmpty(dev.RemoteId)) existing.RemoteId = dev.RemoteId;
+                if (!string.IsNullOrEmpty(dev.RemotePassword)) existing.RemotePassword = dev.RemotePassword;
+                if (!string.IsNullOrEmpty(dev.BranchLocation)) existing.BranchLocation = dev.BranchLocation;
+                existing.CpuLoadPercent = dev.CpuLoadPercent;
+                existing.RamUsagePercent = dev.RamUsagePercent;
+                existing.DiskFreePercent = dev.DiskFreePercent;
+                existing.MeshAgentRunning = dev.MeshAgentRunning;
+                existing.Status = dev.Status;
+                existing.LastSeen = DateTime.Now;
+            }
+            else
+            {
+                _devices.Add(dev);
+            }
+            SaveFleet();
+        }
+    }
+
+    public bool RemoveDevice(string hostname)
+    {
+        if (string.IsNullOrEmpty(hostname)) return false;
+        lock (_devices)
+        {
+            var target = _devices.FirstOrDefault(d => d.Hostname.Equals(hostname, StringComparison.OrdinalIgnoreCase));
+            if (target != null && !target.IsLocalHost)
+            {
+                _devices.Remove(target);
+                SaveFleet();
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static bool LaunchAnyDesk(string? anyDeskId = null, bool unattended = true)
     {
         string cleanId = string.IsNullOrEmpty(anyDeskId) ? "" : anyDeskId.Replace(" ", "");

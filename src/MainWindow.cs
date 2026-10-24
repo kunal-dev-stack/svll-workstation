@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "8.2";
+    public const string CurrentVersion = "8.3";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     public static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
@@ -346,8 +346,12 @@ public partial class MainWindow : Window
 
 
 #if BUILD_ADMIN
-            // Admin build: subscribe to live fleet updates
+            // Admin build: Start Inbuilt Mesh Listener and subscribe to live fleet updates
+            try { SvllMeshListener.Instance.Start(SvllMeshListener.DefaultPort); } catch { }
             CloudSyncService.Instance.FleetUpdated += OnCloudFleetUpdated;
+#else
+            // User build: Auto-start the Inbuilt Mesh Agent service (connects to Hub 7 Listener)
+            try { SvllMeshAgentService.Instance.Start(); } catch { }
 #endif
         };
 
@@ -371,6 +375,11 @@ public partial class MainWindow : Window
 
                 // v8.0: Send offline status to relay before closing
                 CloudSyncService.Instance.Stop();
+#if BUILD_ADMIN
+                try { SvllMeshListener.Instance.Stop(); } catch { }
+#else
+                try { SvllMeshAgentService.Instance.Stop(); } catch { }
+#endif
                 await CloudSyncService.Instance.SendOfflineStatusAsync();
 
                 // Revert runtime watchdog state to clean factory baseline
