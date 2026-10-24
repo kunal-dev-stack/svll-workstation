@@ -64,6 +64,8 @@ Write-Host "[+] Pre-configured server connection in system profile." -Foreground
 # 4. Terminate any running old version and install User Edition v8.1
 Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for clean in-place upgrade..." -ForegroundColor Cyan
 Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Stop-Service -Name "RustDesk" -Force -ErrorAction SilentlyContinue
+Get-Process -Name "rustdesk*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
 $downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.1/SVLL-IT-Workstation-User-v8.1-Setup.exe"
@@ -83,16 +85,23 @@ if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
 }
 Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
 
+# Ensure Program Files has full tools including Flutter companion DLLs
+$bundledTools = "C:\Program Files\ShreeVasuLogistics\ITWorkstation\tools"
+$pfRustDesk = "C:\Program Files\RustDesk"
+if (Test-Path $bundledTools) {
+    if (-not (Test-Path $pfRustDesk)) { New-Item -ItemType Directory -Path $pfRustDesk -Force | Out-Null }
+    Copy-Item -Path "$bundledTools\*" -Destination $pfRustDesk -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 # 5. Configure Ultra Remote Engine (UltraViewer-style Zero-Touch Remote Access)
 Write-Host "`n[3/3] Configuring Ultra Remote Engine (Auto-Reflected Partner ID & Password)..." -ForegroundColor Yellow
 
 $ultraExe = $null
 $ultraCandidates = @(
-    "C:\Program Files\ShreeVasuLogistics\ITWorkstation\tools\rustdesk.exe",
-    "C:\Program Files (x86)\ShreeVasuLogistics\ITWorkstation\tools\rustdesk.exe",
     "C:\Program Files\RustDesk\rustdesk.exe",
+    "C:\Program Files\ShreeVasuLogistics\ITWorkstation\tools\rustdesk.exe",
     "C:\Program Files (x86)\RustDesk\rustdesk.exe",
+    "C:\Program Files (x86)\ShreeVasuLogistics\ITWorkstation\tools\rustdesk.exe",
     "$env:ProgramData\SVLL-IT-Workstation\tools\rustdesk.exe"
 )
 foreach ($p in $ultraCandidates) { if (Test-Path $p) { $ultraExe = $p; break } }
@@ -109,15 +118,58 @@ if (-not $ultraExe) {
     }
 }
 
+# Enable direct-server in RustDesk TOML configurations for direct IP connections
+$tomlTargets = @(
+    "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk2.toml",
+    "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk.toml",
+    "$env:APPDATA\RustDesk\config\RustDesk2.toml",
+    "$env:APPDATA\RustDesk\config\RustDesk.toml",
+    "$env:LOCALAPPDATA\RustDesk\config\RustDesk2.toml"
+)
+foreach ($tpath in $tomlTargets) {
+    $parent = Split-Path $tpath
+    if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+    $cfgContent = ""
+    if (Test-Path $tpath) { $cfgContent = Get-Content $tpath -Raw -ErrorAction SilentlyContinue }
+    if (-not $cfgContent) {
+        $cfgContent = "[options]`r`ndirect-server = 'Y'`r`ndirect-access-port = '21118'`r`n"
+    } else {
+        if ($cfgContent -match "direct-server\s*=") {
+            $cfgContent = $cfgContent -replace "direct-server\s*=\s*['""]?[^'""\r\n]+['""]?", "direct-server = 'Y'"
+        } elseif ($cfgContent -match "\[options\]") {
+            $cfgContent = $cfgContent -replace "\[options\]", "[options]`r`ndirect-server = 'Y'"
+        } else {
+            $cfgContent += "`r`n[options]`r`ndirect-server = 'Y'"
+        }
+
+        if ($cfgContent -match "direct-access-port\s*=") {
+            $cfgContent = $cfgContent -replace "direct-access-port\s*=\s*['""]?[^'""\r\n]+['""]?", "direct-access-port = '21118'"
+        } else {
+            $cfgContent = $cfgContent -replace "direct-server = 'Y'", "direct-server = 'Y'`r`ndirect-access-port = '21118'"
+        }
+    }
+    Set-Content -Path $tpath -Value $cfgContent -Force -Encoding UTF8
+}
+
 if ($ultraExe -and (Test-Path $ultraExe)) {
     try {
-        Start-Process -FilePath $ultraExe -ArgumentList "--silent-install" -Wait -WindowStyle Hidden
+        $ultraDir = Split-Path $ultraExe
+        Start-Process -FilePath $ultraExe -ArgumentList "--silent-install" -WorkingDirectory $ultraDir -Wait -WindowStyle Hidden
         Start-Sleep -Seconds 2
-        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\RustDesk' -Name 'ImagePath' -Value "`"$ultraExe`" --service" -ErrorAction SilentlyContinue
-        Start-Process -FilePath $ultraExe -ArgumentList "--password SVLL@Remote2026" -NoNewWindow -Wait
-        Start-Service -Name "RustDesk" -ErrorAction SilentlyContinue
-        netsh advfirewall firewall add rule name="UltraRemote" dir=in action=allow program="$ultraExe" enable=yes | Out-Null
-        Write-Host "[+] Ultra Remote service registered, started, and configured with unattended password." -ForegroundColor Green
+
+        $svcExe = if (Test-Path "C:\Program Files\RustDesk\rustdesk.exe") { "C:\Program Files\RustDesk\rustdesk.exe" } else { $ultraExe }
+        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\RustDesk' -Name 'ImagePath' -Value "`"$svcExe`" --service" -ErrorAction SilentlyContinue
+
+        Start-Process -FilePath $ultraExe -ArgumentList "--password SVLL@Remote2026" -WorkingDirectory $ultraDir -NoNewWindow -Wait
+        Restart-Service -Name "RustDesk" -Force -ErrorAction SilentlyContinue
+
+        netsh advfirewall firewall add rule name="UltraRemotePort21118" dir=in action=allow protocol=TCP localport=21118 enable=yes | Out-Null
+        netsh advfirewall firewall add rule name="UltraRemoteUDP" dir=in action=allow protocol=UDP localport=21118-21119 enable=yes | Out-Null
+        netsh advfirewall firewall add rule name="UltraRemoteApp" dir=in action=allow program="$ultraExe" enable=yes | Out-Null
+        if (Test-Path "C:\Program Files\RustDesk\rustdesk.exe") {
+            netsh advfirewall firewall add rule name="UltraRemoteApp2" dir=in action=allow program="C:\Program Files\RustDesk\rustdesk.exe" enable=yes | Out-Null
+        }
+        Write-Host "[+] Ultra Remote service registered, started, and configured with unattended password & direct IP port 21118." -ForegroundColor Green
     } catch {
         Write-Warning "Ultra Remote setup notice: $($_.Exception.Message)"
     }
@@ -129,7 +181,7 @@ $ultraId = ""
 if (Test-Path $ultraExe) {
     try {
         $idOut = Join-Path $env:TEMP "ultra_id.txt"
-        Start-Process -FilePath $ultraExe -ArgumentList "--get-id" -NoNewWindow -Wait -PassThru -RedirectStandardOutput $idOut
+        Start-Process -FilePath $ultraExe -ArgumentList "--get-id" -WorkingDirectory (Split-Path $ultraExe) -NoNewWindow -Wait -PassThru -RedirectStandardOutput $idOut
         if (Test-Path $idOut) {
             $rawUltra = (Get-Content $idOut -Raw -ErrorAction SilentlyContinue).Trim()
             Remove-Item $idOut -Force -ErrorAction SilentlyContinue

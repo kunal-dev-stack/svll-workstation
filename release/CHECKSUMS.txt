@@ -1,4 +1,4 @@
 ﻿6b573e28d199f1c1ec9ffa6fca5d6c3ebe7f4f9c463b3dd8a4fa0a59f060ff3f  RELEASE_NOTES_v8.1.md
-f68cba9db15f0247cb78b57aef0efdc7c4bf6c3c82e1e683fa6e1a0ef28646c1  SVLL-IT-Workstation-Admin-v8.1-Setup.exe
-c57c0f8c9fc22986b4ff976e397cdfd83c49c723ac4e3431751a9fba92a5fa7f  SVLL-IT-Workstation-User-v8.1-Setup.exe
-c57c0f8c9fc22986b4ff976e397cdfd83c49c723ac4e3431751a9fba92a5fa7f  SVLL-IT-Workstation-v8.1-Setup.exe
+d28dd667d914631f244cd633e9630bb6d7629b86c944ec42606c8703d4e02198  SVLL-IT-Workstation-Admin-v8.1-Setup.exe
+2d59ca043181aa5125398960966bdaa8d1d6962371d2815755ee6664a58f762e  SVLL-IT-Workstation-User-v8.1-Setup.exe
+2d59ca043181aa5125398960966bdaa8d1d6962371d2815755ee6664a58f762e  SVLL-IT-Workstation-v8.1-Setup.exe

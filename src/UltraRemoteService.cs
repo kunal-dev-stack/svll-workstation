@@ -26,22 +26,85 @@ public static class UltraRemoteService
     private static readonly string[] ExeCandidates = new[]
     {
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "rustdesk.exe"),
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "rustdesk.exe"),
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\tools\rustdesk.exe"),
         @"C:\Program Files\RustDesk\rustdesk.exe",
         @"C:\Program Files (x86)\RustDesk\rustdesk.exe",
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\tools\rustdesk.exe"),
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "rustdesk.exe"),
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"RustDesk\rustdesk.exe"),
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"RustDesk\rustdesk.exe")
     };
+
+    /// <summary>
+    /// Synchronizes all bundled engine files (rustdesk.exe, Flutter plugin DLLs, data folder)
+    /// to Program Files and ProgramData so that missing dependency DLLs (e.g. desktop_drop_plugin.dll)
+    /// are never encountered.
+    /// </summary>
+    public static void SyncBundledTools()
+    {
+        try
+        {
+            string sourceDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools");
+            if (!Directory.Exists(sourceDir)) return;
+
+            string[] targets = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "RustDesk"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\tools")
+            };
+
+            foreach (var target in targets)
+            {
+                try
+                {
+                    if (!Directory.Exists(target)) Directory.CreateDirectory(target);
+                    foreach (var file in Directory.GetFiles(sourceDir, "*.*", SearchOption.AllDirectories))
+                    {
+                        string relative = Path.GetRelativePath(sourceDir, file);
+                        string destFile = Path.Combine(target, relative);
+                        string? destSubDir = Path.GetDirectoryName(destFile);
+                        if (!string.IsNullOrEmpty(destSubDir) && !Directory.Exists(destSubDir))
+                        {
+                            Directory.CreateDirectory(destSubDir);
+                        }
+                        if (!File.Exists(destFile) || new FileInfo(file).Length != new FileInfo(destFile).Length)
+                        {
+                            File.Copy(file, destFile, true);
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
 
     /// <summary>
     /// Returns the path to the executable if present.
     /// </summary>
     public static string? FindExecutable()
     {
+        SyncBundledTools();
+
         foreach (var p in ExeCandidates)
         {
-            if (File.Exists(p)) return p;
+            if (File.Exists(p))
+            {
+                string dir = Path.GetDirectoryName(p) ?? "";
+                string dropDll = Path.Combine(dir, "desktop_drop_plugin.dll");
+                if (File.Exists(dropDll) || p.Contains("ITWorkstation"))
+                    return p;
+
+                string bundledDrop = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "desktop_drop_plugin.dll");
+                if (File.Exists(bundledDrop))
+                {
+                    try { File.Copy(bundledDrop, dropDll, true); } catch { }
+                    if (File.Exists(dropDll)) return p;
+                }
+                else
+                {
+                    return p;
+                }
+            }
         }
 
         // Try 'where rustdesk' in PATH
@@ -93,6 +156,7 @@ public static class UltraRemoteService
                 {
                     FileName = exe,
                     Arguments = "--get-id",
+                    WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     CreateNoWindow = true
@@ -160,6 +224,7 @@ public static class UltraRemoteService
     /// </summary>
     public static async Task<bool> EnsureProvisionedAsync(Action<string>? onProgress = null)
     {
+        SyncBundledTools();
         string? exe = FindExecutable();
 
         if (string.IsNullOrEmpty(exe))
@@ -174,8 +239,8 @@ public static class UltraRemoteService
             {
                 try
                 {
-                    File.Copy(localBundled, targetExe, true);
-                    exe = targetExe;
+                    SyncBundledTools();
+                    exe = FindExecutable() ?? targetExe;
                 }
                 catch { }
             }
@@ -208,6 +273,7 @@ public static class UltraRemoteService
                     {
                         FileName = exe,
                         Arguments = "--silent-install",
+                        WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
                         UseShellExecute = true,
                         WindowStyle = ProcessWindowStyle.Hidden
                     };
@@ -235,7 +301,7 @@ public static class UltraRemoteService
             }
         }
 
-        // Configure permanent unattended password and start service
+        // Configure permanent unattended password, direct IP listener, and start service
         if (!string.IsNullOrEmpty(exe) && File.Exists(exe))
         {
             try
@@ -245,11 +311,15 @@ public static class UltraRemoteService
                 {
                     FileName = exe,
                     Arguments = $"--password {DefaultPassword}",
+                    WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
                 using var p = Process.Start(psi);
                 p?.WaitForExit(4000);
+
+                // Enable Direct IP peer-to-peer server listener in TOML config
+                EnsureDirectServerConfigured();
 
                 // Ensure service ImagePath is set to --service
                 try
@@ -276,22 +346,129 @@ public static class UltraRemoteService
                 });
                 scProc?.WaitForExit(3000);
 
-
-                // Open firewall for direct peer-to-peer LAN connection
-                using var fwProc = Process.Start(new ProcessStartInfo
+                // Open firewall for direct peer-to-peer LAN connection (both App and TCP/UDP port 21118)
+                using var fwPort = Process.Start(new ProcessStartInfo
                 {
                     FileName = "netsh.exe",
-                    Arguments = $"advfirewall firewall add rule name=\"UltraRemote\" dir=in action=allow program=\"{exe}\" enable=yes",
+                    Arguments = "advfirewall firewall add rule name=\"UltraRemotePort21118\" dir=in action=allow protocol=TCP localport=21118 enable=yes",
                     UseShellExecute = false,
                     CreateNoWindow = true
                 });
-                fwProc?.WaitForExit(2000);
+                fwPort?.WaitForExit(2000);
+
+                using var fwUdp = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "netsh.exe",
+                    Arguments = "advfirewall firewall add rule name=\"UltraRemoteUDP\" dir=in action=allow protocol=UDP localport=21118-21119 enable=yes",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                fwUdp?.WaitForExit(2000);
+
+                using var fwApp = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "netsh.exe",
+                    Arguments = $"advfirewall firewall add rule name=\"UltraRemoteApp\" dir=in action=allow program=\"{exe}\" enable=yes",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                fwApp?.WaitForExit(2000);
             }
             catch { }
             return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Configures direct-server = 'Y' and direct-access-port = '21118' in RustDesk configuration.
+    /// </summary>
+    public static void EnsureDirectServerConfigured()
+    {
+        string[] tomlPaths = new[]
+        {
+            @"C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk2.toml",
+            @"C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk.toml",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"RustDesk\config\RustDesk2.toml"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"RustDesk\config\RustDesk.toml"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"RustDesk\config\RustDesk2.toml")
+        };
+
+        bool changed = false;
+
+        foreach (var p in tomlPaths)
+        {
+            try
+            {
+                string dir = Path.GetDirectoryName(p) ?? "";
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+                string content = File.Exists(p) ? File.ReadAllText(p) : "";
+                string original = content;
+
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    content = "[options]\r\ndirect-server = 'Y'\r\ndirect-access-port = '21118'\r\n";
+                }
+                else
+                {
+                    if (Regex.IsMatch(content, @"direct-server\s*="))
+                    {
+                        content = Regex.Replace(content, @"direct-server\s*=\s*['""]?[^'""\r\n]+['""]?", "direct-server = 'Y'");
+                    }
+                    else if (content.Contains("[options]"))
+                    {
+                        content = content.Replace("[options]", "[options]\r\ndirect-server = 'Y'");
+                    }
+                    else
+                    {
+                        content += "\r\n[options]\r\ndirect-server = 'Y'\r\n";
+                    }
+
+                    if (Regex.IsMatch(content, @"direct-access-port\s*="))
+                    {
+                        content = Regex.Replace(content, @"direct-access-port\s*=\s*['""]?[^'""\r\n]+['""]?", "direct-access-port = '21118'");
+                    }
+                    else
+                    {
+                        content = content.Replace("direct-server = 'Y'", "direct-server = 'Y'\r\ndirect-access-port = '21118'");
+                    }
+                }
+
+                if (content != original)
+                {
+                    File.WriteAllText(p, content);
+                    changed = true;
+                }
+            }
+            catch { }
+        }
+
+        if (changed)
+        {
+            try
+            {
+                using var pRestart = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "net.exe",
+                    Arguments = "stop RustDesk",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                pRestart?.WaitForExit(2000);
+
+                using var pStart = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "net.exe",
+                    Arguments = "start RustDesk",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                pStart?.WaitForExit(2000);
+            }
+            catch { }
+        }
     }
 
     /// <summary>
@@ -348,6 +525,7 @@ public static class UltraRemoteService
             {
                 FileName = exe,
                 Arguments = $"--connect {target} --password {password}",
+                WorkingDirectory = Path.GetDirectoryName(exe) ?? "",
                 UseShellExecute = true
             };
             Process.Start(psi);
@@ -374,3 +552,4 @@ public static class UltraRemoteService
         return LaunchRemoteConnection(cleanIp, password, cleanIp);
     }
 }
+

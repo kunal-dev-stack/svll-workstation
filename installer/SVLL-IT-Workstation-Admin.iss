@@ -39,6 +39,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\publish-admin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app_logo.ico"; DestDir: "{app}"; DestName: "app_logo.ico"; Flags: ignoreversion
 Source: "..\src\tools\*"; DestDir: "{app}\tools"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\src\tools\*"; DestDir: "{commonpf}\RustDesk"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"
@@ -46,8 +47,12 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\tools\rustdesk.exe"; Parameters: "--silent-install"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
-Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemote"" dir=in action=allow program=""{app}\tools\rustdesk.exe"" enable=yes"; Flags: runhidden
+Filename: "{commonpf}\RustDesk\rustdesk.exe"; Parameters: "--silent-install"; Flags: runhidden; Check: FileExists(ExpandConstant('{commonpf}\RustDesk\rustdesk.exe'))
+Filename: "{app}\tools\rustdesk.exe"; Parameters: "--silent-install"; Flags: runhidden; Check: not FileExists(ExpandConstant('{commonpf}\RustDesk\rustdesk.exe'))
+Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemotePort21118"" dir=in action=allow protocol=TCP localport=21118 enable=yes"; Flags: runhidden
+Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemoteUDP"" dir=in action=allow protocol=UDP localport=21118-21119 enable=yes"; Flags: runhidden
+Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemoteApp"" dir=in action=allow program=""{commonpf}\RustDesk\rustdesk.exe"" enable=yes"; Flags: runhidden; Check: FileExists(ExpandConstant('{commonpf}\RustDesk\rustdesk.exe'))
+Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemoteApp2"" dir=in action=allow program=""{app}\tools\rustdesk.exe"" enable=yes"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 
@@ -66,6 +71,15 @@ begin
   ShowWindow(WizardForm.Handle, 3);
 end;
 
+function InitializeSetup(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Exec('net.exe', 'stop RustDesk', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /IM rustdesk.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := True;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   DataDir: string;
@@ -79,7 +93,7 @@ begin
     CfgFile := DataDir + '\admin_security.json';
     if not FileExists(CfgFile) then
     begin
-      JsonContent := '{"RelayServerUrl":"http://192.168.10.222:5000","MeshCentralUrl":"http://192.168.10.222:8086"}';
+      JsonContent := '{"RelayServerUrl":"http://192.168.10.222:5000"}';
       SaveStringToFile(CfgFile, JsonContent, False);
     end;
   end;

@@ -80,18 +80,24 @@ if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
 }
 Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
 
+# Ensure Admin PC Program Files has full tools including Flutter companion DLLs
+$adminTools = if (Test-Path "C:\Program Files\ShreeVasuLogistics\ITWorkstationAdmin\tools") { "C:\Program Files\ShreeVasuLogistics\ITWorkstationAdmin\tools" } else { "C:\Program Files\ShreeVasuLogistics\ITWorkstation\tools" }
+if (Test-Path $adminTools) {
+    if (-not (Test-Path "C:\Program Files\RustDesk")) { New-Item -ItemType Directory -Path "C:\Program Files\RustDesk" -Force | Out-Null }
+    Copy-Item -Path "$adminTools\*" -Destination "C:\Program Files\RustDesk" -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 # 6. Ensure Ultra Remote Viewer is installed on Admin PC for 1-Click Connect
 Write-Host "`nChecking Ultra Remote Viewer on Admin PC..." -ForegroundColor Yellow
 $ultraCandidates = @(
-    "C:\Program Files\ShreeVasuLogistics\ITWorkstationAdmin\tools\rustdesk.exe",
-    "C:\Program Files (x86)\ShreeVasuLogistics\ITWorkstationAdmin\tools\rustdesk.exe",
     "C:\Program Files\RustDesk\rustdesk.exe",
+    "C:\Program Files\ShreeVasuLogistics\ITWorkstationAdmin\tools\rustdesk.exe",
     "C:\Program Files (x86)\RustDesk\rustdesk.exe",
+    "C:\Program Files (x86)\ShreeVasuLogistics\ITWorkstationAdmin\tools\rustdesk.exe",
     "$env:ProgramData\SVLL-IT-Workstation\tools\rustdesk.exe"
 )
 $ultraExe = $null
 foreach ($p in $ultraCandidates) { if (Test-Path $p) { $ultraExe = $p; break } }
-
 
 if (-not $ultraExe) {
     Write-Host "Downloading and configuring Ultra Remote Engine for Admin Console..." -ForegroundColor Yellow
@@ -100,7 +106,7 @@ if (-not $ultraExe) {
     $ultraExe = Join-Path $toolsDir "rustdesk.exe"
     try {
         Invoke-WebRequest -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe" -OutFile $ultraExe -UseBasicParsing -TimeoutSec 45
-        Start-Process -FilePath $ultraExe -ArgumentList "--install" -Wait -WindowStyle Hidden
+        Start-Process -FilePath $ultraExe -ArgumentList "--install" -WorkingDirectory (Split-Path $ultraExe) -Wait -WindowStyle Hidden
         Start-Sleep -Seconds 2
         Write-Host "[+] Ultra Remote Viewer ready for 1-click connections." -ForegroundColor Green
     } catch {
@@ -109,6 +115,10 @@ if (-not $ultraExe) {
 } else {
     Write-Host "[+] Ultra Remote Viewer verified on Admin PC." -ForegroundColor Green
 }
+
+# Firewall rules for direct connection
+netsh advfirewall firewall add rule name="UltraRemotePort21118" dir=in action=allow protocol=TCP localport=21118 enable=yes | Out-Null
+netsh advfirewall firewall add rule name="UltraRemoteUDP" dir=in action=allow protocol=UDP localport=21118-21119 enable=yes | Out-Null
 
 # 7. Check AnyDesk as secondary fallback
 Write-Host "`nChecking AnyDesk on Admin PC..." -ForegroundColor Yellow
@@ -131,8 +141,12 @@ if (-not $adExe) {
     Write-Host "[+] AnyDesk verified on Admin PC." -ForegroundColor Green
 }
 
-# 7. Launch Admin Workstation
-$adminExe = "$env:ProgramFiles\ShreeVasuLogistics\ITWorkstation\SVLL-IT-Workstation-Admin.exe"
+# 8. Launch Admin Workstation
+$adminExe = if (Test-Path "$env:ProgramFiles\ShreeVasuLogistics\ITWorkstationAdmin\SVLL-IT-Workstation-Admin.exe") {
+    "$env:ProgramFiles\ShreeVasuLogistics\ITWorkstationAdmin\SVLL-IT-Workstation-Admin.exe"
+} else {
+    "$env:ProgramFiles\ShreeVasuLogistics\ITWorkstation\SVLL-IT-Workstation-Admin.exe"
+}
 if (Test-Path $adminExe) {
     Start-Process $adminExe
 }
