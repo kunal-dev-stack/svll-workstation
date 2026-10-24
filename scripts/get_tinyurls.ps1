@@ -1,8 +1,8 @@
 $wc = New-Object System.Net.WebClient
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$userUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.2/SVLL-IT-Workstation-User-v8.2-Setup.exe"
-$adminUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.2/SVLL-IT-Workstation-Admin-v8.2-Setup.exe"
+$userUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.3/SVLL-IT-Workstation-User-v8.3-Setup.exe"
+$adminUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.3/SVLL-IT-Workstation-Admin-v8.3-Setup.exe"
 $installUserScript = "https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install.ps1"
 $installAdminScript = "https://raw.githubusercontent.com/kunal-dev-stack/svll-workstation/main/install-admin.ps1"
 
