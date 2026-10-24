@@ -46,7 +46,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\tools\rustdesk.exe"; Parameters: "--install"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
+Filename: "{app}\tools\rustdesk.exe"; Parameters: "--silent-install"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
 Filename: "{app}\tools\rustdesk.exe"; Parameters: "--password SVLL@Remote2026"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
 Filename: "net.exe"; Parameters: "start RustDesk"; Flags: runhidden
 Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemote"" dir=in action=allow program=""{app}\tools\rustdesk.exe"" enable=yes"; Flags: runhidden
@@ -80,8 +80,10 @@ begin
     CfgFile := DataDir + '\admin_security.json';
     if not FileExists(CfgFile) then
     begin
-      JsonContent := '{"RelayServerUrl":"http://192.168.10.222:5000","MeshCentralUrl":"http://192.168.10.222:8086"}';
+      JsonContent := '{"RelayServerUrl":"http://192.168.10.222:5000"}';
       SaveStringToFile(CfgFile, JsonContent, False);
     end;
+    RegWriteStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Services\RustDesk', 'ImagePath', '"' + ExpandConstant('{app}\tools\rustdesk.exe') + '" --service');
   end;
 end;
+

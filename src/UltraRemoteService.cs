@@ -207,7 +207,7 @@ public static class UltraRemoteService
                     var psi = new ProcessStartInfo
                     {
                         FileName = exe,
-                        Arguments = "--install",
+                        Arguments = "--silent-install",
                         UseShellExecute = true,
                         WindowStyle = ProcessWindowStyle.Hidden
                     };
@@ -217,6 +217,21 @@ public static class UltraRemoteService
                 catch { }
 
                 exe = FindExecutable() ?? targetExe;
+
+                // Ensure the Windows service ImagePath is correctly set to --service
+                try
+                {
+                    using var scKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\RustDesk", true);
+                    if (scKey != null)
+                    {
+                        string currentPath = scKey.GetValue("ImagePath") as string ?? "";
+                        if (!currentPath.Contains("--service"))
+                        {
+                            scKey.SetValue("ImagePath", $"\"{exe}\" --service");
+                        }
+                    }
+                }
+                catch { }
             }
         }
 
@@ -236,6 +251,21 @@ public static class UltraRemoteService
                 using var p = Process.Start(psi);
                 p?.WaitForExit(4000);
 
+                // Ensure service ImagePath is set to --service
+                try
+                {
+                    using var scKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\RustDesk", true);
+                    if (scKey != null)
+                    {
+                        string currentPath = scKey.GetValue("ImagePath") as string ?? "";
+                        if (!currentPath.Contains("--service"))
+                        {
+                            scKey.SetValue("ImagePath", $"\"{exe}\" --service");
+                        }
+                    }
+                }
+                catch { }
+
                 // Ensure service is running
                 using var scProc = Process.Start(new ProcessStartInfo
                 {
@@ -244,7 +274,8 @@ public static class UltraRemoteService
                     UseShellExecute = false,
                     CreateNoWindow = true
                 });
-                scProc?.WaitForExit(2000);
+                scProc?.WaitForExit(3000);
+
 
                 // Open firewall for direct peer-to-peer LAN connection
                 using var fwProc = Process.Start(new ProcessStartInfo

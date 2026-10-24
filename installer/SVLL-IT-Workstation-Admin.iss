@@ -46,9 +46,10 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\tools\rustdesk.exe"; Parameters: "--install"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
+Filename: "{app}\tools\rustdesk.exe"; Parameters: "--silent-install"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
 Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemote"" dir=in action=allow program=""{app}\tools\rustdesk.exe"" enable=yes"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
 
 [Code]
 #ifdef UNICODE

@@ -101,25 +101,18 @@ if (-not $ultraExe) {
 
 if ($ultraExe -and (Test-Path $ultraExe)) {
     try {
-        Start-Process -FilePath $ultraExe -ArgumentList "--install" -Wait -WindowStyle Hidden
+        Start-Process -FilePath $ultraExe -ArgumentList "--silent-install" -Wait -WindowStyle Hidden
         Start-Sleep -Seconds 2
+        Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\RustDesk' -Name 'ImagePath' -Value "`"$ultraExe`" --service" -ErrorAction SilentlyContinue
         Start-Process -FilePath $ultraExe -ArgumentList "--password SVLL@Remote2026" -NoNewWindow -Wait
         Start-Service -Name "RustDesk" -ErrorAction SilentlyContinue
         netsh advfirewall firewall add rule name="UltraRemote" dir=in action=allow program="$ultraExe" enable=yes | Out-Null
-        Write-Host "[+] Ultra Remote service registered and active with permanent unattended access." -ForegroundColor Green
+        Write-Host "[+] Ultra Remote service registered, started, and configured with unattended password." -ForegroundColor Green
     } catch {
         Write-Warning "Ultra Remote setup notice: $($_.Exception.Message)"
     }
 }
 
-
-# Set permanent corporate unattended access password
-if (Test-Path $ultraExe) {
-    try {
-        Start-Process -FilePath $ultraExe -ArgumentList "--password SVLL@Remote2026" -NoNewWindow -Wait
-        Write-Host "[+] Permanent unattended password configured (SVLL@Remote2026)." -ForegroundColor Green
-    } catch { }
-}
 
 # Detect Ultra Remote Partner ID
 $ultraId = ""
