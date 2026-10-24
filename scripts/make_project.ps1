@@ -85,6 +85,15 @@ if (-not (Test-Path $userExePath)) {
 $userMb = [Math]::Round(((Get-Item $userExePath).Length / 1MB), 2)
 Write-Host "[OK] User Edition published: $userExePath ($userMb MB)" -ForegroundColor Green
 
+# Ensure bundled tools are present in both publish directories
+$toolsSrc = Join-Path $srcDir "tools"
+if (Test-Path $toolsSrc) {
+    Copy-Item -Path $toolsSrc -Destination (Join-Path $publishAdminDir "tools") -Recurse -Force
+    Copy-Item -Path $toolsSrc -Destination (Join-Path $publishUserDir "tools") -Recurse -Force
+    Write-Host "[OK] Bundled tools (Ultra Remote engine) copied to publish directories." -ForegroundColor Green
+}
+
+
 # 4. Locate Inno Setup Compiler (ISCC.exe)
 Write-Host "`n[4/5] Searching for Inno Setup Compiler (ISCC.exe)..." -ForegroundColor Yellow
 

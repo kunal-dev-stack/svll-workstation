@@ -25,13 +25,13 @@ public static class UltraRemoteService
 
     private static readonly string[] ExeCandidates = new[]
     {
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "rustdesk.exe"),
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "rustdesk.exe"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\tools\rustdesk.exe"),
         @"C:\Program Files\RustDesk\rustdesk.exe",
         @"C:\Program Files (x86)\RustDesk\rustdesk.exe",
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"RustDesk\rustdesk.exe"),
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"RustDesk\rustdesk.exe"),
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\tools\rustdesk.exe"),
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "rustdesk.exe"),
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "rustdesk.exe")
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"RustDesk\rustdesk.exe")
     };
 
     /// <summary>
@@ -164,42 +164,68 @@ public static class UltraRemoteService
 
         if (string.IsNullOrEmpty(exe))
         {
-            onProgress?.Invoke("Downloading Ultra Remote Engine...");
             string toolsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"SVLL-IT-Workstation\tools");
             Directory.CreateDirectory(toolsDir);
             string targetExe = Path.Combine(toolsDir, "rustdesk.exe");
 
-            try
+            // 1. Check if bundled in local application directory
+            string localBundled = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "rustdesk.exe");
+            if (File.Exists(localBundled))
             {
-                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
-                string dlUrl = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe";
-                var bytes = await http.GetByteArrayAsync(dlUrl);
-                await File.WriteAllBytesAsync(targetExe, bytes);
-
-                onProgress?.Invoke("Registering Ultra Remote background service...");
-                var psi = new ProcessStartInfo
+                try
                 {
-                    FileName = targetExe,
-                    Arguments = "--install",
-                    UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
-                var p = Process.Start(psi);
-                if (p != null) await p.WaitForExitAsync();
+                    File.Copy(localBundled, targetExe, true);
+                    exe = targetExe;
+                }
+                catch { }
+            }
+
+            // 2. Fallback to download if not bundled
+            if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+            {
+                onProgress?.Invoke("Downloading Ultra Remote Engine...");
+                try
+                {
+                    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
+                    string dlUrl = "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe";
+                    var bytes = await http.GetByteArrayAsync(dlUrl);
+                    await File.WriteAllBytesAsync(targetExe, bytes);
+                    exe = targetExe;
+                }
+                catch (Exception ex)
+                {
+                    onProgress?.Invoke($"Notice: {ex.Message}");
+                }
+            }
+
+            // Register background service
+            if (!string.IsNullOrEmpty(exe) && File.Exists(exe))
+            {
+                onProgress?.Invoke("Registering Ultra Remote background service...");
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = exe,
+                        Arguments = "--install",
+                        UseShellExecute = true,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    };
+                    var p = Process.Start(psi);
+                    if (p != null) await p.WaitForExitAsync();
+                }
+                catch { }
 
                 exe = FindExecutable() ?? targetExe;
             }
-            catch (Exception ex)
-            {
-                onProgress?.Invoke($"Download notice: {ex.Message}");
-            }
         }
 
-        // Set unattended password
-        if (!string.IsNullOrEmpty(exe))
+        // Configure permanent unattended password and start service
+        if (!string.IsNullOrEmpty(exe) && File.Exists(exe))
         {
             try
             {
+                // Set password
                 var psi = new ProcessStartInfo
                 {
                     FileName = exe,
@@ -209,6 +235,26 @@ public static class UltraRemoteService
                 };
                 using var p = Process.Start(psi);
                 p?.WaitForExit(4000);
+
+                // Ensure service is running
+                using var scProc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "net.exe",
+                    Arguments = "start RustDesk",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                scProc?.WaitForExit(2000);
+
+                // Open firewall for direct peer-to-peer LAN connection
+                using var fwProc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "netsh.exe",
+                    Arguments = $"advfirewall firewall add rule name=\"UltraRemote\" dir=in action=allow program=\"{exe}\" enable=yes",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                fwProc?.WaitForExit(2000);
             }
             catch { }
             return true;
@@ -219,27 +265,29 @@ public static class UltraRemoteService
 
     /// <summary>
     /// Admin build: Connect directly to remote endpoint with 1 click using ID and Password.
-    /// Zero prompts, zero acceptance required on remote PC.
+    /// Can target either Remote Partner ID or Direct LAN IP address.
     /// </summary>
-    public static bool LaunchRemoteConnection(string remoteId, string password = DefaultPassword)
+    public static bool LaunchRemoteConnection(string remoteId, string password = DefaultPassword, string? targetIp = null)
     {
         string cleanId = remoteId.Replace(" ", "").Trim();
-        if (string.IsNullOrEmpty(cleanId))
+        string target = !string.IsNullOrEmpty(cleanId) ? cleanId : (targetIp?.Trim() ?? "");
+
+        if (string.IsNullOrEmpty(target))
         {
-            MessageBox.Show("No Ultra Remote ID available for this PC.", "Remote ID Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("No Ultra Remote ID or IP address available for this PC.", "Remote Target Required", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
 
-        // Copy ID and password to clipboard for admin convenience
-        try { Clipboard.SetText(cleanId); } catch { }
+        // Copy ID/target and password to clipboard for admin convenience
+        try { Clipboard.SetText(target); } catch { }
 
         string? exe = FindExecutable();
         if (string.IsNullOrEmpty(exe))
         {
             var res = MessageBox.Show(
                 $"Ultra Remote Engine is required to connect but is not yet installed on this Admin machine.\n\n" +
-                $"Target ID: {remoteId}\nPassword: {password} (Copied to clipboard!)\n\n" +
-                $"Would you like to download and install the Ultra Remote viewer now?",
+                $"Target: {target}\nPassword: {password} (Copied to clipboard!)\n\n" +
+                $"Would you like to install the Ultra Remote viewer now?",
                 "Install Ultra Remote Viewer",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -251,11 +299,11 @@ public static class UltraRemoteService
                     bool ok = await EnsureProvisionedAsync();
                     if (ok)
                     {
-                        Application.Current?.Dispatcher.Invoke(() => LaunchRemoteConnection(cleanId, password));
+                        Application.Current?.Dispatcher.Invoke(() => LaunchRemoteConnection(cleanId, password, targetIp));
                     }
                     else
                     {
-                        MessageBox.Show("Could not download Ultra Remote automatically. Please check your internet connection.", "Notice", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show("Could not install Ultra Remote viewer. Please verify setup file.", "Notice", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 });
             }
@@ -264,11 +312,11 @@ public static class UltraRemoteService
 
         try
         {
-            // rustdesk.exe --connect <ID> --password <PASS>
+            // rustdesk.exe --connect <ID_OR_IP> --password <PASS>
             var psi = new ProcessStartInfo
             {
                 FileName = exe,
-                Arguments = $"--connect {cleanId} --password {password}",
+                Arguments = $"--connect {target} --password {password}",
                 UseShellExecute = true
             };
             Process.Start(psi);
@@ -279,5 +327,19 @@ public static class UltraRemoteService
             MessageBox.Show($"Could not launch Ultra Remote session: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Connects directly via LAN IP address without relying on external relay servers.
+    /// </summary>
+    public static bool LaunchDirectIpConnection(string ipAddress, string password = DefaultPassword)
+    {
+        string cleanIp = ipAddress.Trim();
+        if (string.IsNullOrEmpty(cleanIp))
+        {
+            MessageBox.Show("No IP address available for direct LAN connection.", "IP Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+        return LaunchRemoteConnection(cleanIp, password, cleanIp);
     }
 }

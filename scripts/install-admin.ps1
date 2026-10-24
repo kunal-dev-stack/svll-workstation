@@ -6,8 +6,7 @@
 # =========================================================================
 
 param(
-    [string]$ServerUrl = "http://192.168.10.222:5000",
-    [string]$MeshServerUrl = "http://192.168.10.222:8086"
+    [string]$ServerUrl = "http://192.168.10.222:5000"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,9 +31,6 @@ Write-Host "====================================================================
 if (-not $ServerUrl) {
     $ServerUrl = "http://192.168.10.222:5000"
 }
-if (-not $MeshServerUrl) {
-    $MeshServerUrl = "http://192.168.10.222:8086"
-}
 $ServerUrl = $ServerUrl.TrimEnd('/')
 Write-Host "[+] Connecting Admin Console to Relay Server: $ServerUrl" -ForegroundColor Green
 
@@ -56,7 +52,6 @@ $secConfig = @{
     LastPasswordChange = if ($existingConfig -and $existingConfig.LastPasswordChange) { $existingConfig.LastPasswordChange } else { (Get-Date).ToString("o") }
     SharedFleetDirectory = if ($existingConfig -and $existingConfig.SharedFleetDirectory) { $existingConfig.SharedFleetDirectory } else { "" }
     RelayServerUrl = $ServerUrl
-    MeshCentralUrl = if ($MeshServerUrl) { $MeshServerUrl } elseif ($existingConfig -and $existingConfig.MeshCentralUrl) { $existingConfig.MeshCentralUrl } else { "$ServerUrl:8086" }
 } | ConvertTo-Json -Depth 5
 
 Set-Content -Path $cfgPath -Value $secConfig -Force
@@ -143,8 +138,9 @@ Write-Host "   Relay Server:   $ServerUrl" -ForegroundColor Cyan
 Write-Host "   Application:    $adminExe" -ForegroundColor White
 Write-Host "   Shortcut:       Desktop & Start Menu" -ForegroundColor White
 Write-Host "`n   👑 ADMIN FEATURES ACTIVE:" -ForegroundColor Green
-Write-Host "       • Live Fleet Telemetry from all Employee PCs" -ForegroundColor White
-Write-Host "       • 1-Click Zero-Password Remote Access via MeshCentral & AnyDesk" -ForegroundColor White
+Write-Host "       • Live Fleet Telemetry & Active Target Selection Deck" -ForegroundColor White
+Write-Host "       • 1-Click Zero-Touch Remote Desktop (Ultra Remote) & Direct LAN" -ForegroundColor White
 Write-Host "       • Real-Time IT Complaint Triage & Direct Toast Reply" -ForegroundColor White
-Write-Host "       • AI IT Assistant & System Diagnostics Tools" -ForegroundColor White
+Write-Host "       • AI IT Assistant & Fleet Management Tools" -ForegroundColor White
+
 Write-Host "=========================================================================`n" -ForegroundColor Green

@@ -723,25 +723,7 @@ public partial class MainWindow
         };
         headerRight.Children.Add(btnExportCsv);
 
-        var btnMeshPortal = new Button
-        {
-            Content = "🌐 MeshCentral Portal",
-            FontSize = 11,
-            Padding = new Thickness(10, 6, 10, 6),
-            Margin = new Thickness(0, 0, 8, 0),
-            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
-            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
-            Cursor = Cursors.Hand,
-            ToolTip = "Open MeshCentral web console for fleet remote control"
-        };
-        btnMeshPortal.Click += (s, e) =>
-        {
-            string url = AdminAuthService.Instance.GetMeshCentralUrl();
-            if (string.IsNullOrEmpty(url)) url = "http://localhost:8086";
-            MeshAgentService.LaunchMeshDashboard(url);
-        };
-        headerRight.Children.Add(btnMeshPortal);
+
 
         var btnServerSettings = new Button
         {
@@ -1269,21 +1251,6 @@ public partial class MainWindow
             FontFamily = new FontFamily("Consolas, Courier New"),
             Foreground = SvllRed
         });
-
-        if (dev.MeshAgentRunning || !string.IsNullOrEmpty(dev.MeshNodeId))
-        {
-            var meshPill = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(6, 1, 6, 1),
-                Margin = new Thickness(10, 0, 0, 0),
-                Child = new TextBlock { Text = "🌐 MESH AGENT READY", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)) }
-            };
-            idRow.Children.Add(meshPill);
-        }
         col1.Children.Add(idRow);
 
         // Telemetry Row 1: User, IP, MAC, Last Seen
@@ -1332,7 +1299,7 @@ public partial class MainWindow
         Grid.SetColumn(col1, 1);
         grid.Children.Add(col1);
 
-        // Col 2: Action Buttons (Zero-Password Mesh, AnyDesk, RDP, Ping)
+        // Col 2: Action Buttons (Ultra Remote, AnyDesk, RDP, Ping)
         var col2 = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
         // ⚡ Ultra Remote 1-Click Connect Button
@@ -1359,48 +1326,6 @@ public partial class MainWindow
             };
             col2.Children.Add(btnConnectUltra);
         }
-
-        // v8.0: Zero-Password Remote Control (MeshCentral)
-        var btnConnectMesh = new Button
-        {
-            Content = "🌐 Zero-Password Remote",
-            FontSize = 10.5,
-            FontWeight = FontWeights.Bold,
-            Background = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
-            Foreground = Brushes.White,
-            Padding = new Thickness(10, 6, 10, 6),
-            Margin = new Thickness(0, 0, 6, 0),
-            BorderThickness = new Thickness(0),
-            Cursor = Cursors.Hand,
-            ToolTip = "Connect over internet without remote password prompt via MeshCentral"
-        };
-        btnConnectMesh.Click += (s, e) =>
-        {
-            string meshUrl = AdminAuthService.Instance.GetMeshCentralUrl();
-            if (string.IsNullOrEmpty(meshUrl))
-            {
-                meshUrl = "http://localhost:8086";
-            }
-
-            if (!string.IsNullOrEmpty(dev.MeshNodeId))
-            {
-                MeshAgentService.LaunchRemoteControl(meshUrl, dev.MeshNodeId);
-                Log($"[REMOTE ACCESS] Admin launched Zero-Password remote control session to {dev.Hostname} (Node: {dev.MeshNodeId}).");
-            }
-            else
-            {
-                bool launched = MeshAgentService.LaunchMeshDashboard(meshUrl);
-                if (!launched)
-                {
-                    MessageBox.Show($"MeshCentral URL not configured or unreachable.\nConnecting via AnyDesk fallback...", "Remote Control", MessageBoxButton.OK, MessageBoxImage.Information);
-                    if (!string.IsNullOrEmpty(dev.AnyDeskId) && dev.AnyDeskId != "Not Configured")
-                    {
-                        FleetRegistryService.LaunchAnyDesk(dev.AnyDeskId);
-                    }
-                }
-            }
-        };
-        col2.Children.Add(btnConnectMesh);
 
         var btnConnectAnyDesk = new Button
         {

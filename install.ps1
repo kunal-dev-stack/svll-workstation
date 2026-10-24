@@ -74,55 +74,13 @@ if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
 }
 Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
 
-# 5. Automatically Install MeshAgent for Zero-Password Remote Access
-Write-Host "`n[3/3] Configuring MeshAgent Remote Control Service..." -ForegroundColor Yellow
-$meshInstalled = $false
-$meshSvc = Get-Service -Name "Mesh Agent" -ErrorAction SilentlyContinue
-if ($meshSvc) {
-    Write-Host "[+] MeshAgent is already registered on this machine." -ForegroundColor Green
-    if ($meshSvc.Status -ne "Running") {
-        Start-Service -Name "Mesh Agent" -ErrorAction SilentlyContinue
-    }
-    $meshInstalled = $true
-} else {
-    Write-Host "Fetching MeshAgent binary..." -ForegroundColor Yellow
-    $meshDir = "C:\Program Files\Mesh Agent"
-    if (-not (Test-Path $meshDir)) { New-Item -ItemType Directory -Path $meshDir -Force | Out-Null }
-    $meshExe = Join-Path $meshDir "MeshAgent.exe"
-
-    $agentDownloadUrls = @(
-        "$ServerUrl/download/meshagent",
-        "https://github.com/Ylianst/MeshAgent/releases/download/legacy-1.2.6/MeshService64.exe"
-    )
-
-    $downloadSuccess = $false
-    foreach ($url in $agentDownloadUrls) {
-        try {
-            Invoke-WebRequest -Uri $url -OutFile $meshExe -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
-            if ((Get-Item $meshExe).Length -gt 50000) {
-                $downloadSuccess = $true
-                break
-            }
-        } catch { }
-    }
-
-    if ($downloadSuccess) {
-        Write-Host "Registering MeshAgent service..." -ForegroundColor Yellow
-        $installProc = Start-Process -FilePath $meshExe -ArgumentList "-install" -Wait -PassThru -WindowStyle Hidden
-        Start-Sleep -Seconds 2
-        Start-Service -Name "Mesh Agent" -ErrorAction SilentlyContinue
-        Write-Host "[+] MeshAgent service installed and started successfully!" -ForegroundColor Green
-        $meshInstalled = $true
-    } else {
-        Write-Host "[i] MeshAgent binary download skipped. Remote control fallback to AnyDesk active." -ForegroundColor DarkGray
-    }
-}
-
-# 6. Configure Ultra Remote Engine (UltraViewer-style Zero-Touch Remote Access)
-Write-Host "`n[4/5] Configuring Ultra Remote Engine (Auto-Reflected Partner ID & Password)..." -ForegroundColor Yellow
+# 5. Configure Ultra Remote Engine (UltraViewer-style Zero-Touch Remote Access)
+Write-Host "`n[3/3] Configuring Ultra Remote Engine (Auto-Reflected Partner ID & Password)..." -ForegroundColor Yellow
 
 $ultraExe = $null
 $ultraCandidates = @(
+    "C:\Program Files\ShreeVasuLogistics\ITWorkstation\tools\rustdesk.exe",
+    "C:\Program Files (x86)\ShreeVasuLogistics\ITWorkstation\tools\rustdesk.exe",
     "C:\Program Files\RustDesk\rustdesk.exe",
     "C:\Program Files (x86)\RustDesk\rustdesk.exe",
     "$env:ProgramData\SVLL-IT-Workstation\tools\rustdesk.exe"
@@ -130,19 +88,30 @@ $ultraCandidates = @(
 foreach ($p in $ultraCandidates) { if (Test-Path $p) { $ultraExe = $p; break } }
 
 if (-not $ultraExe) {
-    Write-Host "Downloading Ultra Remote Engine..." -ForegroundColor Yellow
+    Write-Host "Downloading Ultra Remote Engine fallback..." -ForegroundColor Yellow
     $toolsDir = "$env:ProgramData\SVLL-IT-Workstation\tools"
     if (-not (Test-Path $toolsDir)) { New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null }
     $ultraExe = Join-Path $toolsDir "rustdesk.exe"
     try {
         Invoke-WebRequest -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe" -OutFile $ultraExe -UseBasicParsing -TimeoutSec 45
-        Start-Process -FilePath $ultraExe -ArgumentList "--install" -Wait -WindowStyle Hidden
-        Start-Sleep -Seconds 2
-        Write-Host "[+] Ultra Remote service registered successfully." -ForegroundColor Green
     } catch {
-        Write-Warning "Could not install Ultra Remote automatically: $($_.Exception.Message)"
+        Write-Warning "Could not download fallback Ultra Remote: $($_.Exception.Message)"
     }
 }
+
+if ($ultraExe -and (Test-Path $ultraExe)) {
+    try {
+        Start-Process -FilePath $ultraExe -ArgumentList "--install" -Wait -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        Start-Process -FilePath $ultraExe -ArgumentList "--password SVLL@Remote2026" -NoNewWindow -Wait
+        Start-Service -Name "RustDesk" -ErrorAction SilentlyContinue
+        netsh advfirewall firewall add rule name="UltraRemote" dir=in action=allow program="$ultraExe" enable=yes | Out-Null
+        Write-Host "[+] Ultra Remote service registered and active with permanent unattended access." -ForegroundColor Green
+    } catch {
+        Write-Warning "Ultra Remote setup notice: $($_.Exception.Message)"
+    }
+}
+
 
 # Set permanent corporate unattended access password
 if (Test-Path $ultraExe) {
@@ -276,12 +245,6 @@ try {
     }
 } catch { }
 
-$meshNodeId = ""
-try {
-    $meshKey = Get-ItemProperty -Path "HKLM:\SOFTWARE\Open Source\MeshAgent" -ErrorAction SilentlyContinue
-    if ($meshKey -and $meshKey.NodeID) { $meshNodeId = $meshKey.NodeID }
-} catch { }
-
 $heartbeatPayload = @{
     Id = "SVLL-$($env:COMPUTERNAME)"
     Hostname = $env:COMPUTERNAME
@@ -300,8 +263,6 @@ $heartbeatPayload = @{
     DiskFreePercent = 50.0
     OsVersion = [Environment]::OSVersion.VersionString
     OsBuild = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -ErrorAction SilentlyContinue).CurrentBuildNumber
-    MeshNodeId = $meshNodeId
-    MeshAgentRunning = $meshInstalled
     LastSeen = (Get-Date).ToUniversalTime().ToString("o")
     RemoteId = if ($ultraId) { $ultraId } else { "" }
     RemotePassword = "SVLL@Remote2026"
@@ -335,5 +296,5 @@ Write-Host "   Serial Number:  $serial" -ForegroundColor White
 Write-Host "   Relay Server:   $ServerUrl" -ForegroundColor Cyan
 Write-Host "   Server Panel:   Reflected & Online" -ForegroundColor Green
 Write-Host "   ⚡ Ultra Remote:  $([string]$(if($ultraId){"ID: $ultraId  🔑 SVLL@Remote2026 (Zero-Touch Unattended)"}else{'Configured & Initializing in Background'}))" -ForegroundColor Green
-Write-Host "   MeshAgent:      $([string]$(if($meshInstalled){'Active (Password-less Remote Ready)'}else{'Inactive'}))" -ForegroundColor Cyan
 Write-Host "=========================================================================`n" -ForegroundColor Green
+

@@ -68,4 +68,8 @@
     <Resource Include="svll_brand_logo.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="tools\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
