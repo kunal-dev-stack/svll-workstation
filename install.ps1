@@ -79,7 +79,7 @@ try {
 }
 
 Write-Host "[2/3] Performing in-place upgrade silently..." -ForegroundColor Yellow
-$proc = Start-Process -FilePath $tempExe -ArgumentList "/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -PassThru
+$proc = Start-Process -FilePath $tempExe -ArgumentList "/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -PassThru; $proc | Wait-Process -Timeout 45 -ErrorAction SilentlyContinue
 if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
     Write-Warning "Setup returned code: $($proc.ExitCode)"
 }
@@ -154,7 +154,7 @@ foreach ($tpath in $tomlTargets) {
 if ($ultraExe -and (Test-Path $ultraExe)) {
     try {
         $ultraDir = Split-Path $ultraExe
-        Start-Process -FilePath $ultraExe -ArgumentList "--silent-install" -WorkingDirectory $ultraDir -Wait -WindowStyle Hidden
+        $rdProc = Start-Process -FilePath $ultraExe -ArgumentList "--silent-install" -WorkingDirectory $ultraDir -PassThru -WindowStyle Hidden; $rdProc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
 
         $svcExe = if (Test-Path "C:\Program Files\RustDesk\rustdesk.exe") { "C:\Program Files\RustDesk\rustdesk.exe" } else { $ultraExe }
@@ -230,7 +230,7 @@ if (-not $adExe) {
     $adTemp = Join-Path $env:TEMP "AnyDeskSetup.exe"
     try {
         Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile $adTemp -UseBasicParsing -TimeoutSec 30
-        Start-Process -FilePath $adTemp -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent" -Wait
+        $adProc = Start-Process -FilePath $adTemp -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent" -PassThru -WindowStyle Hidden; $adProc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
         Remove-Item $adTemp -Force -ErrorAction SilentlyContinue
         foreach ($p in $adPaths) { if (Test-Path $p) { $adExe = $p; break } }
         if ($adExe) { Write-Host "[+] AnyDesk installed successfully." -ForegroundColor Green }
@@ -358,18 +358,19 @@ try {
 
     $agentExe = Join-Path $agentInstallDir "AegisMeshAgent.exe"
     if (Test-Path $agentExe) {
-        Write-Host "    Registering Windows Service (AegisMeshAgent)..." -ForegroundColor Yellow
+        Write-Host "    Registering 24/7 Auto-Start Task (SYSTEM)..." -ForegroundColor Yellow
         sc.exe stop AegisMeshAgent >nul 2>&1
         sc.exe delete AegisMeshAgent >nul 2>&1
-        Start-Sleep -Seconds 1
 
         $wsUrl = $ServerUrl.Replace("http://", "ws://").Replace("https://", "wss://")
-        $binPath = '"{0}" --server "{1}" --token "MESH-ENTERPRISE-TOKEN-2026"' -f $agentExe, $wsUrl
-        sc.exe create AegisMeshAgent binPath= $binPath start= auto DisplayName= "SVLL Workstation Management Agent"
-        sc.exe description AegisMeshAgent "SVLL Workstation remote device management and support service."
-        sc.exe failure AegisMeshAgent reset= 86400 actions= restart/60000/restart/60000/none/60000
-        sc.exe start AegisMeshAgent | Out-Null
-        Write-Host "[+] SVLL Workstation Management Agent installed & connected to $wsUrl" -ForegroundColor Green
+        $taskCmd = '\"' + $agentExe + '\" --server \"' + $wsUrl + '\" --token \"MESH-ENTERPRISE-TOKEN-2026\"'
+        schtasks.exe /create /tn "AegisMeshAgent" /tr $taskCmd /sc onstart /ru "SYSTEM" /rl HIGHEST /f | Out-Null
+
+        Stop-Process -Name "AegisMeshAgent" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        Write-Host "    Launching background agent daemon..." -ForegroundColor Yellow
+        Start-Process -FilePath $agentExe -ArgumentList @("--server", $wsUrl, "--token", "MESH-ENTERPRISE-TOKEN-2026") -WindowStyle Hidden
+        Write-Host "[+] SVLL Workstation Management Agent active & connected to $wsUrl" -ForegroundColor Green
     }
 } catch {
     Write-Warning "Could not install background management agent: $($_.Exception.Message)"

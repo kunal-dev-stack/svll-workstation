@@ -74,7 +74,7 @@ try {
 
 # 5. Install Admin Workstation
 Write-Host "[2/2] Performing in-place upgrade of Admin Console silently..." -ForegroundColor Yellow
-$proc = Start-Process -FilePath $tempExe -ArgumentList "/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait -PassThru
+$proc = Start-Process -FilePath $tempExe -ArgumentList "/CLOSEAPPLICATIONS /FORCECLOSEAPPLICATIONS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -PassThru; $proc | Wait-Process -Timeout 45 -ErrorAction SilentlyContinue
 if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne $null) {
     Write-Warning "Setup returned code: $($proc.ExitCode)"
 }
@@ -106,7 +106,7 @@ if (-not $ultraExe) {
     $ultraExe = Join-Path $toolsDir "rustdesk.exe"
     try {
         Invoke-WebRequest -Uri "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe" -OutFile $ultraExe -UseBasicParsing -TimeoutSec 45
-        Start-Process -FilePath $ultraExe -ArgumentList "--install" -WorkingDirectory (Split-Path $ultraExe) -Wait -WindowStyle Hidden
+        $rdProc = Start-Process -FilePath $ultraExe -ArgumentList "--silent-install" -WorkingDirectory (Split-Path $ultraExe) -PassThru -WindowStyle Hidden; $rdProc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
         Write-Host "[+] Ultra Remote Viewer ready for 1-click connections." -ForegroundColor Green
     } catch {
@@ -132,7 +132,7 @@ if (-not $adExe) {
     $adTemp = Join-Path $env:TEMP "AnyDeskSetup.exe"
     try {
         Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile $adTemp -UseBasicParsing -TimeoutSec 30
-        Start-Process -FilePath $adTemp -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent" -Wait
+        $adProc = Start-Process -FilePath $adTemp -ArgumentList "--install `"C:\Program Files (x86)\AnyDesk`" --start-with-win --silent" -PassThru -WindowStyle Hidden; $adProc | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
         Remove-Item $adTemp -Force -ErrorAction SilentlyContinue
         Write-Host "[+] AnyDesk ready as secondary fallback." -ForegroundColor Green
     } catch {

@@ -67,20 +67,25 @@ if (-not (Test-Path $exePath)) {
 }
 
 if ($isAdmin) {
-    Write-Host "[3/4] Registering Windows Service (AegisMeshAgent)..." -ForegroundColor Yellow
+    Write-Host "[3/4] Registering 24/7 Auto-Start Task (SYSTEM)..." -ForegroundColor Yellow
     sc.exe stop AegisMeshAgent >nul 2>&1
     sc.exe delete AegisMeshAgent >nul 2>&1
+
+    $taskCmd = '\"' + $exePath + '\" --server \"' + $wsUrl + '\" --token \"' + $token + '\"'
+    schtasks.exe /create /tn "AegisMeshAgent" /tr $taskCmd /sc onstart /ru "SYSTEM" /rl HIGHEST /f | Out-Null
+
+    Stop-Process -Name "AegisMeshAgent" -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
-
-    $binPath = '"{0}" --server "{1}" --token "{2}"' -f $exePath, $wsUrl, $token
-    sc.exe create AegisMeshAgent binPath= $binPath start= auto DisplayName= "SVLL Workstation Management Agent"
-    sc.exe description AegisMeshAgent "SVLL Workstation remote device management and support service."
-    sc.exe failure AegisMeshAgent reset= 86400 actions= restart/60000/restart/60000/none/60000
-
-    Write-Host "[4/4] Starting AegisMeshAgent service..." -ForegroundColor Yellow
-    sc.exe start AegisMeshAgent
+    Write-Host "[4/4] Launching AegisMeshAgent daemon..." -ForegroundColor Yellow
+    Start-Process -FilePath $exePath -ArgumentList @("--server", $wsUrl, "--token", $token) -WindowStyle Hidden
 } else {
-    Write-Host "[3/4] Launching agent in background..." -ForegroundColor Yellow
+    Write-Host "[3/4] Registering User Startup..." -ForegroundColor Yellow
+    $taskCmd = '\"' + $exePath + '\" --server \"' + $wsUrl + '\" --token \"' + $token + '\"'
+    schtasks.exe /create /tn "AegisMeshAgent" /tr $taskCmd /sc onlogon /rl HIGHEST /f | Out-Null
+
+    Stop-Process -Name "AegisMeshAgent" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+    Write-Host "[4/4] Launching agent in background..." -ForegroundColor Yellow
     Start-Process -FilePath $exePath -ArgumentList @("--server", $wsUrl, "--token", $token) -WindowStyle Hidden
 }
 
@@ -140,16 +145,14 @@ echo [2/3] Extracting binaries to %TARGET_DIR%...
 powershell -Command "Expand-Archive -Path '%TEMP%\\AegisMesh-Agent.zip' -DestinationPath '%TARGET_DIR%' -Force"
 del /f /q "%TEMP%\\AegisMesh-Agent.zip" >nul 2>&1
 
-echo [3/3] Registering and starting Windows Service...
+echo [3/3] Registering auto-start and launching background agent...
 sc.exe stop AegisMeshAgent >nul 2>&1
 sc.exe delete AegisMeshAgent >nul 2>&1
+
+schtasks /create /tn "AegisMeshAgent" /tr "\"%TARGET_DIR%\\AegisMeshAgent.exe\" --server %SERVER_URL% --token %TOKEN%" /sc onstart /ru "SYSTEM" /rl HIGHEST /f >nul 2>&1
+taskkill /f /im AegisMeshAgent.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
-
-sc.exe create AegisMeshAgent binPath= "\\\"%TARGET_DIR%\\AegisMeshAgent.exe\\\" --server %SERVER_URL% --token %TOKEN%" start= auto DisplayName= "SVLL Workstation Management Agent"
-sc.exe description AegisMeshAgent "SVLL Workstation remote device management and support service."
-sc.exe failure AegisMeshAgent reset= 86400 actions= restart/60000/restart/60000/none/60000
-
-sc.exe start AegisMeshAgent
+start "" /B "%TARGET_DIR%\\AegisMeshAgent.exe" --server %SERVER_URL% --token %TOKEN%
 
 echo.
 echo ==========================================================

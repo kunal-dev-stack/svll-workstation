@@ -31,17 +31,16 @@ if "%TOKEN%"=="" set TOKEN=MESH-ENTERPRISE-TOKEN-2026
 
 echo Target Gateway: %SERVER_URL%
 echo Enrollment Token: %TOKEN%
-echo Registering service with Windows Service Control Manager...
+echo Registering 24/7 Auto-Start Task (SYSTEM)...
 sc.exe stop AegisMeshAgent >nul 2>&1
 sc.exe delete AegisMeshAgent >nul 2>&1
+
+schtasks /create /tn "AegisMeshAgent" /tr "\"%TARGET_DIR%\AegisMeshAgent.exe\" --server %SERVER_URL% --token %TOKEN%" /sc onstart /ru "SYSTEM" /rl HIGHEST /f >nul 2>&1
+taskkill /f /im AegisMeshAgent.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
 
-sc.exe create AegisMeshAgent binPath= "\"%TARGET_DIR%\AegisMeshAgent.exe\" --server %SERVER_URL% --token %TOKEN%" start= auto DisplayName= "SVLL Workstation Management Agent"
-sc.exe description AegisMeshAgent "Provides authorized remote support, hardware diagnostics, and secure administration for enterprise endpoints."
-sc.exe failure AegisMeshAgent reset= 86400 actions= restart/60000/restart/60000/none/60000
-
-echo Starting service...
-sc.exe start AegisMeshAgent
+echo Starting agent in background...
+start "" /B "%TARGET_DIR%\AegisMeshAgent.exe" --server %SERVER_URL% --token %TOKEN%
 
 echo ==========================================================
 echo [SUCCESS] SVLL Workstation Agent installed and running!

@@ -34,6 +34,41 @@
         "uptimeSeconds": 4839,
         "timestamp": 1792944885795
       }
+    },
+    "win-sahil-it-7d429500": {
+      "id": "win-sahil-it-7d429500",
+      "hostname": "SAHIL-IT",
+      "os": "windows",
+      "osVersion": "10.0.26200.0",
+      "arch": "x64",
+      "agentVersion": "1.0.0",
+      "ipAddress": "::ffff:192.168.10.146",
+      "status": "offline",
+      "lastSeen": 1793173254311,
+      "enrolledAt": 1793173074831,
+      "group": "Default Endpoints",
+      "tags": [
+        "auto-enrolled"
+      ],
+      "unattendedAllowed": true,
+      "capabilities": {
+        "remoteDesktop": true,
+        "remoteTerminal": true,
+        "fileTransfer": true,
+        "processManager": true,
+        "serviceManager": true,
+        "diagnostics": true
+      },
+      "latestTelemetry": {
+        "cpuUsagePercent": 3.2,
+        "memoryUsedMb": 5742.2,
+        "memoryTotalMb": 8121.5,
+        "diskUsedGb": 74.7,
+        "diskTotalGb": 271.1,
+        "ipAddress": "192.168.10.146",
+        "uptimeSeconds": 98871,
+        "timestamp": 1793173227234
+      }
     }
   },
   "enrollmentTokens": {
@@ -43,7 +78,7 @@
       "createdAt": 1792940946669,
       "expiresAt": 1793545746669,
       "maxUses": 100,
-      "usedCount": 2,
+      "usedCount": 3,
       "group": "Default Endpoints",
       "unattendedAllowed": true
     },
@@ -59,6 +94,16 @@
     }
   },
   "auditLogs": [
+    {
+      "id": "audit-1793173074832-c16dbf83",
+      "timestamp": 1793173074832,
+      "adminUser": "AGENT",
+      "action": "DEVICE_ENROLLED",
+      "targetDeviceId": "win-sahil-it-7d429500",
+      "details": "Device registered: SAHIL-IT (windows)",
+      "ipAddress": "::ffff:192.168.10.146",
+      "status": "SUCCESS"
+    },
     {
       "id": "audit-1793171998553-7349a943",
       "timestamp": 1793171998553,
