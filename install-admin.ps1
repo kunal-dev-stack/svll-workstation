@@ -6,7 +6,7 @@
 # =========================================================================
 
 param(
-    [string]$ServerUrl = "http://192.168.10.222:5000"
+    [string]$ServerUrl = "http://192.168.10.11:5000"
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,7 +29,7 @@ Write-Host "====================================================================
 
 # 2. Corporate Server Pre-configured (Zero Input Required)
 if (-not $ServerUrl) {
-    $ServerUrl = "http://192.168.10.222:5000"
+    $ServerUrl = "http://192.168.10.11:5000"
 }
 $ServerUrl = $ServerUrl.TrimEnd('/')
 Write-Host "[+] Connecting Admin Console to Relay Server: $ServerUrl" -ForegroundColor Green
@@ -141,6 +141,18 @@ if (-not $adExe) {
 } else {
     Write-Host "[+] AnyDesk verified on Admin PC." -ForegroundColor Green
 }
+
+
+# 7.5. Create Desktop Shortcut for Web Admin Console
+$desktopPath = [Environment]::GetFolderPath("Desktop")
+$shortcutFile = Join-Path $desktopPath "SVLL Fleet Web Console.url"
+@"
+[InternetShortcut]
+URL=$ServerUrl
+IconIndex=0
+IconFile=C:\Windows\System32\shell32.dll
+"@ | Set-Content -Path $shortcutFile -Force
+Write-Host "[+] Created 'SVLL Fleet Web Console' shortcut on Administrator Desktop." -ForegroundColor Green
 
 # 8. Launch Admin Workstation
 $adminExe = if (Test-Path "$env:ProgramFiles\ShreeVasuLogistics\ITWorkstationAdmin\SVLL-IT-Workstation-Admin.exe") {

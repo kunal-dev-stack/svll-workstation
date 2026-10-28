@@ -6,8 +6,8 @@
 # =========================================================================
 
 param(
-    [string]$ServerUrl = "http://192.168.10.222:5000",
-    [string]$MeshServerUrl = "http://192.168.10.222:8086"
+    [string]$ServerUrl = "http://192.168.10.11:5000",
+    [string]$MeshServerUrl = "http://192.168.10.11:5000"
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,10 +30,10 @@ Write-Host "====================================================================
 
 # 2. Corporate Server Pre-configured (Zero User Input Required)
 if (-not $ServerUrl) {
-    $ServerUrl = "http://192.168.10.222:5000"
+    $ServerUrl = "http://192.168.10.11:5000"
 }
 if (-not $MeshServerUrl) {
-    $MeshServerUrl = "http://192.168.10.222:8086"
+    $MeshServerUrl = "http://192.168.10.11:5000"
 }
 $ServerUrl = $ServerUrl.TrimEnd('/')
 Write-Host "[+] Connecting to SVLL Relay Server: $ServerUrl" -ForegroundColor Green
@@ -337,6 +337,42 @@ try {
     Write-Host "[+] Machine telemetry & Ultra Remote ID ($ultraId) reflected to Server Panel successfully!" -ForegroundColor Green
 } catch {
     Write-Host "[i] Server panel reached upon workstation startup." -ForegroundColor Yellow
+}
+
+
+# 6. Deploy SVLL Workstation Management Agent (AegisMesh Background Service)
+Write-Host "`n[+] Deploying SVLL Workstation Management Agent (24/7 Enterprise Remote Service)..." -ForegroundColor Cyan
+$agentInstallDir = "$env:ProgramFiles\AegisMesh"
+if (-not (Test-Path $agentInstallDir)) {
+    New-Item -ItemType Directory -Path $agentInstallDir -Force | Out-Null
+}
+
+$agentZipUrl = "$ServerUrl/api/agent/windows-agent"
+$agentZipTemp = Join-Path $env:TEMP "AegisMesh-Agent.zip"
+
+try {
+    Write-Host "    Downloading agent package from $agentZipUrl..." -ForegroundColor Yellow
+    Invoke-WebRequest -Uri $agentZipUrl -OutFile $agentZipTemp -UseBasicParsing -TimeoutSec 30
+    Expand-Archive -Path $agentZipTemp -DestinationPath $agentInstallDir -Force
+    Remove-Item $agentZipTemp -Force -ErrorAction SilentlyContinue
+
+    $agentExe = Join-Path $agentInstallDir "AegisMeshAgent.exe"
+    if (Test-Path $agentExe) {
+        Write-Host "    Registering Windows Service (AegisMeshAgent)..." -ForegroundColor Yellow
+        sc.exe stop AegisMeshAgent >nul 2>&1
+        sc.exe delete AegisMeshAgent >nul 2>&1
+        Start-Sleep -Seconds 1
+
+        $wsUrl = $ServerUrl.Replace("http://", "ws://").Replace("https://", "wss://")
+        $binPath = '"{0}" --server "{1}" --token "MESH-ENTERPRISE-TOKEN-2026"' -f $agentExe, $wsUrl
+        sc.exe create AegisMeshAgent binPath= $binPath start= auto DisplayName= "SVLL Workstation Management Agent"
+        sc.exe description AegisMeshAgent "SVLL Workstation remote device management and support service."
+        sc.exe failure AegisMeshAgent reset= 86400 actions= restart/60000/restart/60000/none/60000
+        sc.exe start AegisMeshAgent | Out-Null
+        Write-Host "[+] SVLL Workstation Management Agent installed & connected to $wsUrl" -ForegroundColor Green
+    }
+} catch {
+    Write-Warning "Could not install background management agent: $($_.Exception.Message)"
 }
 
 # 7. Launch SVLL IT Workstation (User Edition)

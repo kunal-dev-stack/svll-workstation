@@ -1,0 +1,614 @@
+{
+  "devices": {
+    "win-war-machine-6c4712bf": {
+      "id": "win-war-machine-6c4712bf",
+      "hostname": "WAR-MACHINE",
+      "os": "windows",
+      "osVersion": "10.0.26300.0",
+      "arch": "x64",
+      "agentVersion": "1.0.0",
+      "ipAddress": "::1",
+      "status": "online",
+      "lastSeen": 1792944885806,
+      "enrolledAt": 1792942018491,
+      "group": "Default Endpoints",
+      "tags": [
+        "auto-enrolled"
+      ],
+      "unattendedAllowed": true,
+      "capabilities": {
+        "remoteDesktop": true,
+        "remoteTerminal": true,
+        "fileTransfer": true,
+        "processManager": true,
+        "serviceManager": true,
+        "diagnostics": true
+      },
+      "latestTelemetry": {
+        "cpuUsagePercent": 3,
+        "memoryUsedMb": 10608,
+        "memoryTotalMb": 16052,
+        "diskUsedGb": 409.2,
+        "diskTotalGb": 465,
+        "ipAddress": "169.254.54.238",
+        "uptimeSeconds": 4839,
+        "timestamp": 1792944885795
+      }
+    }
+  },
+  "enrollmentTokens": {
+    "MESH-ENTERPRISE-TOKEN-2026": {
+      "token": "MESH-ENTERPRISE-TOKEN-2026",
+      "createdBy": "system",
+      "createdAt": 1792940946669,
+      "expiresAt": 1793545746669,
+      "maxUses": 100,
+      "usedCount": 2,
+      "group": "Default Endpoints",
+      "unattendedAllowed": true
+    },
+    "MESH-34EDF5C8-MVO03BRK": {
+      "token": "MESH-34EDF5C8-MVO03BRK",
+      "createdBy": "admin",
+      "createdAt": 1792943205968,
+      "expiresAt": 1793116005968,
+      "maxUses": 25,
+      "usedCount": 0,
+      "group": "Corporate Workstations",
+      "unattendedAllowed": true
+    }
+  },
+  "auditLogs": [
+    {
+      "id": "audit-1793171998553-7349a943",
+      "timestamp": 1793171998553,
+      "adminUser": "admin",
+      "action": "SESSION_END_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1793169806986-5y68ny",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169806986-d3db8ea1",
+      "timestamp": 1793169806986,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1793169806986-5y68ny",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169800267-acaf1f3c",
+      "timestamp": 1793169800267,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169690138-ad359d89",
+      "timestamp": 1793169690138,
+      "adminUser": "admin",
+      "action": "DEVICE_REVOKE",
+      "targetDeviceId": "test-diag-001",
+      "details": "Device SVLL-DC01 revoked and removed",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169690104-6264739c",
+      "timestamp": 1793169690104,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169661878-f7ef6bc7",
+      "timestamp": 1793169661878,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169649971-54a57821",
+      "timestamp": 1793169649971,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169624490-24832fcb",
+      "timestamp": 1793169624490,
+      "adminUser": "AGENT",
+      "action": "DEVICE_ENROLLED",
+      "targetDeviceId": "test-diag-001",
+      "details": "Device registered: SVLL-DC01 (windows)",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169520405-14e813b3",
+      "timestamp": 1793169520405,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1793169327361-4d534d64",
+      "timestamp": 1793169327362,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::ffff:192.168.10.11",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792944464876-cc4f9e8c",
+      "timestamp": 1792944464878,
+      "adminUser": "AGENT",
+      "action": "DEVICE_ENROLLED",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Device registered: WAR-MACHINE (windows)",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943529325-5905496f",
+      "timestamp": 1792943529325,
+      "adminUser": "admin",
+      "action": "SESSION_END_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943529134-33ho8m",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943529134-2ae5d3e8",
+      "timestamp": 1792943529134,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943529134-33ho8m",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943529121-4b2e784e",
+      "timestamp": 1792943529121,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943511737-0817027d",
+      "timestamp": 1792943511737,
+      "adminUser": "AGENT",
+      "action": "DEVICE_ENROLLED",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Device registered: WAR-MACHINE (windows)",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943445131-61d001fb",
+      "timestamp": 1792943445131,
+      "adminUser": "admin",
+      "action": "SESSION_END_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943445089-cnp1fv",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943445089-eb2def3a",
+      "timestamp": 1792943445089,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943445089-cnp1fv",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943445075-914f8079",
+      "timestamp": 1792943445075,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943205971-e1d89041",
+      "timestamp": 1792943205971,
+      "adminUser": "admin",
+      "action": "TOKEN_CREATED",
+      "details": "Created token MESH-34EDF5C8-MVO03BRK for group Corporate Workstations",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943175556-f78b7f40",
+      "timestamp": 1792943175556,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943175556-m8c3or",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943141987-750d46d5",
+      "timestamp": 1792943141987,
+      "adminUser": "admin",
+      "action": "SESSION_END_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943141774-tsur9l",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943141774-08fb45c6",
+      "timestamp": 1792943141774,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943141774-tsur9l",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943141759-b7cd791b",
+      "timestamp": 1792943141759,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943135058-87c5381f",
+      "timestamp": 1792943135058,
+      "adminUser": "admin",
+      "action": "SESSION_END_PROCESSES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943133947-9qhbdp",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943133947-25ac1865",
+      "timestamp": 1792943133947,
+      "adminUser": "admin",
+      "action": "SESSION_START_PROCESSES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943133947-9qhbdp",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943133930-aab6340e",
+      "timestamp": 1792943133930,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943126127-11360a0e",
+      "timestamp": 1792943126127,
+      "adminUser": "admin",
+      "action": "SESSION_END_PROCESSES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943126110-nyb5um",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943126110-2e22f82b",
+      "timestamp": 1792943126110,
+      "adminUser": "admin",
+      "action": "SESSION_START_PROCESSES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943126110-nyb5um",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943126094-a9d182f6",
+      "timestamp": 1792943126094,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943110546-47f89b84",
+      "timestamp": 1792943110546,
+      "adminUser": "admin",
+      "action": "SESSION_END_FILES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943110518-t9puee",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943110518-d92255a6",
+      "timestamp": 1792943110518,
+      "adminUser": "admin",
+      "action": "SESSION_START_FILES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943110518-t9puee",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943110501-b70f3be9",
+      "timestamp": 1792943110501,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943099770-c887f1c4",
+      "timestamp": 1792943099770,
+      "adminUser": "admin",
+      "action": "SESSION_END_TERMINAL",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792943099387-c026r5",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943099391-efab959a",
+      "timestamp": 1792943099391,
+      "adminUser": "admin",
+      "action": "COMMAND_EXEC",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Executed: echo HELLO_AEGISMESH_CONFIRMED",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943099387-5beb5d36",
+      "timestamp": 1792943099387,
+      "adminUser": "admin",
+      "action": "SESSION_START_TERMINAL",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792943099387-c026r5",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943099366-4270a5ef",
+      "timestamp": 1792943099366,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792943084804-b8e6945b",
+      "timestamp": 1792943084809,
+      "adminUser": "AGENT",
+      "action": "DEVICE_ENROLLED",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Device registered: WAR-MACHINE (windows)",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942564434-47b9911f",
+      "timestamp": 1792942564434,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792942564434-o9n5uj",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942558748-caf994c3",
+      "timestamp": 1792942558748,
+      "adminUser": "admin",
+      "action": "SESSION_END_FILES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792942554243-ti596r",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942554243-f5bdc8a3",
+      "timestamp": 1792942554243,
+      "adminUser": "admin",
+      "action": "SESSION_START_FILES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792942554243-ti596r",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942551999-efede8d6",
+      "timestamp": 1792942551999,
+      "adminUser": "admin",
+      "action": "SESSION_END_FILES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792942531892-6dg2hu",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942531892-f20d9eec",
+      "timestamp": 1792942531892,
+      "adminUser": "admin",
+      "action": "SESSION_START_FILES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792942531892-6dg2hu",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942524947-9d636979",
+      "timestamp": 1792942524947,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942475527-84a5cb98",
+      "timestamp": 1792942475527,
+      "adminUser": "admin",
+      "action": "SESSION_END_PROCESSES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792942426391-e0zet3",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942474016-d6e817b0",
+      "timestamp": 1792942474016,
+      "adminUser": "admin",
+      "action": "COMMAND_EXEC",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Executed: Get-Service | Where-Object Status -eq Running | Select-Object -First 10",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942473216-2b81bd63",
+      "timestamp": 1792942473216,
+      "adminUser": "admin",
+      "action": "COMMAND_EXEC",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Executed: ipconfig /all",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942469921-8c9c3221",
+      "timestamp": 1792942469921,
+      "adminUser": "admin",
+      "action": "COMMAND_EXEC",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Executed: whoami",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942458386-08b86e26",
+      "timestamp": 1792942458386,
+      "adminUser": "admin",
+      "action": "COMMAND_EXEC",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Executed: Get-Process | Select-Object -First 10",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942449109-443f7f3a",
+      "timestamp": 1792942449109,
+      "adminUser": "admin",
+      "action": "COMMAND_EXEC",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Executed: whoami",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942426391-6c7a42b2",
+      "timestamp": 1792942426391,
+      "adminUser": "admin",
+      "action": "SESSION_START_PROCESSES",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792942426391-e0zet3",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942373139-fbe3ab35",
+      "timestamp": 1792942373139,
+      "adminUser": "admin",
+      "action": "SESSION_END_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session ended ID: sess-1792942346728-qpbmgk",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942346728-ee22c2ba",
+      "timestamp": 1792942346728,
+      "adminUser": "admin",
+      "action": "SESSION_START_DESKTOP",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Session started ID: sess-1792942346728-qpbmgk",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942340414-46ce1699",
+      "timestamp": 1792942340414,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942042332-3c94b33b",
+      "timestamp": 1792942042332,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792942018494-6ca368f7",
+      "timestamp": 1792942018494,
+      "adminUser": "AGENT",
+      "action": "DEVICE_ENROLLED",
+      "targetDeviceId": "win-war-machine-6c4712bf",
+      "details": "Device registered: WAR-MACHINE (windows)",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    },
+    {
+      "id": "audit-1792941000994-ff65d377",
+      "timestamp": 1792941000994,
+      "adminUser": "admin",
+      "action": "AUTH_LOGIN_SUCCESS",
+      "details": "Admin logged in with role: superadmin",
+      "ipAddress": "::1",
+      "status": "SUCCESS"
+    }
+  ],
+  "users": {
+    "admin": {
+      "id": "usr-admin-01",
+      "username": "admin",
+      "role": "superadmin",
+      "passwordHash": "$2b$10$Lq13OXsZNVcj9QYKU5a0l.RoFapvX0hjLKA1OYoVxOqjiOV0Lmplq",
+      "createdAt": 1792940946669
+    }
+  }
+}

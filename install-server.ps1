@@ -127,8 +127,8 @@ try {
 # 6. Verify Health Check
 $healthOk = $false
 try {
-    $health = Invoke-RestMethod -Uri "http://localhost:5000/api/health" -TimeoutSec 5 -ErrorAction Stop
-    if ($health.status -eq "ok") { $healthOk = $true }
+    $health = Invoke-RestMethod -Uri "http://localhost:5000/health" -TimeoutSec 5 -ErrorAction Stop
+    if ($health.status -eq "ONLINE") { $healthOk = $true }
 } catch { }
 
 # Detect Local IP Addresses
