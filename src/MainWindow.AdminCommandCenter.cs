@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 // SVLL IT Workstation v8.3 — Admin Command Center (Hub 7 Rebuilt)
 // Centralized Executive NOC Deck: 1-Click "Take Remote" + Live Connected Fleet
 // Inbuilt SVLL Mesh Agent Listener, Direct LAN Port 21118, and Real-time Vitals.
@@ -169,7 +169,8 @@ public partial class MainWindow
         });
         titleRow.Children.Add(Hub7Badge("HUB 7", Color.FromRgb(30, 64, 175), Color.FromRgb(219, 234, 254)));
         titleRow.Children.Add(Hub7Badge("MESH ACTIVE", Color.FromRgb(5, 150, 105), Color.FromRgb(209, 250, 229)));
-        titleRow.Children.Add(Hub7Badge("DIRECT 21118", Color.FromRgb(124, 58, 237), Color.FromRgb(237, 233, 254)));
+        titleRow.Children.Add(Hub7Badge("AEGISMESH 60FPS", Color.FromRgb(124, 58, 237), Color.FromRgb(237, 233, 254)));
+        titleRow.Children.Add(Hub7Badge("CLOUDFLARE WAN", Color.FromRgb(234, 88, 12), Color.FromRgb(255, 237, 213)));
         left.Children.Add(titleRow);
 
         left.Children.Add(new TextBlock
@@ -304,7 +305,7 @@ public partial class MainWindow
         });
         subRow.Children.Add(new TextBlock
         {
-            Text = "  •  Fleet auto-syncs every 15s  •  Direct peer-to-peer port 21118 active",
+            Text = "  •  Fleet auto-syncs every 15s  •  AegisMesh Cloudflare Gateway active",
             FontSize = 10,
             Foreground = TextSubtle
         });
@@ -558,12 +559,12 @@ public partial class MainWindow
             Foreground = TextDark,
             VerticalContentAlignment = VerticalAlignment.Center
         };
-        _trModeCombo.Items.Add("⚡ Direct LAN IP (Port 21118 - Ultra Fast)");
-        _trModeCombo.Items.Add("🌐 Partner ID (Cross-WAN UltraRemote)");
-        _trModeCombo.Items.Add("🛰️ Inbuilt Mesh Session (Port 5055)");
+        _trModeCombo.Items.Add("⚡ AegisMesh Remote Desktop (Direct 60 FPS)");
+        _trModeCombo.Items.Add("🌐 AegisMesh Cloudflare Gateway (Cross-WAN)");
+        _trModeCombo.Items.Add("🛰️ AegisMesh Web Management Console");
         _trModeCombo.Items.Add("🪟 Windows RDP (MSTSC)");
-        _trModeCombo.Items.Add("🔴 AnyDesk Protocol");
-        _trModeCombo.SelectedIndex = 0; // Default to Direct LAN
+        _trModeCombo.Items.Add("🔴 AnyDesk Fallback");
+        _trModeCombo.SelectedIndex = 0; // Default to AegisMesh Desktop
         modeStack.Children.Add(_trModeCombo);
         Grid.SetColumn(modeStack, 0);
         row2.Children.Add(modeStack);
@@ -746,35 +747,33 @@ public partial class MainWindow
 
         if (string.IsNullOrEmpty(target))
         {
-            MessageBox.Show("Please enter a target Hostname, IP address, or Partner ID — or click any workstation in the fleet below.",
+            MessageBox.Show("Please enter a target Hostname, IP address, or Partner ID â€” or click any workstation in the fleet below.",
                 "Target Required", MessageBoxButton.OK, MessageBoxImage.Warning);
             _trTargetBox?.Focus();
             return;
         }
 
-        // Clean target
         string cleanTarget = target.Replace(" ", "");
 
         switch (modeIndex)
         {
-            case 0: // Direct LAN IP (Port 21118)
-                string ip = _selectedFleetDevice?.IpAddress ?? target;
-                UltraRemoteService.LaunchDirectIpConnection(ip, password);
+            case 0: // AegisMesh Remote Desktop (Direct 60 FPS)
+            case 1: // AegisMesh Cloudflare Gateway (Cross-WAN)
+                string rTarget = _selectedFleetDevice?.RemoteId ?? cleanTarget;
+                UltraRemoteService.LaunchRemoteConnection(rTarget, password, _selectedFleetDevice?.IpAddress);
                 break;
 
-            case 1: // Partner ID (UltraRemote)
-                string partnerId = _selectedFleetDevice?.RemoteId ?? cleanTarget;
-                UltraRemoteService.LaunchRemoteConnection(partnerId, password, _selectedFleetDevice?.IpAddress);
-                break;
-
-            case 2: // Inbuilt Mesh Session
-                // Tell agent on remote PC to prepare for remote desktop & trigger connection
-                _ = Task.Run(async () =>
+            case 2: // AegisMesh Web Management Console
+                string consoleUrl = AdminAuthService.Instance.GetRelayServerUrl();
+                if (string.IsNullOrEmpty(consoleUrl)) consoleUrl = BuildConstants.DefaultRelayUrl;
+                try
                 {
-                    await SvllMeshListener.Instance.RequestRemoteSessionPrepAsync(target);
-                });
-                string meshIp = _selectedFleetDevice?.IpAddress ?? target;
-                UltraRemoteService.LaunchDirectIpConnection(meshIp, password);
+                    Process.Start(new ProcessStartInfo { FileName = consoleUrl, UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Could not open Web Console: {ex.Message}", "Web Console", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
                 break;
 
             case 3: // Windows RDP
@@ -782,14 +781,14 @@ public partial class MainWindow
                 FleetRegistryService.LaunchRdp(rdpTarget);
                 break;
 
-            case 4: // AnyDesk
+            case 4: // AnyDesk Fallback
                 string adId = _selectedFleetDevice?.AnyDeskId ?? target;
                 FleetRegistryService.LaunchAnyDesk(adId, true);
                 break;
         }
     }
 
-    // ─── Target Telemetry Pre-Flight Deck ─────────────────────────────────────
+    // â”€â”€â”€ Target Telemetry Pre-Flight Deck â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     private void Hub7RefreshTelemetryDeck()
     {
         if (_hub7TelemetryDeck == null) return;
@@ -799,47 +798,257 @@ public partial class MainWindow
 
         if (dev == null)
         {
-            p.Children.Add(new TextBlock
+            // Default View: Global Telemetry & Deployment Quick-Deck
+            var headRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+            headRow.Children.Add(new TextBlock
             {
-                Text = "🎯 TARGET PRE-FLIGHT TELEMETRY",
-                FontSize = 10,
-                FontWeight = FontWeights.ExtraBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
-                Margin = new Thickness(0, 0, 0, 6)
-            });
-
-            p.Children.Add(new TextBlock
-            {
-                Text = "No workstation currently selected.",
-                FontSize = 13,
-                FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                Margin = new Thickness(0, 0, 0, 4)
-            });
-
-            p.Children.Add(new TextBlock
-            {
-                Text = "• Click 'Take Remote' on any device card below to auto-reflect credentials.\n" +
-                       "• Type any LAN IP address (e.g. 192.168.10.45) for instant direct connection.\n" +
-                       "• Inbuilt Mesh Agent automatically updates CPU, RAM, and Disk telemetry live.",
+                Text = "ðŸ“¡ FLEET TELEMETRY & RAPID DEPLOYMENT",
                 FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 4, 0, 0)
+                FontWeight = FontWeights.ExtraBold,
+                Foreground = new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+                VerticalAlignment = VerticalAlignment.Center
             });
+            headRow.Children.Add(Hub7Badge("GATEWAY ONLINE", Color.FromRgb(16, 185, 129), Color.FromArgb(40, 16, 185, 129)));
+            p.Children.Add(headRow);
+
+            p.Children.Add(new TextBlock
+            {
+                Text = "Click any PC in the fleet below to inspect live vitals, or deploy new machines using the 1-liner commands below:",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+
+            // Card 1: User Workstation Setup
+            var userCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(140, 15, 23, 42)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(59, 130, 246)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var userStack = new StackPanel();
+            var userTop = new Grid();
+            userTop.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            userTop.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var userTitle = new TextBlock
+            {
+                Text = "ðŸ‘¤ USER WORKSTATION (Tool + Agent)",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(147, 197, 253)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(userTitle, 0);
+            userTop.Children.Add(userTitle);
+
+            var btnCopyUser = new Button
+            {
+                Content = "ðŸ“‹ Copy Command",
+                FontSize = 9.5,
+                FontWeight = FontWeights.SemiBold,
+                Background = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 3, 8, 3),
+                Cursor = Cursors.Hand
+            };
+            btnCopyUser.Click += (s, e) =>
+            {
+                Clipboard.SetText("irm https://tinyurl.com/svll-user | iex");
+                MessageBox.Show("User Workstation Command Copied!\n\nirm https://tinyurl.com/svll-user | iex\n\nRun in Windows PowerShell (Admin) to install SVLL Tools + AegisMesh Agent background service.", "Copied to Clipboard", MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            Grid.SetColumn(btnCopyUser, 1);
+            userTop.Children.Add(btnCopyUser);
+            userStack.Children.Add(userTop);
+
+            userStack.Children.Add(new TextBlock
+            {
+                Text = "irm https://tinyurl.com/svll-user | iex",
+                FontFamily = new FontFamily("Consolas, Courier New"),
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(56, 189, 248)),
+                Margin = new Thickness(0, 4, 0, 2)
+            });
+            userStack.Children.Add(new TextBlock
+            {
+                Text = "Automated unattended setup â€¢ Runs on Windows 10/11 & Server",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+            });
+            userCard.Child = userStack;
+            p.Children.Add(userCard);
+
+            // Card 2: Admin Command Center Setup
+            var adminCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(140, 15, 23, 42)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(168, 85, 247)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var adminStack = new StackPanel();
+            var adminTop = new Grid();
+            adminTop.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            adminTop.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var adminTitle = new TextBlock
+            {
+                Text = "ðŸ‘‘ ADMIN WORKSTATION (Command Center)",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(216, 180, 254)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(adminTitle, 0);
+            adminTop.Children.Add(adminTitle);
+
+            var btnCopyAdmin = new Button
+            {
+                Content = "ðŸ“‹ Copy Command",
+                FontSize = 9.5,
+                FontWeight = FontWeights.SemiBold,
+                Background = new SolidColorBrush(Color.FromRgb(147, 51, 234)),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 3, 8, 3),
+                Cursor = Cursors.Hand
+            };
+            btnCopyAdmin.Click += (s, e) =>
+            {
+                Clipboard.SetText("irm https://tinyurl.com/svll-admin | iex");
+                MessageBox.Show("Admin Command Center Command Copied!\n\nirm https://tinyurl.com/svll-admin | iex\n\nRun in Windows PowerShell (Admin) for IT managers / NOC engineers.", "Copied to Clipboard", MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            Grid.SetColumn(btnCopyAdmin, 1);
+            adminTop.Children.Add(btnCopyAdmin);
+            adminStack.Children.Add(adminTop);
+
+            adminStack.Children.Add(new TextBlock
+            {
+                Text = "irm https://tinyurl.com/svll-admin | iex",
+                FontFamily = new FontFamily("Consolas, Courier New"),
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(216, 180, 254)),
+                Margin = new Thickness(0, 4, 0, 2)
+            });
+            adminStack.Children.Add(new TextBlock
+            {
+                Text = "Full Hub 7 fleet control, live vitals, AI diagnostics & remote desktop",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+            });
+            adminCard.Child = adminStack;
+            p.Children.Add(adminCard);
+
+            // Card 3: Cloudflare WAN Gateway
+            var gwCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(140, 15, 23, 42)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(234, 88, 12)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8)
+            };
+            var gwStack = new StackPanel();
+            var gwTop = new Grid();
+            gwTop.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            gwTop.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var gwTitle = new TextBlock
+            {
+                Text = "ðŸŒ CLOUDFLARE WAN GATEWAY",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(251, 146, 60)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(gwTitle, 0);
+            gwTop.Children.Add(gwTitle);
+
+            var gwBtnRow = new StackPanel { Orientation = Orientation.Horizontal };
+            var btnOpenGw = new Button
+            {
+                Content = "ðŸŒ Open Console",
+                FontSize = 9.5,
+                FontWeight = FontWeights.SemiBold,
+                Background = new SolidColorBrush(Color.FromRgb(234, 88, 12)),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 3, 8, 3),
+                Margin = new Thickness(0, 0, 4, 0),
+                Cursor = Cursors.Hand
+            };
+            btnOpenGw.Click += (s, e) =>
+            {
+                try
+                {
+                    string url = AdminAuthService.Instance.GetRelayServerUrl();
+                    if (string.IsNullOrEmpty(url)) url = BuildConstants.DefaultRelayUrl;
+                    Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Could not open browser: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            };
+            gwBtnRow.Children.Add(btnOpenGw);
+
+            var btnCopyGw = new Button
+            {
+                Content = "ðŸ“‹ Copy",
+                FontSize = 9.5,
+                FontWeight = FontWeights.SemiBold,
+                Background = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+                Foreground = Brushes.White,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(6, 3, 6, 3),
+                Cursor = Cursors.Hand
+            };
+            btnCopyGw.Click += (s, e) =>
+            {
+                string url = AdminAuthService.Instance.GetRelayServerUrl();
+                if (string.IsNullOrEmpty(url)) url = BuildConstants.DefaultRelayUrl;
+                Clipboard.SetText(url);
+                MessageBox.Show($"Gateway URL copied to clipboard!\n\n{url}", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            gwBtnRow.Children.Add(btnCopyGw);
+
+            Grid.SetColumn(gwBtnRow, 1);
+            gwTop.Children.Add(gwBtnRow);
+            gwStack.Children.Add(gwTop);
+
+            gwStack.Children.Add(new TextBlock
+            {
+                Text = BuildConstants.DefaultRelayUrl,
+                FontFamily = new FontFamily("Consolas, Courier New"),
+                FontSize = 9.5,
+                Foreground = new SolidColorBrush(Color.FromRgb(253, 186, 116)),
+                Margin = new Thickness(0, 4, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            gwCard.Child = gwStack;
+            p.Children.Add(gwCard);
 
             _hub7TelemetryDeck.Child = p;
             return;
         }
 
-        // Active Target Telemetry
+        // Active Target Telemetry View
         bool isAlert = dev.Status == "SupportRequested";
         bool isOnline = dev.Status == "Online" || isAlert;
 
         var topRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
         topRow.Children.Add(new TextBlock
         {
-            Text = isAlert ? "🚨 " : (isOnline ? "🟢 " : "⚪ "),
+            Text = isAlert ? "ðŸš¨ " : (isOnline ? "ðŸŸ¢ " : "âšª "),
             FontSize = 14,
             VerticalAlignment = VerticalAlignment.Center
         });
@@ -856,10 +1065,10 @@ public partial class MainWindow
 
         p.Children.Add(new TextBlock
         {
-            Text = $"👤 {dev.LoggedInUser}  •  🌐 {dev.IpAddress}  •  🏢 {dev.BranchLocation}",
-            FontSize = 10.5,
+            Text = $"ðŸ‘¤ {dev.LoggedInUser}  â€¢  ðŸŒ {dev.IpAddress}  â€¢  ðŸ¢ {dev.BranchLocation}",
+            FontSize = 10,
             Foreground = new SolidColorBrush(Color.FromRgb(203, 213, 225)),
-            Margin = new Thickness(0, 0, 0, 8)
+            Margin = new Thickness(0, 0, 0, 6)
         });
 
         // Vitals progress bars
@@ -868,14 +1077,136 @@ public partial class MainWindow
         p.Children.Add(Hub7MiniBar("Disk C: Free", dev.DiskFreePercent > 0 ? dev.DiskFreePercent : 45.0, Color.FromRgb(16, 185, 129)));
 
         // Readiness pills
-        var pillRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        var pillRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 6) };
         bool meshLive = SvllMeshListener.Instance.GetClient(dev.Hostname) != null;
-        pillRow.Children.Add(Hub7Badge(meshLive ? "🛰️ MESH READY" : "🛰️ MESH AGENT IDLE", meshLive ? Color.FromRgb(16, 185, 129) : Color.FromRgb(148, 163, 184), Color.FromArgb(30, 148, 163, 184)));
+        pillRow.Children.Add(Hub7Badge(meshLive ? "ðŸ›°ï¸ MESH READY" : "ðŸ›°ï¸ MESH AGENT IDLE", meshLive ? Color.FromRgb(16, 185, 129) : Color.FromRgb(148, 163, 184), Color.FromArgb(30, 148, 163, 184)));
 
         if (!string.IsNullOrEmpty(dev.RemoteId))
-            pillRow.Children.Add(Hub7Badge($"⚡ ID: {dev.RemoteId}", Color.FromRgb(56, 189, 248), Color.FromArgb(30, 56, 189, 248)));
+            pillRow.Children.Add(Hub7Badge($"âš¡ ID: {dev.RemoteId}", Color.FromRgb(56, 189, 248), Color.FromArgb(30, 56, 189, 248)));
 
         p.Children.Add(pillRow);
+
+        // Action Buttons Row inside Deck
+        var telemActionRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 6) };
+        var btnTelemConnect = new Button
+        {
+            Content = "âš¡ Connect AegisMesh",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
+        };
+        btnTelemConnect.Click += (s, e) => LaunchTakeRemoteAction();
+        telemActionRow.Children.Add(btnTelemConnect);
+
+        var btnTelemWeb = new Button
+        {
+            Content = "ðŸŒ Web Console",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Background = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
+        };
+        btnTelemWeb.Click += (s, e) =>
+        {
+            string relayUrl = AdminAuthService.Instance.GetRelayServerUrl();
+            if (string.IsNullOrEmpty(relayUrl)) relayUrl = BuildConstants.DefaultRelayUrl;
+            string url = $"{relayUrl.TrimEnd('/')}/?device={Uri.EscapeDataString(dev.RemoteId ?? dev.Hostname)}";
+            try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
+        };
+        telemActionRow.Children.Add(btnTelemWeb);
+
+        var btnTelemCopyIp = new Button
+        {
+            Content = "ðŸ“‹ Copy IP",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Background = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(8, 3, 8, 3),
+            Cursor = Cursors.Hand
+        };
+        btnTelemCopyIp.Click += (s, e) =>
+        {
+            Clipboard.SetText(dev.IpAddress);
+            MessageBox.Show($"IP Address '{dev.IpAddress}' copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        telemActionRow.Children.Add(btnTelemCopyIp);
+        p.Children.Add(telemActionRow);
+
+        // Compact deployment link footer
+        var footBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(90, 15, 23, 42)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(8, 4, 8, 4)
+        };
+        var footRow = new Grid();
+        footRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        footRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var footTxt = new TextBlock
+        {
+            Text = "Short Links: User / Admin",
+            FontSize = 9,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(footTxt, 0);
+        footRow.Children.Add(footTxt);
+
+        var btnFootUser = new Button
+        {
+            Content = "ðŸ“‹ User",
+            FontSize = 9,
+            Background = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(6, 2, 6, 2),
+            Margin = new Thickness(0, 0, 4, 0),
+            Cursor = Cursors.Hand
+        };
+        btnFootUser.Click += (s, e) =>
+        {
+            Clipboard.SetText("irm https://tinyurl.com/svll-user | iex");
+            MessageBox.Show("Copied User Installer command:\n\nirm https://tinyurl.com/svll-user | iex", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        Grid.SetColumn(btnFootUser, 1);
+        footRow.Children.Add(btnFootUser);
+
+        var btnFootAdmin = new Button
+        {
+            Content = "ðŸ“‹ Admin",
+            FontSize = 9,
+            Background = new SolidColorBrush(Color.FromRgb(147, 51, 234)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(6, 2, 6, 2),
+            Cursor = Cursors.Hand
+        };
+        btnFootAdmin.Click += (s, e) =>
+        {
+            Clipboard.SetText("irm https://tinyurl.com/svll-admin | iex");
+            MessageBox.Show("Copied Admin Installer command:\n\nirm https://tinyurl.com/svll-admin | iex", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        Grid.SetColumn(btnFootAdmin, 2);
+        footRow.Children.Add(btnFootAdmin);
+
+        footBorder.Child = footRow;
+        p.Children.Add(footBorder);
 
         _hub7TelemetryDeck.Child = p;
     }
@@ -1256,7 +1587,7 @@ public partial class MainWindow
 
         idStack.Children.Add(new TextBlock
         {
-            Text = $"Last seen: {dev.LastSeen:HH:mm:ss}  •  Port 21118 Direct",
+            Text = $"Last seen: {dev.LastSeen:HH:mm:ss}  •  AegisMesh Active",
             FontSize = 9.5,
             Foreground = TextSubtle,
             Margin = new Thickness(0, 2, 0, 0)
@@ -1291,7 +1622,8 @@ public partial class MainWindow
             Hub7RenderDeviceCards();
 
             // Instant 1-Click Launch Direct LAN connection
-            UltraRemoteService.LaunchDirectIpConnection(dev.IpAddress, string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword);
+            string rTarget = !string.IsNullOrEmpty(dev.RemoteId) ? dev.RemoteId : dev.IpAddress;
+            UltraRemoteService.LaunchRemoteConnection(rTarget, string.IsNullOrEmpty(dev.RemotePassword) ? BuildConstants.DefaultRemotePassword : dev.RemotePassword, dev.IpAddress);
         };
         actionRow.Children.Add(btnTakeRemote);
 
