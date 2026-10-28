@@ -1,4 +1,4 @@
-# =========================================================================
+﻿# =========================================================================
 # Shree Vasu Logistics Limited - Client Workstation Automated Installer
 # Target: SVLL IT Support Workstation (User Edition v8.4)
 # Developed by: Kunal Turkar
@@ -73,8 +73,8 @@ Write-Host "[+] Pre-configured server connection in system profile." -Foreground
 Write-Host "`n[+] Purging legacy remote tools (RustDesk / UltraRemote) in favor of AegisMesh..." -ForegroundColor Yellow
 try {
     Stop-Service -Name "RustDesk" -Force -ErrorAction SilentlyContinue
-    sc.exe stop RustDesk >nul 2>&1
-    sc.exe delete RustDesk >nul 2>&1
+    sc.exe stop RustDesk *>$null
+    sc.exe delete RustDesk *>$null
     Stop-Process -Name "rustdesk*" -Force -ErrorAction SilentlyContinue
     Stop-Process -Name "RuntimeBroker_rustdesk*" -Force -ErrorAction SilentlyContinue
 
@@ -83,10 +83,10 @@ try {
     Remove-Item "$env:APPDATA\RustDesk" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk" -Recurse -Force -ErrorAction SilentlyContinue
 
-    netsh advfirewall firewall delete rule name="UltraRemotePort21118" >nul 2>&1
-    netsh advfirewall firewall delete rule name="UltraRemoteUDP" >nul 2>&1
-    netsh advfirewall firewall delete rule name="UltraRemoteApp" >nul 2>&1
-    netsh advfirewall firewall delete rule name="UltraRemoteApp2" >nul 2>&1
+    netsh advfirewall firewall delete rule name="UltraRemotePort21118" *>$null
+    netsh advfirewall firewall delete rule name="UltraRemoteUDP" *>$null
+    netsh advfirewall firewall delete rule name="UltraRemoteApp" *>$null
+    netsh advfirewall firewall delete rule name="UltraRemoteApp2" *>$null
     Write-Host "[+] Cleaned legacy remote configurations." -ForegroundColor Green
 } catch { }
 
@@ -140,8 +140,8 @@ try {
     $agentExe = Join-Path $agentInstallDir "AegisMeshAgent.exe"
     if (Test-Path $agentExe) {
         Write-Host "    Registering 24/7 Auto-Start Task (SYSTEM)..." -ForegroundColor Yellow
-        sc.exe stop AegisMeshAgent >nul 2>&1
-        sc.exe delete AegisMeshAgent >nul 2>&1
+        sc.exe stop AegisMeshAgent *>$null
+        sc.exe delete AegisMeshAgent *>$null
 
         $wsUrl = $ServerUrl.Replace("http://", "ws://").Replace("https://", "wss://")
         $taskCmd = '\"' + $agentExe + '\" --server \"' + $wsUrl + '\" --token \"MESH-ENTERPRISE-TOKEN-2026\"'
@@ -222,5 +222,5 @@ Write-Host "   MAC Address:    $mac" -ForegroundColor White
 Write-Host "   Serial Number:  $serial" -ForegroundColor White
 Write-Host "   Relay Server:   $ServerUrl" -ForegroundColor Cyan
 Write-Host "   Server Panel:   Reflected & Online" -ForegroundColor Green
-Write-Host "   ⚡ Remote Access: AegisMesh Zero-Touch Background Daemon Active" -ForegroundColor Green
+Write-Host "   âš¡ Remote Access: AegisMesh Zero-Touch Background Daemon Active" -ForegroundColor Green
 Write-Host "=========================================================================`n" -ForegroundColor Green
