@@ -20,12 +20,12 @@ public static class BuildConstants
     public const string BuildEditionColor = "#1A4BB2"; // SVLL blue
 #endif
 
-    public const string AppVersion = "8.3";
+    public const string AppVersion = "8.4";
     public const string RelayApiKey = "SVLL-RELAY-KEY-2026-KUNAL";  // shared secret, same in both builds
 
     /// <summary>Default corporate server IP for Shree Vasu Logistics</summary>
-    public const string DefaultRelayUrl = "http://192.168.10.222:5000";
-    public const string DefaultMeshCentralUrl = "http://192.168.10.222:8086";
+    public const string DefaultRelayUrl = "https://roberts-basis-early-likewise.trycloudflare.com";
+    public const string DefaultMeshCentralUrl = "https://roberts-basis-early-likewise.trycloudflare.com";
 
     /// <summary>Corporate unattended access password for 1-click zero-password remote control via AnyDesk</summary>
     public const string DefaultRemotePassword = "SVLL@Remote2026";

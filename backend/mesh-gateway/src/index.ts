@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes';
 import { createDeviceRoutes } from './routes/deviceRoutes';
 import auditRoutes from './routes/auditRoutes';
 import downloadRoutes from './routes/downloadRoutes';
+import { createRelayRoutes } from './routes/relayRoutes';
 import { MeshGateway } from './meshGateway';
 
 dotenv.config();
@@ -38,6 +39,7 @@ const gateway = new MeshGateway(server);
 // Mount REST Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/agent', downloadRoutes);
+app.use('/api', createRelayRoutes());
 app.use('/api', createDeviceRoutes(gateway));
 app.use('/api/audit-logs', auditRoutes);
 

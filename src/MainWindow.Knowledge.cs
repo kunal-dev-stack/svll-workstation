@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -504,7 +504,7 @@ public partial class MainWindow
 
         var searchIcon = new TextBlock
         {
-            Text = "🔍",
+            Text = "ðŸ”",
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 6, 0)
@@ -525,7 +525,7 @@ public partial class MainWindow
 
         var btnClearSearch = new Button
         {
-            Content = "✕",
+            Content = "âœ•",
             FontSize = 10,
             FontWeight = FontWeights.Bold,
             Width = 22,
@@ -683,7 +683,7 @@ public partial class MainWindow
                     Margin = new Thickness(0, 40, 0, 0)
                 };
                 var emptyStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
-                emptyStack.Children.Add(new TextBlock { Text = "🔍 No Matching Scenarios Found", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = TextDark, HorizontalAlignment = HorizontalAlignment.Center });
+                emptyStack.Children.Add(new TextBlock { Text = "ðŸ” No Matching Scenarios Found", FontSize = 13, FontWeight = FontWeights.Bold, Foreground = TextDark, HorizontalAlignment = HorizontalAlignment.Center });
                 emptyStack.Children.Add(new TextBlock { Text = "Try adjusting your search query or selecting 'All' categories.", FontSize = 11, Foreground = TextSubtle, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) });
                 emptyNotice.Child = emptyStack;
                 detailStack.Children.Add(emptyNotice);
@@ -857,7 +857,7 @@ public partial class MainWindow
         var symStack = new StackPanel();
         symStack.Children.Add(new TextBlock
         {
-            Text = "⚠️  SYMPTOMS & PROBLEM OCCURRENCE",
+            Text = "âš ï¸  SYMPTOMS & PROBLEM OCCURRENCE",
             FontSize = 10.5,
             FontWeight = FontWeights.Bold,
             Foreground = new SolidColorBrush(Color.FromRgb(180, 83, 9)), // Amber-700
@@ -886,7 +886,7 @@ public partial class MainWindow
         var causeStack = new StackPanel();
         causeStack.Children.Add(new TextBlock
         {
-            Text = "💡  ROOT CAUSE & TECHNICAL REMEDIATION",
+            Text = "ðŸ’¡  ROOT CAUSE & TECHNICAL REMEDIATION",
             FontSize = 10.5,
             FontWeight = FontWeights.Bold,
             Foreground = new SolidColorBrush(Color.FromRgb(3, 105, 161)), // Sky-700
@@ -951,7 +951,7 @@ public partial class MainWindow
 
         var btnCopy = new Button
         {
-            Content = "📋 Copy",
+            Content = "ðŸ“‹ Copy",
             Height = 24,
             Padding = new Thickness(10, 0, 10, 0),
             Margin = new Thickness(0, 0, 6, 0),
@@ -968,10 +968,10 @@ public partial class MainWindow
             try
             {
                 Clipboard.SetText(command);
-                btnCopy.Content = "✔ Copied!";
+                btnCopy.Content = "âœ” Copied!";
                 btnCopy.Background = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 await Task.Delay(1800);
-                btnCopy.Content = "📋 Copy";
+                btnCopy.Content = "ðŸ“‹ Copy";
                 btnCopy.Background = new SolidColorBrush(Color.FromRgb(30, 41, 59));
             }
             catch { }
@@ -980,7 +980,7 @@ public partial class MainWindow
 
         var btnRun = new Button
         {
-            Content = isPowerShell ? "⚡ Run in PS" : "⚡ Run in CMD",
+            Content = isPowerShell ? "âš¡ Run in PS" : "âš¡ Run in CMD",
             Height = 24,
             Padding = new Thickness(10, 0, 10, 0),
             FontSize = 10.5,
@@ -1171,9 +1171,9 @@ public partial class MainWindow
         presetRow.Children.Add(lblPreset);
 
         var cmbPreset = new ComboBox { Width = 280, Height = 32, FontSize = 11, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        cmbPreset.Items.Add("⚡ SVLL High-Performance Baseline (Max Speed, Low RAM/CPU)");
-        cmbPreset.Items.Add("🏢 SVLL Standard Corporate Fleet Baseline");
-        cmbPreset.Items.Add("🛡️ High-Security Hardened Branch Profile");
+        cmbPreset.Items.Add("âš¡ SVLL High-Performance Baseline (Max Speed, Low RAM/CPU)");
+        cmbPreset.Items.Add("ðŸ¢ SVLL Standard Corporate Fleet Baseline");
+        cmbPreset.Items.Add("ðŸ›¡ï¸ High-Security Hardened Branch Profile");
         cmbPreset.SelectedIndex = 0;
         cmbPreset.SelectionChanged += (s, e) =>
         {
@@ -1213,7 +1213,7 @@ public partial class MainWindow
         };
         presetRow.Children.Add(cmbPreset);
 
-        var btnApply = new Button { Content = " ⚡ Apply Baseline & Accelerate System Now ", Height = 32, Padding = new Thickness(16, 0, 16, 0), Background = SvllBlue, Foreground = Brushes.White, FontWeight = FontWeights.Bold, Cursor = Cursors.Hand };
+        var btnApply = new Button { Content = " âš¡ Apply Baseline & Accelerate System Now ", Height = 32, Padding = new Thickness(16, 0, 16, 0), Background = SvllBlue, Foreground = Brushes.White, FontWeight = FontWeights.Bold, Cursor = Cursors.Hand };
         btnApply.Click += async (s, e) => await ExecuteActiveConfigAsync();
         presetRow.Children.Add(btnApply);
 
@@ -1248,11 +1248,11 @@ public partial class MainWindow
             Foreground = SvllBlue,
             Margin = new Thickness(0, 0, 0, 6)
         });
-        optStack.Children.Add(new TextBlock { Text = "✔ Working Set RAM Purge: Releases cached unpaged standby memory allocations to reduce RAM load.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "✔ CPU Power & Throttling: Unlocks Ultimate Performance power scheme to remove processor latency.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "✔ Deep Temp Purge: Cleans %TEMP%, C:\\Windows\\Temp, Prefetch, and empties Recycle Bin.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "✔ Telemetry & Bloat Reduction: Disables diagnostic tracking and consumer background UWP apps.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "✔ Network Stack Flush: Flushes DNS resolver cache and ARP tables for instantaneous packet routing.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+        optStack.Children.Add(new TextBlock { Text = "âœ” Working Set RAM Purge: Releases cached unpaged standby memory allocations to reduce RAM load.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+        optStack.Children.Add(new TextBlock { Text = "âœ” CPU Power & Throttling: Unlocks Ultimate Performance power scheme to remove processor latency.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+        optStack.Children.Add(new TextBlock { Text = "âœ” Deep Temp Purge: Cleans %TEMP%, C:\\Windows\\Temp, Prefetch, and empties Recycle Bin.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+        optStack.Children.Add(new TextBlock { Text = "âœ” Telemetry & Bloat Reduction: Disables diagnostic tracking and consumer background UWP apps.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+        optStack.Children.Add(new TextBlock { Text = "âœ” Network Stack Flush: Flushes DNS resolver cache and ARP tables for instantaneous packet routing.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
         optBox.Child = optStack;
         sp.Children.Add(optBox);
 
@@ -1347,7 +1347,7 @@ public partial class MainWindow
         GC.Collect();
 
         Log("[CONFIG] Baseline deployment sequence completed successfully! System is running at optimal baseline.");
-        MessageBox.Show("Baseline optimizations applied successfully!\n\n• RAM standby memory released\n• CPU power latency minimized\n• System temp caches & recycle bin purged\n• Telemetry & bloatware disabled", "Baseline Applied", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show("Baseline optimizations applied successfully!\n\nâ€¢ RAM standby memory released\nâ€¢ CPU power latency minimized\nâ€¢ System temp caches & recycle bin purged\nâ€¢ Telemetry & bloatware disabled", "Baseline Applied", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async Task HandleCommandLineArgsAsync(string[] args)
@@ -1479,11 +1479,24 @@ public partial class MainWindow
                 if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
                 {
 #if BUILD_ADMIN
-                    string editionKey = "Admin";
+                    bool isUser = false;
 #else
-                    string editionKey = "User";
+                    bool isUser = true;
 #endif
-                    // 1. Try to find edition-matched setup installer
+                    try
+                    {
+                        string? mainModule = Process.GetCurrentProcess().MainModule?.FileName;
+                        if (!string.IsNullOrEmpty(mainModule))
+                        {
+                            if (mainModule.Contains("User", StringComparison.OrdinalIgnoreCase)) isUser = true;
+                            else if (mainModule.Contains("Admin", StringComparison.OrdinalIgnoreCase)) isUser = false;
+                        }
+                    }
+                    catch { }
+
+                    string editionKey = isUser ? "User" : "Admin";
+
+                    // Strictly find edition-matched installer. Never cross-install Admin on User or User on Admin!
                     foreach (var asset in assets.EnumerateArray())
                     {
                         string name = asset.GetProperty("name").GetString() ?? "";
@@ -1496,29 +1509,12 @@ public partial class MainWindow
                             break;
                         }
                     }
-
-                    // 2. Fallback to any client Setup.exe (excluding server assets)
-                    if (string.IsNullOrEmpty(downloadUrl))
-                    {
-                        foreach (var asset in assets.EnumerateArray())
-                        {
-                            string name = asset.GetProperty("name").GetString() ?? "";
-                            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
-                                name.Contains("Setup", StringComparison.OrdinalIgnoreCase) &&
-                                !name.Contains("Server", StringComparison.OrdinalIgnoreCase))
-                            {
-                                downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
-                                updateFileName = name;
-                                break;
-                            }
-                        }
-                    }
                 }
 
                 string cleanTag = tag.TrimStart('v', 'V');
                 if (cleanTag != CurrentVersion && !string.IsNullOrEmpty(downloadUrl))
                 {
-                    statusBlock.Text = $"🎉 New update available: {tag} (Installed: v{CurrentVersion})! Click 'Download & Apply Update Now'.";
+                    statusBlock.Text = $"ðŸŽ‰ New update available: {tag} (Installed: v{CurrentVersion})! Click 'Download & Apply Update Now'.";
                     statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(5, 150, 105));
                     btnApplyUpdate.Visibility = Visibility.Visible;
                 }
@@ -1529,7 +1525,7 @@ public partial class MainWindow
                 }
                 else
                 {
-                    statusBlock.Text = $"✔ You are already running the latest version (v{CurrentVersion}).";
+                    statusBlock.Text = $"âœ” You are already running the latest version (v{CurrentVersion}).";
                     statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 }
 

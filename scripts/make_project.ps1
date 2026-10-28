@@ -1,7 +1,7 @@
-# =========================================================================
+﻿# =========================================================================
 # Shree Vasu Logistics Limited - Automated Project Builder & Packager
 # Developed by: Kunal Turkar
-# Builds Dual Editions: Admin Edition & User Edition (v8.3)
+# Builds Dual Editions: Admin Edition & User Edition (v8.4)
 # =========================================================================
 
 $ErrorActionPreference = "Stop"
@@ -15,7 +15,7 @@ $installerDir = Join-Path $projectRoot "installer"
 $releaseDir = Join-Path $projectRoot "release"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Building SVLL IT Support Workstation v8.3 (Dual Editions)" -ForegroundColor Cyan
+Write-Host "  Building SVLL IT Support Workstation v8.4 (Dual Editions)" -ForegroundColor Cyan
 Write-Host "  Project Directory: $projectRoot" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
@@ -99,6 +99,7 @@ Write-Host "`n[4/5] Searching for Inno Setup Compiler (ISCC.exe)..." -Foreground
 
 $isccCandidates = @(
     "ISCC.exe",
+    "C:\Program Files\Inno Setup 7\ISCC.exe",
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
@@ -152,28 +153,28 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n============================================================" -ForegroundColor Green
-Write-Host "  SVLL v8.3 DUAL BUILDS COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "  SVLL v8.4 DUAL BUILDS COMPLETED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
-$adminPkg = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.3-Setup.exe"
-$userPkg = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.3-Setup.exe"
+$adminPkg = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.4-Setup.exe"
+$userPkg = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.4-Setup.exe"
 if (Test-Path $adminPkg) {
     $aMb = [Math]::Round(((Get-Item $adminPkg).Length / 1MB), 2)
-    Write-Host "  👑 Admin Package: $adminPkg ($aMb MB)" -ForegroundColor Green
+    Write-Host "  ðŸ‘‘ Admin Package: $adminPkg ($aMb MB)" -ForegroundColor Green
 }
 if (Test-Path $userPkg) {
     $uMb = [Math]::Round(((Get-Item $userPkg).Length / 1MB), 2)
-    Write-Host "  👤 User Package:  $userPkg ($uMb MB)" -ForegroundColor Green
+    Write-Host "  ðŸ‘¤ User Package:  $userPkg ($uMb MB)" -ForegroundColor Green
 
     # Create generic Setup alias for backward-compatible in-app updaters
-    $legacySetup = Join-Path $releaseDir "SVLL-IT-Workstation-v8.3-Setup.exe"
+    $legacySetup = Join-Path $releaseDir "SVLL-IT-Workstation-v8.4-Setup.exe"
     Copy-Item $userPkg $legacySetup -Force
-    Write-Host "  🔄 Legacy Updater Alias: $legacySetup" -ForegroundColor Cyan
+    Write-Host "  ðŸ”„ Legacy Updater Alias: $legacySetup" -ForegroundColor Cyan
 }
 
 # 6. Generate CHECKSUMS.txt
 $checksumsFile = Join-Path $releaseDir "CHECKSUMS.txt"
 $hashLines = @()
-Get-ChildItem -Path $releaseDir -Filter "*8.3*" | ForEach-Object {
+Get-ChildItem -Path $releaseDir -Filter "*8.4*" | ForEach-Object {
     $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
     $hashLines += "$hash  $($_.Name)"
 }

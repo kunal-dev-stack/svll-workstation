@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "8.3";
+    public const string CurrentVersion = "8.4";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     public static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
