@@ -1,4 +1,4 @@
-﻿# =========================================================================
+# =========================================================================
 # Shree Vasu Logistics Limited - Client Workstation Automated Installer
 # Target: SVLL IT Support Workstation (User Edition v8.4)
 # Developed by: Kunal Turkar
@@ -95,14 +95,30 @@ Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for 
 Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
-$downloadUrl = "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.4/SVLL-IT-Workstation-User-v8.4-Setup.exe"
+$downloadCandidates = @(
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.4/SVLL-IT-Workstation-User-v8.4-Setup.exe",
+    "$ServerUrl/api/agent/user-setup"
+)
 $tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.4-Setup.exe"
 
 Write-Host "[1/3] Downloading latest SVLL Workstation User v8.4..." -ForegroundColor Yellow
-try {
-    Start-BitsTransfer -Source $downloadUrl -Destination $tempExe -ErrorAction Stop
-} catch {
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempExe -UseBasicParsing
+$downloadSuccess = $false
+foreach ($u in $downloadCandidates) {
+    try {
+        Write-Host "    Connecting to: $u..." -ForegroundColor Yellow
+        Invoke-WebRequest -Uri $u -OutFile $tempExe -UseBasicParsing -TimeoutSec 120 -ErrorAction Stop
+        if ((Test-Path $tempExe) -and (Get-Item $tempExe).Length -gt 10000000) {
+            $downloadSuccess = $true
+            Write-Host "    Download completed successfully ($((Get-Item $tempExe).Length) bytes)." -ForegroundColor Green
+            break
+        }
+    } catch {
+        Write-Warning "    Download attempt failed: $_"
+    }
+}
+if (-not $downloadSuccess) {
+    Write-Error "Failed to download User Setup from all available endpoints."
+    exit 1
 }
 
 Write-Host "[2/3] Performing in-place upgrade silently..." -ForegroundColor Yellow
