@@ -14,3 +14,13 @@ release/*.zip
 node_modules/
 *.log
 *.tmp
+
+# Android & Gradle
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+local.properties
+.idea/
+*.iml
