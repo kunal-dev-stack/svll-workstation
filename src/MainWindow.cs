@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "8.4";
+    public const string CurrentVersion = "8.5";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     public static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
@@ -1060,6 +1060,11 @@ public partial class MainWindow : Window
         };
         quickMenu.Items.Add(itemFlush);
 
+        quickMenu.Items.Add(new Separator());
+        var itemCheckUpdates = new MenuItem { Header = "\U0001F504  Check for Application Updates (v" + CurrentVersion + ")", FontWeight = FontWeights.Bold };
+        itemCheckUpdates.Click += async (s, e) => await CheckForAppUpdatesAsync(showPromptIfLatest: true);
+        quickMenu.Items.Add(itemCheckUpdates);
+
         btnQuickMenu.ContextMenu = quickMenu;
         btnQuickMenu.Click += (s, e) =>
         {
@@ -1068,6 +1073,23 @@ public partial class MainWindow : Window
             quickMenu.IsOpen = true;
         };
         rightStack.Children.Add(btnQuickMenu);
+
+        // In-App Check Updates Button (Available in both User & Admin panels)
+        var btnCheckUpdates = new Button
+        {
+            Content = "\U0001F504 Updates",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(4, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(14, 165, 233)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            ToolTip = $"Check for Updates (v{CurrentVersion}) - 1-Click Upgrade"
+        };
+        btnCheckUpdates.Click += async (s, e) => await CheckForAppUpdatesAsync(showPromptIfLatest: true);
+        rightStack.Children.Add(btnCheckUpdates);
 
         // Direct Top Status Bar Task Manager Button - Clean Margin so it never hits right wall!
         var btnTopTask = new Button
@@ -1229,6 +1251,19 @@ public partial class MainWindow : Window
             Foreground = TextSubtle,
             Margin = new Thickness(0, 1, 0, 0)
         });
+
+        var updateLink = new TextBlock
+        {
+            Text = "\U0001F504 Check for Updates",
+            FontSize = 9.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextDecorations = TextDecorations.Underline
+        };
+        updateLink.MouseDown += async (s, e) => await CheckForAppUpdatesAsync(showPromptIfLatest: true);
+        sp.Children.Add(updateLink);
 
         card.Child = sp;
         return card;
@@ -2044,4 +2079,165 @@ public partial class MainWindow : Window
             Log($"[LAUNCH ERROR] Failed to start {exe}: {ex.Message}");
         }
     }
+
+    #region In-App Check Updates Tool (User & Admin Panels)
+
+    public async Task CheckForAppUpdatesAsync(bool showPromptIfLatest = true)
+    {
+        try
+        {
+            Log($"[UPDATER] Checking GitHub API (kunal-dev-stack/svll-workstation) for updates. Installed version: v{CurrentVersion}...");
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            client.DefaultRequestHeaders.Add("User-Agent", "SVLL-Workstation/" + CurrentVersion);
+
+            string json = await client.GetStringAsync("https://api.github.com/repos/kunal-dev-stack/svll-workstation/releases/latest");
+            using var doc = JsonDocument.Parse(json);
+            string tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+            string releaseNotes = doc.RootElement.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "";
+
+#if BUILD_ADMIN
+            bool isUser = false;
+#else
+            bool isUser = true;
+#endif
+            try
+            {
+                string? mainModule = Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrEmpty(mainModule))
+                {
+                    if (mainModule.Contains("User", StringComparison.OrdinalIgnoreCase)) isUser = true;
+                    else if (mainModule.Contains("Admin", StringComparison.OrdinalIgnoreCase)) isUser = false;
+                }
+            }
+            catch { }
+
+            string editionKey = isUser ? "User" : "Admin";
+            string downloadUrl = "";
+            string updateFileName = "";
+
+            if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var asset in assets.EnumerateArray())
+                {
+                    string name = asset.GetProperty("name").GetString() ?? "";
+                    if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                        name.Contains("Setup", StringComparison.OrdinalIgnoreCase) &&
+                        name.Contains(editionKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
+                        updateFileName = name;
+                        break;
+                    }
+                }
+            }
+
+            string cleanTag = tag.TrimStart('v', 'V');
+            bool isNewer = IsVersionGreater(cleanTag, CurrentVersion);
+
+            if (isNewer && !string.IsNullOrEmpty(downloadUrl))
+            {
+                string notePreview = releaseNotes.Length > 280 ? releaseNotes[..280] + "..." : releaseNotes;
+                var result = MessageBox.Show(
+                    $"\U0001F389 New Update Available!\n\n" +
+                    $"• Installed Version: v{CurrentVersion} ({editionKey} Edition)\n" +
+                    $"• Latest Available: {tag}\n" +
+                    $"• Package: {updateFileName}\n\n" +
+                    $"Release Highlights:\n{(string.IsNullOrWhiteSpace(notePreview) ? "Latest stability, diagnostic, and automation updates." : notePreview)}\n\n" +
+                    $"Would you like to download and install this update automatically now?",
+                    "SVLL IT Workstation - Update Available",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    await DownloadAndExecuteUpdateAsync(downloadUrl, updateFileName);
+                }
+            }
+            else if (isNewer && string.IsNullOrEmpty(downloadUrl))
+            {
+                MessageBox.Show(
+                    $"A new release tag '{tag}' was found on GitHub, but the {editionKey} installer (.exe) is still being finalized. Please check back shortly.",
+                    "Update Release Notice",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            else
+            {
+                if (showPromptIfLatest)
+                {
+                    MessageBox.Show(
+                        $"\u2714 You are running the latest version!\n\n" +
+                        $"• Installed: v{CurrentVersion} ({editionKey} Edition)\n" +
+                        $"• Latest on GitHub: {tag}\n" +
+                        $"• Release Channel: Production Stable\n\n" +
+                        $"No updates required at this time.",
+                        "Up to Date",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (showPromptIfLatest)
+            {
+                MessageBox.Show(
+                    $"Could not connect to update servers:\n{ex.Message}\n\nPlease check network connectivity or visit github.com/kunal-dev-stack/svll-workstation/releases.",
+                    "Update Check Notice",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+    }
+
+    private static bool IsVersionGreater(string latest, string current)
+    {
+        if (Version.TryParse(latest, out var vLatest) && Version.TryParse(current, out var vCurrent))
+        {
+            return vLatest > vCurrent;
+        }
+        return string.Compare(latest, current, StringComparison.OrdinalIgnoreCase) > 0;
+    }
+
+    private async Task DownloadAndExecuteUpdateAsync(string downloadUrl, string fileName)
+    {
+        try
+        {
+            string tempDir = System.IO.Path.GetTempPath();
+            string targetPath = System.IO.Path.Combine(tempDir, string.IsNullOrEmpty(fileName) ? "SVLL-Update-Setup.exe" : fileName);
+
+            Log($"[UPDATER] Downloading update binary from {downloadUrl} to {targetPath}...");
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
+            client.DefaultRequestHeaders.Add("User-Agent", "SVLL-Workstation/" + CurrentVersion);
+
+            using (var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+            {
+                response.EnsureSuccessStatusCode();
+                using var contentStream = await response.Content.ReadAsStreamAsync();
+                using var fileStream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+                await contentStream.CopyToAsync(fileStream);
+            }
+
+            Log($"[UPDATER] Download completed. Launching silent installer: {targetPath}");
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = targetPath,
+                Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+                UseShellExecute = true
+            };
+            Process.Start(psi);
+
+            // Terminate current process so the installer can replace application binaries cleanly
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to download or apply update:\n{ex.Message}", "Update Failure", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    #endregion
 }

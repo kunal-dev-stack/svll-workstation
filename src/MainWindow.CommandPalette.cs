@@ -373,6 +373,13 @@ public partial class MainWindow
                     Log("[COMMAND PALETTE] Temp files and Recycle Bin purged.");
                     MessageBox.Show("✔ Temp directory and Recycle Bin purged.", "Junk Cleared", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
+            },
+            new() {
+                Title = "Quick Action: Check for Application Updates",
+                Subtitle = $"Query latest releases from GitHub and 1-click upgrade (Installed: v{CurrentVersion})",
+                Category = "QUICK ACTION",
+                Icon = "\U0001F504",
+                CustomAction = async () => await CheckForAppUpdatesAsync(showPromptIfLatest: true)
             }
         };
     }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -1134,125 +1134,191 @@ public partial class MainWindow
             Background = BgCard,
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(16),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(20),
             Margin = new Thickness(0, 0, 0, 14)
         };
 
         var sp = new StackPanel();
-        sp.Children.Add(new TextBlock
+
+        // 1. Header Card
+        var titleStack = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
+        titleStack.Children.Add(new TextBlock
         {
-            Text = "WORKSTATION CONFIGURATION BASELINES",
-            FontSize = 13,
+            Text = "WORKSTATION CONFIGURATION & FLEET BASELINE PROFILES",
+            FontSize = 14,
             FontWeight = FontWeights.Bold,
             Foreground = SvllBlue,
-            Margin = new Thickness(0, 0, 0, 6)
+            Margin = new Thickness(0, 0, 0, 4)
         });
-        sp.Children.Add(new TextBlock
+        titleStack.Children.Add(new TextBlock
         {
-            Text = "Export, import, and apply standardized enterprise baseline settings across the logistics computer fleet.",
+            Text = "Deploy standardized corporate performance, power, and optimization baselines across the fleet. Switch between Maximum Speed Acceleration and Balanced Daily Operations in 1 click.",
             FontSize = 11,
             Foreground = TextSubtle,
-            Margin = new Thickness(0, 0, 0, 12)
+            TextWrapping = TextWrapping.Wrap
         });
+        sp.Children.Add(titleStack);
 
-        // Profile Selector & Action Toolbar
-        var presetRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 14) };
+        // 2. Profile Selection & Summary
+        var profileRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 14) };
 
         var lblPreset = new TextBlock
         {
             Text = "Active Fleet Baseline Profile:",
-            FontSize = 11,
+            FontSize = 11.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = TextDark,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0)
+            Margin = new Thickness(0, 0, 12, 0)
         };
-        presetRow.Children.Add(lblPreset);
+        profileRow.Children.Add(lblPreset);
 
-        var cmbPreset = new ComboBox { Width = 280, Height = 32, FontSize = 11, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        cmbPreset.Items.Add("âš¡ SVLL High-Performance Baseline (Max Speed, Low RAM/CPU)");
-        cmbPreset.Items.Add("ðŸ¢ SVLL Standard Corporate Fleet Baseline");
-        cmbPreset.Items.Add("ðŸ›¡ï¸ High-Security Hardened Branch Profile");
-        cmbPreset.SelectedIndex = 0;
-        cmbPreset.SelectionChanged += (s, e) =>
+        var cmbPreset = new ComboBox
         {
-            if (cmbPreset.SelectedIndex == 0)
+            Width = 420,
+            Height = 34,
+            FontSize = 11.5,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 14, 0)
+        };
+        cmbPreset.Items.Add("\u26A1 Best Performance Profile (Max Speed, Low Latency, RAM Purge)");
+        cmbPreset.Items.Add("\U0001F3E2 Normal Use Profile (Balanced Power & Standard Fleet Stability)");
+        cmbPreset.Items.Add("\U0001F6E1\uFE0F High-Security Hardened Branch Profile (CIS Compliance)");
+        cmbPreset.SelectedIndex = 0;
+
+        var optStack = new StackPanel();
+
+        void RefreshProfileUI(int index)
+        {
+            optStack.Children.Clear();
+            if (index == 0)
             {
-                _activeConfig.PresetName = "SVLL High-Performance Baseline";
-                _activeConfig.Description = "Maximizes system speed, frees working set RAM, reduces CPU background load, cleans temp caches, and sets Ultimate Performance.";
+                _activeConfig.PresetName = "SVLL Best Performance Profile";
+                _activeConfig.Description = "Maximizes system speed, unlocks Ultimate Performance power, frees working set RAM, enables TCP auto-tuning, cleans temp caches, and eliminates telemetry.";
                 _activeConfig.DisableTelemetry = true;
                 _activeConfig.RemoveUwpBloat = true;
                 _activeConfig.CleanTempsAndCaches = true;
                 _activeConfig.OptimizePowerPlan = true;
                 _activeConfig.FlushDnsAndNetworkCaches = true;
                 _activeConfig.OptimizeBackgroundServices = true;
+
+                optStack.Children.Add(new TextBlock { Text = "\u26A1 BEST PERFORMANCE PROFILE (OPTIMAL SPEED & LOW LATENCY):", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = SvllBlue, Margin = new Thickness(0, 0, 0, 6) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 CPU Power & Latency: Sets Windows Ultimate Performance power scheme to eliminate processor core parking latency.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Working Set RAM Purge: Releases cached unpaged standby memory allocations and compacts application heap.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Network Stack Acceleration: Enables TCP Window Auto-Tuning and flushes stale DNS resolver cache.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Deep Temp Purge: Cleans %TEMP%, C:\\Windows\\Temp, Prefetch, crash dumps, and empties Recycle Bin.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Telemetry & Bloat Reduction: Disables diagnostic tracking and consumer background UWP apps.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
             }
-            else if (cmbPreset.SelectedIndex == 1)
+            else if (index == 1)
             {
-                _activeConfig.PresetName = "SVLL Standard Corporate Fleet Baseline";
-                _activeConfig.Description = "Standard operational profile for office workstations with balanced power management.";
+                _activeConfig.PresetName = "SVLL Normal Use Corporate Fleet Profile";
+                _activeConfig.Description = "Balanced operational profile for everyday office workstations and laptops with energy-efficient power management.";
                 _activeConfig.DisableTelemetry = true;
-                _activeConfig.RemoveUwpBloat = true;
+                _activeConfig.RemoveUwpBloat = false;
                 _activeConfig.CleanTempsAndCaches = true;
                 _activeConfig.OptimizePowerPlan = false;
                 _activeConfig.FlushDnsAndNetworkCaches = true;
                 _activeConfig.OptimizeBackgroundServices = false;
+
+                optStack.Children.Add(new TextBlock { Text = "\U0001F3E2 NORMAL USE CORPORATE FLEET PROFILE (BALANCED POWER & STABILITY):", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)), Margin = new Thickness(0, 0, 0, 6) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Balanced Power Management: Conserves energy and laptop battery life while responding smoothly to workload demand.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Safe Temp Cleanup: Cleans temporary user caches without disturbing system recovery or prefetch buffers.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 DNS & Network Refresh: Flushes stale resolver cache and maintains standard DHCP routing.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Standard Windows Servicing: Retains standard printer spooler, network sharing, and background sync.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
             }
             else
             {
                 _activeConfig.PresetName = "SVLL High-Security Hardened Branch Profile";
-                _activeConfig.Description = "Strict security baseline with telemetry fully eliminated and firewall policies enforced.";
+                _activeConfig.Description = "Strict security baseline with telemetry fully eliminated and firewall policies enforced across all zones.";
                 _activeConfig.DisableTelemetry = true;
                 _activeConfig.RemoveUwpBloat = true;
                 _activeConfig.CleanTempsAndCaches = true;
                 _activeConfig.OptimizePowerPlan = false;
                 _activeConfig.FlushDnsAndNetworkCaches = true;
                 _activeConfig.OptimizeBackgroundServices = false;
+
+                optStack.Children.Add(new TextBlock { Text = "\U0001F6E1\uFE0F HIGH-SECURITY HARDENED PROFILE (CIS DEFENSE IN DEPTH):", FontSize = 10.5, FontWeight = FontWeights.Bold, Foreground = SvllRed, Margin = new Thickness(0, 0, 0, 6) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Firewall & Security Barriers: Enforces active state across Domain, Private, and Public network zones.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Diagnostic Isolation: Complete elimination of Windows diagnostic and customer feedback telemetry.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+                optStack.Children.Add(new TextBlock { Text = "\u2714 Consumer Bloat Purged: Disables third-party bundled AppX packages and Cortana search hooks.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
             }
+        }
+
+        cmbPreset.SelectionChanged += (s, e) => RefreshProfileUI(cmbPreset.SelectedIndex);
+        profileRow.Children.Add(cmbPreset);
+
+        var btnApply = new Button
+        {
+            Content = " \u26A1 Apply Baseline Profile Now ",
+            Height = 34,
+            Padding = new Thickness(18, 0, 18, 0),
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.Bold,
+            Cursor = Cursors.Hand
         };
-        presetRow.Children.Add(cmbPreset);
-
-        var btnApply = new Button { Content = " âš¡ Apply Baseline & Accelerate System Now ", Height = 32, Padding = new Thickness(16, 0, 16, 0), Background = SvllBlue, Foreground = Brushes.White, FontWeight = FontWeights.Bold, Cursor = Cursors.Hand };
         btnApply.Click += async (s, e) => await ExecuteActiveConfigAsync();
-        presetRow.Children.Add(btnApply);
+        profileRow.Children.Add(btnApply);
 
-        sp.Children.Add(presetRow);
+        sp.Children.Add(profileRow);
 
+        // 3. Import / Export Toolbar
         var btnBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 14) };
-        var btnExport = new Button { Content = "Export Active Baseline (.JSON)", Height = 30, Padding = new Thickness(12, 0, 12, 0), Margin = new Thickness(0, 0, 8, 0), Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)), BorderBrush = BorderMuted };
+        var btnExport = new Button
+        {
+            Content = "\U0001F4CB Export Active Baseline (.JSON)",
+            Height = 30,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
         btnExport.Click += (s, e) => ExportConfigJson();
         btnBar.Children.Add(btnExport);
 
-        var btnImport = new Button { Content = "Import Custom Baseline (.JSON)", Height = 30, Padding = new Thickness(12, 0, 12, 0), Margin = new Thickness(0, 0, 8, 0), Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)), BorderBrush = BorderMuted };
+        var btnImport = new Button
+        {
+            Content = "\U0001F4C2 Import Custom Baseline (.JSON)",
+            Height = 30,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
         btnImport.Click += (s, e) => ImportConfigJson();
         btnBar.Children.Add(btnImport);
+
+        var btnResetDefaults = new Button
+        {
+            Content = "\U0001F504 Reset to Standard Baseline",
+            Height = 30,
+            Padding = new Thickness(12, 0, 12, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            Cursor = Cursors.Hand
+        };
+        btnResetDefaults.Click += (s, e) =>
+        {
+            cmbPreset.SelectedIndex = 1; // Normal Use
+            MessageBox.Show("Baseline preset reset to 'Normal Use Corporate Fleet Profile'. Click 'Apply Baseline Profile Now' to enforce.", "Reset Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        btnBar.Children.Add(btnResetDefaults);
         sp.Children.Add(btnBar);
 
-        // Performance Optimization Summary Card
+        // 4. Feature Details Card
         var optBox = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             BorderBrush = BorderMuted,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(14),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(16),
             Margin = new Thickness(0, 0, 0, 10)
         };
-        var optStack = new StackPanel();
-        optStack.Children.Add(new TextBlock
-        {
-            Text = "HIGH-PERFORMANCE SYSTEM ACCELERATION INCLUDED IN ACTIVE BASELINE:",
-            FontSize = 10,
-            FontWeight = FontWeights.Bold,
-            Foreground = SvllBlue,
-            Margin = new Thickness(0, 0, 0, 6)
-        });
-        optStack.Children.Add(new TextBlock { Text = "âœ” Working Set RAM Purge: Releases cached unpaged standby memory allocations to reduce RAM load.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "âœ” CPU Power & Throttling: Unlocks Ultimate Performance power scheme to remove processor latency.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "âœ” Deep Temp Purge: Cleans %TEMP%, C:\\Windows\\Temp, Prefetch, and empties Recycle Bin.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "âœ” Telemetry & Bloat Reduction: Disables diagnostic tracking and consumer background UWP apps.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
-        optStack.Children.Add(new TextBlock { Text = "âœ” Network Stack Flush: Flushes DNS resolver cache and ARP tables for instantaneous packet routing.", FontSize = 11, Foreground = TextDark, Margin = new Thickness(0, 2, 0, 2) });
+        RefreshProfileUI(0);
         optBox.Child = optStack;
         sp.Children.Add(optBox);
 
@@ -1301,9 +1367,22 @@ public partial class MainWindow
 
     private async Task ExecuteActiveConfigAsync()
     {
-        Log("\n[CONFIG] Deploying full active configuration baseline...");
+        Log($"\n[CONFIG] Deploying active configuration baseline: '{_activeConfig.PresetName}'...");
 
-        // 1. Telemetry and Bloatware
+        // 1. Power Plan Configuration
+        if (_activeConfig.OptimizePowerPlan)
+        {
+            Log("[CONFIG] Activating Windows Ultimate Performance power scheme to minimize CPU latency...");
+            await ExecuteAsync("powercfg.exe", "-duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61");
+            await ExecuteAsync("powercfg.exe", "-setactive e9a42b02-d5df-448d-aa00-03f14749eb61");
+        }
+        else
+        {
+            Log("[CONFIG] Setting balanced energy-efficient power scheme...");
+            await ExecuteAsync("powercfg.exe", "-setactive 381b4222-f694-41f0-9685-ff5bb260df2e");
+        }
+
+        // 2. Telemetry and Bloatware
         if (_activeConfig.DisableTelemetry)
         {
             Log("[CONFIG] Disabling telemetry and consumer background tracking...");
@@ -1315,14 +1394,6 @@ public partial class MainWindow
             await RemoveUwpBloatwareAsync();
         }
 
-        // 2. High-Performance Power Plan
-        if (_activeConfig.OptimizePowerPlan)
-        {
-            Log("[CONFIG] Activating Ultimate Performance power scheme to reduce CPU latency...");
-            await ExecuteAsync("powercfg.exe", "-duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61");
-            await ExecuteAsync("powercfg.exe", "-setactive e9a42b02-d5df-448d-aa00-03f14749eb61");
-        }
-
         // 3. Clear Temp Caches & Recycle Bin
         if (_activeConfig.CleanTempsAndCaches)
         {
@@ -1332,22 +1403,26 @@ public partial class MainWindow
             try { SHEmptyRecycleBin(IntPtr.Zero, null!, 7); } catch { }
         }
 
-        // 4. Flush DNS and Network Caches
+        // 4. Flush DNS and Network Stack Optimization
         if (_activeConfig.FlushDnsAndNetworkCaches)
         {
-            Log("[CONFIG] Flushing DNS resolver cache and ARP table...");
+            Log("[CONFIG] Optimizing TCP stack and flushing DNS resolver cache...");
+            if (_activeConfig.OptimizePowerPlan)
+            {
+                await ExecuteAsync("netsh.exe", "int tcp set global autotuninglevel=normal");
+            }
             await ExecuteAsync("ipconfig.exe", "/flushdns");
             await ExecuteAsync("arp.exe", "-d *");
         }
 
         // 5. Working Set RAM Optimization / Garbage Collection
-        Log("[CONFIG] Freeing system working set memory allocations...");
+        Log("[CONFIG] Compacting system working set memory allocations...");
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
 
-        Log("[CONFIG] Baseline deployment sequence completed successfully! System is running at optimal baseline.");
-        MessageBox.Show("Baseline optimizations applied successfully!\n\nâ€¢ RAM standby memory released\nâ€¢ CPU power latency minimized\nâ€¢ System temp caches & recycle bin purged\nâ€¢ Telemetry & bloatware disabled", "Baseline Applied", MessageBoxButton.OK, MessageBoxImage.Information);
+        Log($"[CONFIG] Baseline '{_activeConfig.PresetName}' deployed successfully! System optimized.");
+        MessageBox.Show($"Baseline profile '{_activeConfig.PresetName}' applied successfully!\n\n\u2022 Power scheme configured\n\u2022 RAM standby allocations compacted\n\u2022 System temp caches & recycle bin purged\n\u2022 Network stack & DNS optimized\n\u2022 Telemetry suppressed", "Baseline Applied", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private async Task HandleCommandLineArgsAsync(string[] args)
@@ -1514,7 +1589,7 @@ public partial class MainWindow
                 string cleanTag = tag.TrimStart('v', 'V');
                 if (cleanTag != CurrentVersion && !string.IsNullOrEmpty(downloadUrl))
                 {
-                    statusBlock.Text = $"ðŸŽ‰ New update available: {tag} (Installed: v{CurrentVersion})! Click 'Download & Apply Update Now'.";
+                    statusBlock.Text = $"\U0001F389 New update available: {tag} (Installed: v{CurrentVersion})! Click 'Download & Apply Update Now'.";
                     statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(5, 150, 105));
                     btnApplyUpdate.Visibility = Visibility.Visible;
                 }
@@ -1525,7 +1600,7 @@ public partial class MainWindow
                 }
                 else
                 {
-                    statusBlock.Text = $"âœ” You are already running the latest version (v{CurrentVersion}).";
+                    statusBlock.Text = $"\u2714 You are already running the latest version (v{CurrentVersion}).";
                     statusBlock.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 }
 

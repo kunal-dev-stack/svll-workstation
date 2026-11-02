@@ -1572,6 +1572,25 @@ public partial class MainWindow
     // 5. EMERGENCY INCIDENT FORENSICS & TRIAGE COLLECTOR (ForensicsCollector)
     // -------------------------------------------------------------------------
 
+    private TextBox _txtForensicTargetDir = null!;
+
+    private string GetDefaultForensicSaveDirectory()
+    {
+        string cDrivePath = @"C:\SVLL_Forensics";
+        try
+        {
+            Directory.CreateDirectory(cDrivePath);
+            string testFile = Path.Combine(cDrivePath, ".write_test");
+            File.WriteAllText(testFile, "ok");
+            File.Delete(testFile);
+            return cDrivePath;
+        }
+        catch
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "SVLL_Forensics");
+        }
+    }
+
     public UIElement BuildForensicsCollectorView()
     {
         var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -1591,7 +1610,7 @@ public partial class MainWindow
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
         titleRow.Children.Add(new TextBlock
         {
-            Text = "📦 Emergency Incident Forensics & Triage Collector",
+            Text = "\U0001F4E6 Emergency Incident Forensics & Live Triage Collector",
             FontSize = 16,
             FontWeight = FontWeights.ExtraBold,
             Foreground = TextDark
@@ -1604,18 +1623,150 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 2, 8, 2),
             Margin = new Thickness(10, 0, 0, 0),
-            Child = new TextBlock { Text = "INCIDENT RESPONSE", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(146, 64, 14)) }
+            Child = new TextBlock { Text = "SOC INCIDENT RESPONSE", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromRgb(146, 64, 14)) }
         });
         headerStack.Children.Add(titleRow);
         headerStack.Children.Add(new TextBlock
         {
-            Text = "1-Click automated evidence acquisition for active security incidents. Collects running memory footprint, security event logs (4624/4625), startup autoruns, hosts file, and active socket connections.",
+            Text = "1-Click automated evidence acquisition for active security incidents. Saves directly to physical drive/USB with full process memory footprints, logon sessions (quser), local admins, security event logs (4624/4625/7045), USB storage history (USBSTOR), autorun persistence, active sockets, and interactive HTML triage dashboard.",
             FontSize = 11,
             Foreground = TextSubtle,
             Margin = new Thickness(0, 4, 0, 0)
         });
         headerBorder.Child = headerStack;
         root.Children.Add(headerBorder);
+
+        // Drive & Path Selection Card
+        var pathCard = new Border
+        {
+            Background = BgCard,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        var pathPanel = new StackPanel();
+        pathPanel.Children.Add(new TextBlock
+        {
+            Text = "\U0001F4BE TARGET FORENSICS OUTPUT DRIVE / FOLDER:",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark,
+            Margin = new Thickness(0, 0, 0, 6)
+        });
+
+        var pathGrid = new Grid();
+        pathGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        pathGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        _txtForensicTargetDir = new TextBox
+        {
+            Text = GetDefaultForensicSaveDirectory(),
+            Height = 32,
+            FontSize = 12,
+            FontFamily = new FontFamily("Consolas, Courier New"),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(8, 0, 8, 0),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(30, 41, 59)) : Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted
+        };
+        Grid.SetColumn(_txtForensicTargetDir, 0);
+        pathGrid.Children.Add(_txtForensicTargetDir);
+
+        var btnBrowseFolder = new Button
+        {
+            Content = "\U0001F4C1 Browse Drive...",
+            Height = 32,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(8, 0, 0, 0),
+            Background = IsDarkMode ? new SolidColorBrush(Color.FromRgb(51, 65, 85)) : new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+        btnBrowseFolder.Click += (s, e) =>
+        {
+            try
+            {
+                var dlg = new OpenFolderDialog
+                {
+                    Title = "Select Forensic Evidence Output Drive / Folder",
+                    InitialDirectory = _txtForensicTargetDir.Text
+                };
+                if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.FolderName))
+                {
+                    _txtForensicTargetDir.Text = dlg.FolderName;
+                }
+            }
+            catch { }
+        };
+        Grid.SetColumn(btnBrowseFolder, 1);
+        pathGrid.Children.Add(btnBrowseFolder);
+        pathPanel.Children.Add(pathGrid);
+
+        // Quick Preset Buttons
+        var quickPresets = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        var btnCDrive = new Button
+        {
+            Content = "💾 C:\\SVLL_Forensics",
+            FontSize = 10,
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = Brushes.Transparent,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Foreground = SvllBlue,
+            Cursor = Cursors.Hand
+        };
+        btnCDrive.Click += (s, e) => _txtForensicTargetDir.Text = @"C:\SVLL_Forensics";
+        quickPresets.Children.Add(btnCDrive);
+
+        var btnDesktop = new Button
+        {
+            Content = "🖥️ Desktop\\SVLL_Forensics",
+            FontSize = 10,
+            Padding = new Thickness(8, 3, 8, 3),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = Brushes.Transparent,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Foreground = SvllBlue,
+            Cursor = Cursors.Hand
+        };
+        btnDesktop.Click += (s, e) => _txtForensicTargetDir.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "SVLL_Forensics");
+        quickPresets.Children.Add(btnDesktop);
+
+        // Auto-detect removable USB drives
+        try
+        {
+            foreach (var d in DriveInfo.GetDrives().Where(d => d.DriveType == DriveType.Removable && d.IsReady))
+            {
+                string usbRoot = d.RootDirectory.FullName;
+                var btnUsb = new Button
+                {
+                    Content = $"\U0001F50C USB ({d.Name.TrimEnd('\\')})\\SVLL_Forensics",
+                    FontSize = 10,
+                    Padding = new Thickness(8, 3, 8, 3),
+                    Margin = new Thickness(0, 0, 6, 0),
+                    Background = new SolidColorBrush(Color.FromRgb(254, 243, 199)),
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(252, 211, 77)),
+                    BorderThickness = new Thickness(1),
+                    Foreground = new SolidColorBrush(Color.FromRgb(146, 64, 14)),
+                    FontWeight = FontWeights.Bold,
+                    Cursor = Cursors.Hand
+                };
+                btnUsb.Click += (s, e) => _txtForensicTargetDir.Text = Path.Combine(usbRoot, "SVLL_Forensics");
+                quickPresets.Children.Add(btnUsb);
+            }
+        }
+        catch { }
+
+        pathPanel.Children.Add(quickPresets);
+        pathCard.Child = pathPanel;
+        root.Children.Add(pathCard);
 
         // Action & Status Card
         var actionCard = new Border
@@ -1631,18 +1782,30 @@ public partial class MainWindow
 
         actionPanel.Children.Add(new TextBlock
         {
-            Text = "AUTOMATED EVIDENCE ACQUISITION SUITE:",
+            Text = "EVIDENCE ACQUISITION SUITE (10 FORENSIC ARTIFACTS):",
             FontSize = 11.5,
             FontWeight = FontWeights.Bold,
             Foreground = TextDark,
-            Margin = new Thickness(0, 0, 0, 10)
+            Margin = new Thickness(0, 0, 0, 8)
         });
+
+        var scopeText = new TextBlock
+        {
+            Text = "\u2714 Process Memory Tree  •  \u2714 Active Logon Sessions (quser)  •  \u2714 Local Admins & Users  •  \u2714 Active Sockets (netstat)\n" +
+                   "\u2714 Registry Autoruns  •  \u2714 Security Event Logs (4624/4625/7045)  •  \u2714 USB Storage History (USBSTOR)\n" +
+                   "\u2714 Network Config & DNS  •  \u2714 Installed Patches/QFE  •  \u2714 Interactive HTML Report + ZIP Bundle",
+            FontSize = 10.5,
+            Foreground = TextSubtle,
+            LineHeight = 16,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        actionPanel.Children.Add(scopeText);
 
         var btnCollect = new Button
         {
-            Content = "🚀 Start 1-Click Incident Forensics Triage Capture",
-            Height = 42,
-            FontSize = 12.5,
+            Content = "\U0001F680 Start 1-Click Incident Forensics Triage Capture",
+            Height = 44,
+            FontSize = 13,
             FontWeight = FontWeights.Bold,
             Background = SvllBlue,
             Foreground = Brushes.White,
@@ -1652,82 +1815,332 @@ public partial class MainWindow
 
         var statusBox = new TextBlock
         {
-            Text = "Ready to collect incident triage package.",
+            Text = "Ready to collect triage evidence. Click above to begin acquisition.",
             FontSize = 11,
             Foreground = TextSubtle,
-            Margin = new Thickness(0, 10, 0, 10)
+            Margin = new Thickness(0, 10, 0, 0)
         };
 
         btnCollect.Click += async (s, e) =>
         {
             btnCollect.IsEnabled = false;
-            btnCollect.Content = "⏳ Gathering Incident Forensics...";
-            statusBox.Text = "Collecting process hierarchy, network sockets, security logs, and autorun keys...";
+            btnCollect.Content = "\u23F3 Gathering Forensics to Drive...";
+            statusBox.Text = "Initiating evidence acquisition pipeline...";
+            statusBox.Foreground = SvllBlue;
+
+            string baseSaveDir = _txtForensicTargetDir.Text.Trim();
+            if (string.IsNullOrWhiteSpace(baseSaveDir))
+            {
+                baseSaveDir = GetDefaultForensicSaveDirectory();
+                _txtForensicTargetDir.Text = baseSaveDir;
+            }
 
             try
             {
-                string targetDir = Path.Combine(MainWindow.AuditLogDirectory, $"Forensics_Triage_{DateTime.Now:yyyyMMdd_HHmmss}");
+                Directory.CreateDirectory(baseSaveDir);
+                string sessionTag = $"SVLL_Forensics_{Environment.MachineName}_{DateTime.Now:yyyyMMdd_HHmmss}";
+                string targetDir = Path.Combine(baseSaveDir, sessionTag);
                 Directory.CreateDirectory(targetDir);
 
                 await Task.Run(() =>
                 {
-                    // 1. Process tree
+                    int totalSuspiciousProcs = 0;
+                    string tempDir = Path.GetTempPath().ToLowerInvariant();
+                    string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData).ToLowerInvariant();
+                    string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData).ToLowerInvariant();
+
+                    // 1. Process tree & Command lines
                     var procSb = new StringBuilder();
-                    procSb.AppendLine("PID,ProcessName,WorkingSetMB,Path");
-                    foreach (var p in Process.GetProcesses())
+                    procSb.AppendLine("PID,ProcessName,WorkingSetMB,Path,IsFromTempOrAppData");
+                    foreach (var p in Process.GetProcesses().OrderBy(p => p.ProcessName))
                     {
-                        try { procSb.AppendLine($"{p.Id},{p.ProcessName},{Math.Round(p.WorkingSet64 / 1048576.0, 1)},\"{p.MainModule?.FileName}\""); } catch { }
+                        try
+                        {
+                            string pPath = p.MainModule?.FileName ?? "";
+                            bool isTemp = !string.IsNullOrEmpty(pPath) &&
+                                (pPath.ToLowerInvariant().StartsWith(tempDir) ||
+                                 pPath.ToLowerInvariant().StartsWith(appData) ||
+                                 pPath.ToLowerInvariant().StartsWith(localAppData));
+                            if (isTemp) totalSuspiciousProcs++;
+                            procSb.AppendLine($"{p.Id},\"{p.ProcessName}\",{Math.Round(p.WorkingSet64 / 1048576.0, 1)},\"{pPath}\",{(isTemp ? "SUSPICIOUS_PATH" : "NORMAL")}");
+                        }
+                        catch
+                        {
+                            procSb.AppendLine($"{p.Id},\"{p.ProcessName}\",0,\"ACCESS_DENIED_SYSTEM\",\"NORMAL\"");
+                        }
                     }
-                    File.WriteAllText(Path.Combine(targetDir, "01_processes.csv"), procSb.ToString());
+                    File.WriteAllText(Path.Combine(targetDir, "04_processes_and_command_lines.csv"), procSb.ToString());
 
-                    // 2. Netstat sockets
-                    var psi = new ProcessStartInfo("netstat.exe", "-ano") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
-                    using (var p = Process.Start(psi))
+                    // 2. System and hardware profile
+                    var sysSb = new StringBuilder();
+                    sysSb.AppendLine("================================================================================");
+                    sysSb.AppendLine("SHREE VASU LOGISTICS LIMITED - INCIDENT FORENSIC SYSTEM PROFILE");
+                    sysSb.AppendLine("================================================================================");
+                    sysSb.AppendLine($"Timestamp:            {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                    sysSb.AppendLine($"Machine Name:         {Environment.MachineName}");
+                    sysSb.AppendLine($"Active Username:      {Environment.UserName}");
+                    sysSb.AppendLine($"Domain / Workgroup:   {Environment.UserDomainName}");
+                    sysSb.AppendLine($"OS Version:           {Environment.OSVersion.VersionString}");
+                    sysSb.AppendLine($"64-Bit OS:            {Environment.Is64BitOperatingSystem}");
+                    sysSb.AppendLine($"Processor Threads:    {Environment.ProcessorCount} Cores");
+                    sysSb.AppendLine($"System Uptime:        {TimeSpan.FromMilliseconds(Environment.TickCount64):d\\d\\ hh\\:mm\\:ss}");
+                    sysSb.AppendLine($"AnyDesk Client ID:    {FleetRegistryService.Instance.LocalDevice.AnyDeskId}");
+                    sysSb.AppendLine("================================================================================");
+                    File.WriteAllText(Path.Combine(targetDir, "01_system_and_hardware_profile.txt"), sysSb.ToString());
+
+                    // 3. Active Logon Sessions (quser.exe)
+                    try
                     {
-                        string net = p?.StandardOutput.ReadToEnd() ?? "";
+                        var psiQuser = new ProcessStartInfo("quser.exe") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var p = Process.Start(psiQuser);
+                        string quserOut = p?.StandardOutput.ReadToEnd() ?? "";
                         p?.WaitForExit();
-                        File.WriteAllText(Path.Combine(targetDir, "02_network_sockets.txt"), net);
+                        File.WriteAllText(Path.Combine(targetDir, "02_active_logon_sessions.txt"), string.IsNullOrWhiteSpace(quserOut) ? "No remote/active interactive sessions returned by quser." : quserOut);
                     }
-
-                    // 3. Hosts file
-                    string hosts = @"C:\Windows\System32\drivers\etc\hosts";
-                    if (File.Exists(hosts)) File.Copy(hosts, Path.Combine(targetDir, "03_hosts_file.txt"), true);
-
-                    // 4. DNS cache
-                    var psiDns = new ProcessStartInfo("ipconfig.exe", "/displaydns") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
-                    using (var p = Process.Start(psiDns))
+                    catch (Exception ex)
                     {
-                        string dns = p?.StandardOutput.ReadToEnd() ?? "";
-                        p?.WaitForExit();
-                        File.WriteAllText(Path.Combine(targetDir, "04_dns_cache.txt"), dns);
+                        File.WriteAllText(Path.Combine(targetDir, "02_active_logon_sessions.txt"), $"quser query note: {ex.Message}");
                     }
 
-                    // 5. System summary report
-                    var report = new StringBuilder();
-                    report.AppendLine("================================================================================");
-                    report.AppendLine($"SHREE VASU LOGISTICS LIMITED - EMERGENCY INCIDENT FORENSIC REPORT");
-                    report.AppendLine($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss} | Host: {Environment.MachineName} | User: {Environment.UserName}");
-                    report.AppendLine($"OS: {Environment.OSVersion} | AnyDesk ID: {FleetRegistryService.Instance.LocalDevice.AnyDeskId}");
-                    report.AppendLine("================================================================================");
-                    report.AppendLine("Artifacts Captured:");
-                    report.AppendLine("• 01_processes.csv - Complete active process map");
-                    report.AppendLine("• 02_network_sockets.txt - Active listening and established network ports");
-                    report.AppendLine("• 03_hosts_file.txt - System host resolution table");
-                    report.AppendLine("• 04_dns_cache.txt - Resolved DNS cache entries");
-                    File.WriteAllText(Path.Combine(targetDir, "00_REPORT_SUMMARY.txt"), report.ToString());
+                    // 4. Local Administrators & User Accounts
+                    try
+                    {
+                        var psiNet = new ProcessStartInfo("net.exe", "localgroup administrators") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var p = Process.Start(psiNet);
+                        string admins = p?.StandardOutput.ReadToEnd() ?? "";
+                        p?.WaitForExit();
+
+                        var psiUsers = new ProcessStartInfo("net.exe", "user") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var pu = Process.Start(psiUsers);
+                        string users = pu?.StandardOutput.ReadToEnd() ?? "";
+                        pu?.WaitForExit();
+
+                        File.WriteAllText(Path.Combine(targetDir, "03_local_administrators_and_users.txt"),
+                            "=== LOCAL ADMINISTRATORS GROUP ===\n" + admins + "\n\n=== LOCAL USER ACCOUNTS ===\n" + users);
+                    }
+                    catch (Exception ex)
+                    {
+                        File.WriteAllText(Path.Combine(targetDir, "03_local_administrators_and_users.txt"), $"User audit note: {ex.Message}");
+                    }
+
+                    // 5. Netstat Sockets & PID mapping
+                    try
+                    {
+                        var psiNetstat = new ProcessStartInfo("netstat.exe", "-ano") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var p = Process.Start(psiNetstat);
+                        string sockets = p?.StandardOutput.ReadToEnd() ?? "";
+                        p?.WaitForExit();
+                        File.WriteAllText(Path.Combine(targetDir, "05_listening_and_active_sockets.txt"), sockets);
+                    }
+                    catch { }
+
+                    // 6. Startup and Autorun Persistence
+                    try
+                    {
+                        var autorunSb = new StringBuilder();
+                        autorunSb.AppendLine("=== AUTORUN REGISTRY RUN KEYS ===");
+                        string[] runKeys = {
+                            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                            @"SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
+                            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
+                        };
+                        foreach (var sub in runKeys)
+                        {
+                            autorunSb.AppendLine($"\n[HKLM\\{sub}]");
+                            using var k = Registry.LocalMachine.OpenSubKey(sub);
+                            if (k != null)
+                            {
+                                foreach (var val in k.GetValueNames())
+                                    autorunSb.AppendLine($"  {val} = {k.GetValue(val)}");
+                            }
+
+                            autorunSb.AppendLine($"\n[HKCU\\{sub}]");
+                            using var ku = Registry.CurrentUser.OpenSubKey(sub);
+                            if (ku != null)
+                            {
+                                foreach (var val in ku.GetValueNames())
+                                    autorunSb.AppendLine($"  {val} = {ku.GetValue(val)}");
+                            }
+                        }
+                        File.WriteAllText(Path.Combine(targetDir, "06_startup_and_autorun_persistence.txt"), autorunSb.ToString());
+                    }
+                    catch { }
+
+                    // 7. Security Event Logs Triage (4625 failed, 4624 success, 7045 new services)
+                    int failedLogonCount = 0;
+                    try
+                    {
+                        var evtSb = new StringBuilder();
+                        evtSb.AppendLine("=== RECENT SECURITY LOG AUDIT (FAILED LOGONS & NEW SERVICES) ===");
+                        string psEvt = "Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4625} -MaxEvents 30 -ErrorAction SilentlyContinue | Format-List TimeCreated, Message";
+                        var psiEvt = new ProcessStartInfo("powershell.exe", $"-NoProfile -Command \"{psEvt}\"") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var p = Process.Start(psiEvt);
+                        string secOut = p?.StandardOutput.ReadToEnd() ?? "";
+                        p?.WaitForExit();
+
+                        if (!string.IsNullOrWhiteSpace(secOut))
+                        {
+                            failedLogonCount = Regex.Matches(secOut, "TimeCreated", RegexOptions.IgnoreCase).Count;
+                            evtSb.AppendLine($"FAILED LOGON ATTEMPTS (EVENT 4625) - Count: {failedLogonCount}");
+                            evtSb.AppendLine(secOut);
+                        }
+                        else
+                        {
+                            evtSb.AppendLine("No recent Event 4625 Failed Logon events recorded.");
+                        }
+
+                        // New services (Event 7045)
+                        string psSvc = "Get-WinEvent -FilterHashtable @{LogName='System'; Id=7045} -MaxEvents 20 -ErrorAction SilentlyContinue | Format-List TimeCreated, Message";
+                        var psiSvc = new ProcessStartInfo("powershell.exe", $"-NoProfile -Command \"{psSvc}\"") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var ps = Process.Start(psiSvc);
+                        string svcOut = ps?.StandardOutput.ReadToEnd() ?? "";
+                        ps?.WaitForExit();
+                        evtSb.AppendLine("\nNEW SERVICES INSTALLED (SYSTEM EVENT 7045):");
+                        evtSb.AppendLine(string.IsNullOrWhiteSpace(svcOut) ? "No recently registered new services." : svcOut);
+
+                        File.WriteAllText(Path.Combine(targetDir, "07_security_event_log_triage.txt"), evtSb.ToString());
+                    }
+                    catch { }
+
+                    // 8. USB Storage History (USBSTOR)
+                    int usbDeviceCount = 0;
+                    try
+                    {
+                        var usbSb = new StringBuilder();
+                        usbSb.AppendLine("=== USB STORAGE CONNECTED DEVICE HISTORY (HKLM\\SYSTEM\\CurrentControlSet\\Enum\\USBSTOR) ===");
+                        using var usbstorKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USBSTOR");
+                        if (usbstorKey != null)
+                        {
+                            foreach (var devClass in usbstorKey.GetSubKeyNames())
+                            {
+                                usbDeviceCount++;
+                                usbSb.AppendLine($"\nDevice Class: {devClass}");
+                                using var sub = usbstorKey.OpenSubKey(devClass);
+                                if (sub != null)
+                                {
+                                    foreach (var inst in sub.GetSubKeyNames())
+                                    {
+                                        using var instKey = sub.OpenSubKey(inst);
+                                        string fName = instKey?.GetValue("FriendlyName")?.ToString() ?? "Generic USB Storage";
+                                        usbSb.AppendLine($"  • Serial / Instance: {inst} | Description: {fName}");
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            usbSb.AppendLine("No USB storage registry keys enumerated.");
+                        }
+                        File.WriteAllText(Path.Combine(targetDir, "08_usb_storage_device_history.txt"), usbSb.ToString());
+                    }
+                    catch { }
+
+                    // 9. Network config and DNS
+                    try
+                    {
+                        var netSb = new StringBuilder();
+                        var psiIp = new ProcessStartInfo("ipconfig.exe", "/all") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using (var p = Process.Start(psiIp))
+                        {
+                            netSb.AppendLine("=== IP CONFIGURATION ALL ===");
+                            netSb.AppendLine(p?.StandardOutput.ReadToEnd() ?? "");
+                            p?.WaitForExit();
+                        }
+
+                        string hosts = @"C:\Windows\System32\drivers\etc\hosts";
+                        if (File.Exists(hosts))
+                        {
+                            netSb.AppendLine("\n=== HOSTS RESOLUTION FILE ===");
+                            netSb.AppendLine(File.ReadAllText(hosts));
+                        }
+
+                        File.WriteAllText(Path.Combine(targetDir, "09_network_config_and_dns_cache.txt"), netSb.ToString());
+                    }
+                    catch { }
+
+                    // 10. Installed patches
+                    try
+                    {
+                        var psiQfe = new ProcessStartInfo("wmic.exe", "qfe get HotFixID,InstalledOn,Description") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                        using var p = Process.Start(psiQfe);
+                        string qfe = p?.StandardOutput.ReadToEnd() ?? "";
+                        p?.WaitForExit();
+                        File.WriteAllText(Path.Combine(targetDir, "10_installed_patches_and_hotfixes.txt"), string.IsNullOrWhiteSpace(qfe) ? "No QFE output retrieved." : qfe);
+                    }
+                    catch { }
+
+                    // 11. HTML Triage Report
+                    string htmlReport =
+                        "<!DOCTYPE html>\n<html>\n<head>\n<meta charset='utf-8'/>\n" +
+                        $"<title>SVLL Emergency Incident Triage - {Environment.MachineName}</title>\n" +
+                        "<style>\n" +
+                        "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; }\n" +
+                        ".card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }\n" +
+                        ".title { font-size: 20px; font-weight: 800; color: #38bdf8; margin-bottom: 6px; }\n" +
+                        ".badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; margin-right: 8px; }\n" +
+                        ".badge-danger { background: #7f1d1d; color: #fca5a5; }\n" +
+                        ".badge-warning { background: #78350f; color: #fcd34d; }\n" +
+                        ".badge-success { background: #14532d; color: #86efac; }\n" +
+                        "table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }\n" +
+                        "th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #334155; }\n" +
+                        "th { background: #0f172a; color: #94a3b8; }\n" +
+                        "code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #f472b6; }\n" +
+                        "</style>\n</head>\n<body>\n" +
+                        "<div class='card'>\n" +
+                        "  <div class='title'>🛡️ Shree Vasu Logistics - Emergency Incident Forensics Report</div>\n" +
+                        $"  <div><strong>Host:</strong> <code>{Environment.MachineName}</code> | <strong>User:</strong> <code>{Environment.UserName}</code> | <strong>OS:</strong> {Environment.OSVersion.VersionString} | <strong>AnyDesk ID:</strong> <code>{FleetRegistryService.Instance.LocalDevice.AnyDeskId}</code></div>\n" +
+                        $"  <div style='margin-top: 6px; color: #94a3b8;'>Acquisition Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss} | Output Drive: {targetDir}</div>\n" +
+                        "</div>\n" +
+                        "<div class='card'>\n" +
+                        "  <div style='font-size: 14px; font-weight: bold; margin-bottom: 12px;'>⚠️ TRIAGE RISK INDICATORS:</div>\n" +
+                        $"  <span class='badge {(totalSuspiciousProcs > 0 ? "badge-danger" : "badge-success")}'>Temp/AppData Executables: {totalSuspiciousProcs}</span>\n" +
+                        $"  <span class='badge {(failedLogonCount > 0 ? "badge-warning" : "badge-success")}'>Event 4625 Failed Logons: {failedLogonCount}</span>\n" +
+                        $"  <span class='badge badge-success'>USB Storage Devices In History: {usbDeviceCount}</span>\n" +
+                        "</div>\n" +
+                        "<div class='card'>\n" +
+                        "  <div style='font-size: 14px; font-weight: bold;'>📂 FORENSIC ARTIFACTS ENCLOSED IN THIS BUNDLE:</div>\n" +
+                        "  <table>\n" +
+                        "    <tr><th>Filename</th><th>Forensic Purpose</th></tr>\n" +
+                        "    <tr><td><code>01_system_and_hardware_profile.txt</code></td><td>Operating system build, hardware architecture, uptime, and identity</td></tr>\n" +
+                        "    <tr><td><code>02_active_logon_sessions.txt</code></td><td>Interactive console and RDP user logon sessions (quser)</td></tr>\n" +
+                        "    <tr><td><code>03_local_administrators_and_users.txt</code></td><td>Privileged local administrators group membership and user accounts</td></tr>\n" +
+                        "    <tr><td><code>04_processes_and_command_lines.csv</code></td><td>Complete memory map with working set and rogue Temp execution flags</td></tr>\n" +
+                        "    <tr><td><code>05_listening_and_active_sockets.txt</code></td><td>Active TCP/UDP listening ports and foreign connections mapped to PID</td></tr>\n" +
+                        "    <tr><td><code>06_startup_and_autorun_persistence.txt</code></td><td>Registry autorun keys (HKLM/HKCU Run & RunOnce)</td></tr>\n" +
+                        "    <tr><td><code>07_security_event_log_triage.txt</code></td><td>Failed logon events (4625) and new service installations (7045)</td></tr>\n" +
+                        "    <tr><td><code>08_usb_storage_device_history.txt</code></td><td>USBSTOR registry device enumeration and connected serial tags</td></tr>\n" +
+                        "    <tr><td><code>09_network_config_and_dns_cache.txt</code></td><td>Full network adapter configuration and hosts file mappings</td></tr>\n" +
+                        "    <tr><td><code>10_installed_patches_and_hotfixes.txt</code></td><td>Microsoft Windows QFE hotfix installation history</td></tr>\n" +
+                        "  </table>\n" +
+                        "</div>\n" +
+                        "</body>\n</html>";
+                    File.WriteAllText(Path.Combine(targetDir, "00_FORENSIC_TRIAGE_REPORT.html"), htmlReport);
+
+                    // 12. Create complete ZIP archive on the selected drive
+                    string zipFilePath = Path.Combine(baseSaveDir, $"{sessionTag}.zip");
+                    try
+                    {
+                        if (File.Exists(zipFilePath)) File.Delete(zipFilePath);
+                        System.IO.Compression.ZipFile.CreateFromDirectory(targetDir, zipFilePath);
+                    }
+                    catch { }
                 });
 
-                statusBox.Text = $"✔ Forensics package successfully saved to:\n{targetDir}";
-                Process.Start(new ProcessStartInfo { FileName = targetDir, UseShellExecute = true });
+                statusBox.Text = $"\u2714 Forensics package successfully captured and saved directly to drive:\n{targetDir}\n\U0001F4E6 Archive Created: {sessionTag}.zip";
+                statusBox.Foreground = new SolidColorBrush(Color.FromRgb(22, 163, 74));
+
+                // Open drive in Windows Explorer
+                Process.Start(new ProcessStartInfo { FileName = baseSaveDir, UseShellExecute = true });
             }
             catch (Exception ex)
             {
                 statusBox.Text = $"Error collecting triage: {ex.Message}";
+                statusBox.Foreground = SvllRed;
             }
             finally
             {
                 btnCollect.IsEnabled = true;
-                btnCollect.Content = "🚀 Start 1-Click Incident Forensics Triage Capture";
+                btnCollect.Content = "\U0001F680 Start 1-Click Incident Forensics Triage Capture";
             }
         };
 

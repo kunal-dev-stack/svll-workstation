@@ -134,10 +134,11 @@ public partial class MainWindow
         var typeStack = new StackPanel { Margin = new Thickness(0, 0, 10, 0) };
         typeStack.Children.Add(new TextBlock { Text = "DEVICE TYPE:", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
         _cmbDeviceType = new ComboBox { Margin = new Thickness(0, 4, 0, 0), Height = 28 };
-        _cmbDeviceType.Items.Add("LAP");
-        _cmbDeviceType.Items.Add("DESK");
-        _cmbDeviceType.Items.Add("WH-TERM");
-        _cmbDeviceType.SelectedIndex = 0;
+        _cmbDeviceType.Items.Add("Laptop (LT-SVLL)");
+        _cmbDeviceType.Items.Add("Desktop (DT-SVLL)");
+        _cmbDeviceType.Items.Add("Warehouse Terminal (WT-SVLL)");
+        bool isLaptop = DetectIsLaptop();
+        _cmbDeviceType.SelectedIndex = isLaptop ? 0 : 1;
         _cmbDeviceType.SelectionChanged += (s, e) => UpdateHostnamePreview();
         typeStack.Children.Add(_cmbDeviceType);
         Grid.SetColumn(typeStack, 1);
@@ -163,9 +164,14 @@ public partial class MainWindow
         // Target Preview
         var prevStack = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
         prevStack.Children.Add(new TextBlock { Text = "TARGET HOSTNAME PREVIEW:", FontSize = 10, FontWeight = FontWeights.Bold, Foreground = TextSubtle });
+        string initialPrefix = isLaptop ? "LT-SVLL" : "DT-SVLL";
+        string initialLoc = _cmbLocation.SelectedItem?.ToString() ?? "HQ";
+        string basePrefix = $"{initialPrefix}-{initialLoc}-";
+        int allowedInitial = Math.Max(2, 15 - basePrefix.Length);
+        string trimmedInitial = cleanSerial.Length > allowedInitial ? cleanSerial[^allowedInitial..] : cleanSerial;
         _lblGeneratedHostname = new TextBlock
         {
-            Text = $"SVLL-{_cmbLocation.SelectedItem}-{_cmbDeviceType.SelectedItem}-{cleanSerial}",
+            Text = $"{basePrefix}{trimmedInitial}",
             FontSize = 13.5,
             FontWeight = FontWeights.ExtraBold,
             Foreground = SvllBlue,
@@ -334,7 +340,7 @@ public partial class MainWindow
     {
         _provisioningSteps = new List<ProvisioningStepItem>
         {
-            new() { StepNumber = 1, Title = "Set Corporate Computer Name & Workgroup", Description = "Applies standardized naming (SVLL-<LOC>-<TYPE>-<SERIAL>) and ensures Workgroup consistency.", IsChecked = true, Status = "Ready" },
+            new() { StepNumber = 1, Title = "Set Corporate Computer Name & Workgroup", Description = "Applies standardized naming (LT-SVLL-<LOC>-<SERIAL> / DT-SVLL-<LOC>-<SERIAL>) and ensures Workgroup consistency.", IsChecked = true, Status = "Ready" },
             new() { StepNumber = 2, Title = "Ingest OEM & Microsoft WHQL Certified Drivers", Description = "Scans PnP hardware IDs, downloads WHQL certified catalog drivers or applies USB Driver Store.", IsChecked = true, Status = "Ready" },
             new() { StepNumber = 3, Title = "Deploy Corporate Software Baseline Suite", Description = "Silently installs Google Chrome, 7-Zip, AnyDesk, Adobe Reader, and Java Runtime environment.", IsChecked = true, Status = "Ready" },
             new() { StepNumber = 4, Title = "Apply Ultimate Performance & Power Baseline", Description = "Enables High-Performance power plan, sets AC sleep to NEVER, and disables fast startup hibernation.", IsChecked = true, Status = "Ready" },
@@ -347,9 +353,57 @@ public partial class MainWindow
     {
         if (_lblGeneratedHostname == null || _cmbLocation == null || _cmbDeviceType == null) return;
         string loc = _cmbLocation.SelectedItem?.ToString() ?? "HQ";
-        string type = _cmbDeviceType.SelectedItem?.ToString() ?? "LAP";
+        string prefix = GetDevicePrefix();
         string cleanSerial = CleanSerialSuffix(_detectedBiosSerial);
-        _lblGeneratedHostname.Text = $"SVLL-{loc}-{type}-{cleanSerial}";
+
+        // Windows NetBIOS maximum computer name limit is 15 characters
+        string basePrefix = $"{prefix}-{loc}-";
+        int allowedSerialLength = Math.Max(2, 15 - basePrefix.Length);
+        string trimmedSerial = cleanSerial.Length > allowedSerialLength
+            ? cleanSerial[^allowedSerialLength..]
+            : cleanSerial;
+
+        _lblGeneratedHostname.Text = $"{basePrefix}{trimmedSerial}";
+    }
+
+    private string GetDevicePrefix()
+    {
+        string selected = _cmbDeviceType?.SelectedItem?.ToString() ?? "";
+        if (selected.Contains("LT-SVLL") || selected.StartsWith("LAP", StringComparison.OrdinalIgnoreCase) || selected.Contains("Laptop", StringComparison.OrdinalIgnoreCase))
+            return "LT-SVLL";
+        if (selected.Contains("WT-SVLL") || selected.Contains("Warehouse", StringComparison.OrdinalIgnoreCase) || selected.Contains("Terminal", StringComparison.OrdinalIgnoreCase))
+            return "WT-SVLL";
+        return "DT-SVLL";
+    }
+
+    private bool DetectIsLaptop()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
+            using var col = searcher.Get();
+            if (col.Count > 0) return true;
+        }
+        catch { }
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT ChassisTypes FROM Win32_SystemEnclosure");
+            foreach (var obj in searcher.Get())
+            {
+                if (obj["ChassisTypes"] is ushort[] types)
+                {
+                    foreach (var t in types)
+                    {
+                        if (t is 8 or 9 or 10 or 11 or 12 or 14 or 18 or 21 or 30 or 31 or 32)
+                            return true;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return false;
     }
 
     private string CleanSerialSuffix(string raw)

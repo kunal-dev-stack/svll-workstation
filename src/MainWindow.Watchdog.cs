@@ -45,11 +45,58 @@ public partial class MainWindow
     private TextBlock _lblWatchdogChimeState = null!;
     private bool _watchdogAudioChimeEnabled = true;
     private bool _hasActiveAudioAlert = false;
+    private static readonly string WatchdogTargetsFilePath = System.IO.Path.Combine(MainWindow.AuditLogDirectory, "watchdog_targets.json");
 
     #region 1. 24/7 Continuous Ping Watchdog & Multi-Audit
 
+    private void PlayAcousticChime(bool isAlert = true)
+    {
+        Task.Run(() =>
+        {
+            try
+            {
+                if (isAlert)
+                {
+                    // Audible two-tone outage warning chime (high -> low)
+                    Console.Beep(1318, 180); // E6
+                    Thread.Sleep(50);
+                    Console.Beep(880, 280);  // A5
+                }
+                else
+                {
+                    // Pleasant confirmation chime (low -> high)
+                    Console.Beep(880, 140);  // A5
+                    Thread.Sleep(40);
+                    Console.Beep(1318, 200); // E6
+                }
+            }
+            catch
+            {
+                try
+                {
+                    SystemSounds.Exclamation.Play();
+                }
+                catch { }
+            }
+        });
+    }
+
     private void InitializeDefaultWatchdogTargets()
     {
+        try
+        {
+            if (File.Exists(WatchdogTargetsFilePath))
+            {
+                string json = File.ReadAllText(WatchdogTargetsFilePath);
+                var saved = JsonSerializer.Deserialize<List<ContinuousPingTarget>>(json);
+                if (saved != null && saved.Count > 0)
+                {
+                    _watchdogTargets = saved;
+                    return;
+                }
+            }
+        }
+        catch { }
         _watchdogTargets = new List<ContinuousPingTarget>
         {
             new ContinuousPingTarget { Host = "8.8.8.8", Description = "Google Primary DNS (Global WAN)" },
@@ -90,6 +137,32 @@ public partial class MainWindow
         }
         catch { }
         return "";
+    }
+
+    private void SaveWatchdogTargetsList(bool showPrompt = true)
+    {
+        try
+        {
+            if (!Directory.Exists(MainWindow.AuditLogDirectory))
+            {
+                Directory.CreateDirectory(MainWindow.AuditLogDirectory);
+            }
+            string json = JsonSerializer.Serialize(_watchdogTargets, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(WatchdogTargetsFilePath, json);
+            Log($"[WATCHDOG] Saved {_watchdogTargets.Count} targets to {WatchdogTargetsFilePath}");
+            if (showPrompt)
+            {
+                MessageBox.Show($"Monitoring target list ({_watchdogTargets.Count} hosts) successfully saved!\n\nPersisted to: {WatchdogTargetsFilePath}\n\nThese targets will automatically load whenever the application starts.", "Watchdog Targets Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"[WATCHDOG ERROR] Failed to save targets: {ex.Message}");
+            if (showPrompt)
+            {
+                MessageBox.Show($"Failed to save target list: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
     }
 
     private UIElement BuildPingMonitorView()
@@ -210,6 +283,7 @@ public partial class MainWindow
             _watchdogTargets.Add(new ContinuousPingTarget { Host = host, Description = string.IsNullOrEmpty(desc) ? "Custom Target" : desc });
             _listWatchdog.Items.Refresh();
             _lblWatchdogTotalHosts.Text = $"{_watchdogTargets.Count} Hosts";
+            SaveWatchdogTargetsList(showPrompt: false);
             Log($"[WATCHDOG] Added monitoring target: {host} ({desc})");
         };
 
@@ -283,6 +357,22 @@ public partial class MainWindow
         btnExportTargets.Click += (s, e) => ExportWatchdogTargetsList();
         actionToolbar.Children.Add(btnExportTargets);
 
+        var btnSaveList = new Button
+        {
+            Content = "💾 Save Target List",
+            Height = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 0, 8, 0),
+            Background = new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(187, 247, 208)),
+            FontWeight = FontWeights.Bold,
+            Cursor = Cursors.Hand,
+            ToolTip = "Persist current monitoring target list to disk across workstation restarts"
+        };
+        btnSaveList.Click += (s, e) => SaveWatchdogTargetsList(showPrompt: true);
+        actionToolbar.Children.Add(btnSaveList);
+
         var btnRemove = new Button
         {
             Content = "Remove Selected Target",
@@ -300,6 +390,7 @@ public partial class MainWindow
                 _watchdogTargets.Remove(target);
                 _listWatchdog.Items.Refresh();
                 _lblWatchdogTotalHosts.Text = $"{_watchdogTargets.Count} Hosts";
+                SaveWatchdogTargetsList(showPrompt: false);
                 Log($"[WATCHDOG] Removed target: {target.Host}");
             }
         };
@@ -317,6 +408,10 @@ public partial class MainWindow
         };
         btnResetTargets.Click += (s, e) =>
         {
+            if (File.Exists(WatchdogTargetsFilePath))
+            {
+                try { File.Delete(WatchdogTargetsFilePath); } catch { }
+            }
             InitializeDefaultWatchdogTargets();
             _listWatchdog.ItemsSource = null;
             _listWatchdog.ItemsSource = _watchdogTargets;
@@ -333,6 +428,7 @@ public partial class MainWindow
             Content = _watchdogAudioChimeEnabled ? " 🔔 Chime: Active " : " 🔕 Chime: MUTED ",
             Height = 34,
             Padding = new Thickness(14, 0, 14, 0),
+            Margin = new Thickness(0, 0, 8, 0),
             Background = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(240, 253, 244)) : new SolidColorBrush(Color.FromRgb(254, 242, 242)),
             Foreground = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllRed,
             BorderBrush = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(187, 247, 208)) : new SolidColorBrush(Color.FromRgb(254, 202, 202)),
@@ -348,9 +444,31 @@ public partial class MainWindow
             btnToggleChime.BorderBrush = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(187, 247, 208)) : new SolidColorBrush(Color.FromRgb(254, 202, 202));
             _lblWatchdogChimeState.Text = _watchdogAudioChimeEnabled ? "Enabled 🔔" : "Muted 🔕";
             _lblWatchdogChimeState.Foreground = _watchdogAudioChimeEnabled ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : SvllRed;
+            if (_watchdogAudioChimeEnabled)
+            {
+                PlayAcousticChime(isAlert: false);
+            }
             Log($"[WATCHDOG] Audio chime failure alerts {(_watchdogAudioChimeEnabled ? "enabled" : "muted")}.");
         };
         actionToolbar.Children.Add(btnToggleChime);
+
+        var btnTestChime = new Button
+        {
+            Content = " 🔊 Test Chime ",
+            Height = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand,
+            ToolTip = "Test acoustic alert tone on speakers or headset"
+        };
+        btnTestChime.Click += (s, e) =>
+        {
+            PlayAcousticChime(isAlert: true);
+            Log("[WATCHDOG] Manual audio alert chime test triggered.");
+        };
+        actionToolbar.Children.Add(btnTestChime);
 
         sp.Children.Add(actionToolbar);
 
@@ -484,11 +602,7 @@ public partial class MainWindow
         // Acoustic Failure Alert Chime (Only sounds if chime is enabled AND only on new outage transition, NOT repeating every 3 seconds)
         if (_watchdogAudioChimeEnabled && hasConfirmedOutage && !_hasActiveAudioAlert)
         {
-            try
-            {
-                SystemSounds.Exclamation.Play();
-            }
-            catch { }
+            PlayAcousticChime(isAlert: true);
             _hasActiveAudioAlert = true;
             Log("[WATCHDOG] Acoustic alert chime triggered for sustained network outage.");
         }
@@ -534,6 +648,7 @@ public partial class MainWindow
 
                 _listWatchdog.ItemsSource = null;
                 _listWatchdog.ItemsSource = _watchdogTargets;
+                SaveWatchdogTargetsList(showPrompt: false);
                 Log($"[WATCHDOG] Uploaded {_watchdogTargets.Count} targets from {ofd.FileName}");
             }
             catch (Exception ex)

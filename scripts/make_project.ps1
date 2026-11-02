@@ -1,10 +1,14 @@
-﻿# =========================================================================
+# =========================================================================
 # Shree Vasu Logistics Limited - Automated Project Builder & Packager
 # Developed by: Kunal Turkar
-# Builds Dual Editions: Admin Edition & User Edition (v8.4)
+# Builds Dual Editions: Admin Edition & User Edition (v8.5)
 # =========================================================================
 
 $ErrorActionPreference = "Stop"
+
+if (Test-Path "D:\dotnet-sdk\dotnet.exe") {
+    $env:PATH = "D:\dotnet-sdk;$env:PATH"
+}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
@@ -15,7 +19,7 @@ $installerDir = Join-Path $projectRoot "installer"
 $releaseDir = Join-Path $projectRoot "release"
 
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Building SVLL IT Support Workstation v8.4 (Dual Editions)" -ForegroundColor Cyan
+Write-Host "  Building SVLL IT Support Workstation v8.5 (Dual Editions)" -ForegroundColor Cyan
 Write-Host "  Project Directory: $projectRoot" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
@@ -90,22 +94,21 @@ $toolsSrc = Join-Path $srcDir "tools"
 if (Test-Path $toolsSrc) {
     Copy-Item -Path $toolsSrc -Destination (Join-Path $publishAdminDir "tools") -Recurse -Force
     Copy-Item -Path $toolsSrc -Destination (Join-Path $publishUserDir "tools") -Recurse -Force
-    Write-Host "[OK] Bundled tools (Ultra Remote engine) copied to publish directories." -ForegroundColor Green
+    Write-Host "[OK] Bundled tools copied to publish directories." -ForegroundColor Green
 }
-
 
 # 4. Locate Inno Setup Compiler (ISCC.exe)
 Write-Host "`n[4/5] Searching for Inno Setup Compiler (ISCC.exe)..." -ForegroundColor Yellow
 
 $isccCandidates = @(
     "ISCC.exe",
+    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+    "C:\Program Files\Inno Setup 6\ISCC.exe",
     "C:\Program Files\Inno Setup 7\ISCC.exe",
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
-    "$env:ProgramData\chocolatey\bin\ISCC.exe",
-    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-    "C:\Program Files\Inno Setup 6\ISCC.exe"
+    "$env:ProgramData\chocolatey\bin\ISCC.exe"
 )
 
 $isccPath = $null
@@ -153,28 +156,28 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n============================================================" -ForegroundColor Green
-Write-Host "  SVLL v8.4 DUAL BUILDS COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "  SVLL v8.5 DUAL BUILDS COMPLETED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
-$adminPkg = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.4-Setup.exe"
-$userPkg = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.4-Setup.exe"
+$adminPkg = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.5-Setup.exe"
+$userPkg = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.5-Setup.exe"
 if (Test-Path $adminPkg) {
     $aMb = [Math]::Round(((Get-Item $adminPkg).Length / 1MB), 2)
-    Write-Host "  ðŸ‘‘ Admin Package: $adminPkg ($aMb MB)" -ForegroundColor Green
+    Write-Host "  [Admin Package] $adminPkg ($aMb MB)" -ForegroundColor Green
 }
 if (Test-Path $userPkg) {
     $uMb = [Math]::Round(((Get-Item $userPkg).Length / 1MB), 2)
-    Write-Host "  ðŸ‘¤ User Package:  $userPkg ($uMb MB)" -ForegroundColor Green
+    Write-Host "  [User Package]  $userPkg ($uMb MB)" -ForegroundColor Green
 
     # Create generic Setup alias for backward-compatible in-app updaters
-    $legacySetup = Join-Path $releaseDir "SVLL-IT-Workstation-v8.4-Setup.exe"
+    $legacySetup = Join-Path $releaseDir "SVLL-IT-Workstation-v8.5-Setup.exe"
     Copy-Item $userPkg $legacySetup -Force
-    Write-Host "  ðŸ”„ Legacy Updater Alias: $legacySetup" -ForegroundColor Cyan
+    Write-Host "  [Legacy Updater Alias] $legacySetup" -ForegroundColor Cyan
 }
 
 # 6. Generate CHECKSUMS.txt
 $checksumsFile = Join-Path $releaseDir "CHECKSUMS.txt"
 $hashLines = @()
-Get-ChildItem -Path $releaseDir -Filter "*8.4*" | ForEach-Object {
+Get-ChildItem -Path $releaseDir -Filter "*8.5*" | ForEach-Object {
     $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
     $hashLines += "$hash  $($_.Name)"
 }

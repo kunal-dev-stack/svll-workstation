@@ -529,12 +529,34 @@ public partial class MainWindow
 
     private async Task CreateSupportBundleAsync()
     {
-        Log("\n[SUPPORT] Packaging full diagnostic bundle with all system information...");
-        string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"SVLL_Bundle_{Guid.NewGuid()}");
+        Log("\n[SUPPORT] Packaging comprehensive IT diagnostic support bundle with all system aspects...");
+
+        // Ensure health audit has run
+        if (_healthResults.Count == 0)
+        {
+            Log("[SUPPORT] Gathering real-time endpoint health audit checkpoints...");
+            await RunHealthAuditAsync();
+        }
+
+        // Ensure event logs have been queried
+        if (_allEventLogs.Count == 0)
+        {
+            Log("[SUPPORT] Extracting recent event log crashes and critical events...");
+            await ScanEventLogsAsync();
+        }
+
+        string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"SVLL_Bundle_{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
 
+        // Determine destination ZIP directory: Desktop with C:\SVLL_Support fallback
         string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string zipPath = System.IO.Path.Combine(desktop, $"SVLL_Support_Bundle_{Environment.MachineName}_{DateTime.Now:yyyyMMdd_HHmm}.zip");
+        string targetFolder = Directory.Exists(desktop) ? desktop : @"C:\SVLL_Support";
+        if (!Directory.Exists(targetFolder))
+        {
+            try { Directory.CreateDirectory(targetFolder); } catch { targetFolder = MainWindow.AuditLogDirectory; }
+        }
+
+        string zipPath = System.IO.Path.Combine(targetFolder, $"SVLL_Support_Bundle_{Environment.MachineName}_{DateTime.Now:yyyyMMdd_HHmm}.zip");
 
         string ramSpec = _lblSpecRam?.Text ?? $"{Math.Round(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1073741824.0, 1)} GB Installed";
         string osSpec = _cachedOsBuild;
@@ -569,30 +591,44 @@ public partial class MainWindow
             specs.AppendLine("================================================================================");
             File.WriteAllText(System.IO.Path.Combine(tempDir, "01_system_specs.txt"), specs.ToString());
 
-            // 2. Full Network Configuration (ipconfig /all)
+            // 2. Storage & Drive Partition Diagnostic
             try
             {
-                var p = Process.Start(new ProcessStartInfo
+                var driveSb = new StringBuilder();
+                driveSb.AppendLine("=== WORKSTATION STORAGE DRIVES & PARTITIONS DIAGNOSTIC ===");
+                driveSb.AppendLine(string.Format("{0,-8} {1,-14} {2,-10} {3,-12} {4,-12} {5,-10}", "Drive", "Label", "Format", "Total (GB)", "Free (GB)", "% Free"));
+                driveSb.AppendLine(new string('-', 72));
+                foreach (var d in DriveInfo.GetDrives())
                 {
-                    FileName = "ipconfig.exe",
-                    Arguments = "/all",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                });
-                string ipOut = p?.StandardOutput.ReadToEnd() ?? "";
-                p?.WaitForExit();
-                File.WriteAllText(System.IO.Path.Combine(tempDir, "02_ipconfig_all.txt"), ipOut);
+                    if (!d.IsReady) continue;
+                    double totGb = Math.Round((double)d.TotalSize / 1073741824.0, 1);
+                    double freeGb = Math.Round((double)d.AvailableFreeSpace / 1073741824.0, 1);
+                    double pct = (double)d.AvailableFreeSpace / d.TotalSize * 100.0;
+                    driveSb.AppendLine(string.Format("{0,-8} {1,-14} {2,-10} {3,-12} {4,-12} {5,-10:F1}%", d.Name, d.VolumeLabel, d.DriveFormat, totGb, freeGb, pct));
+                }
+                File.WriteAllText(System.IO.Path.Combine(tempDir, "02_storage_drives.txt"), driveSb.ToString());
             }
             catch { }
 
-            // 3. Routing Table & ARP Cache
+            // 3. Full Network Configuration (ipconfig /all & routing)
             try
             {
-                var pRoute = Process.Start(new ProcessStartInfo { FileName = "route.exe", Arguments = "print", UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true });
-                string routeOut = pRoute?.StandardOutput.ReadToEnd() ?? "";
-                pRoute?.WaitForExit();
-                File.WriteAllText(System.IO.Path.Combine(tempDir, "03_route_print.txt"), routeOut);
+                var netSb = new StringBuilder();
+                netSb.AppendLine("=== NETWORK INTERFACE CONFIGURATION (IPCONFIG /ALL) ===");
+                using (var p = Process.Start(new ProcessStartInfo { FileName = "ipconfig.exe", Arguments = "/all", UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true }))
+                {
+                    netSb.AppendLine(p?.StandardOutput.ReadToEnd() ?? "");
+                    p?.WaitForExit();
+                }
+
+                netSb.AppendLine("\n=== ACTIVE ROUTING TABLE (ROUTE PRINT) ===");
+                using (var pRoute = Process.Start(new ProcessStartInfo { FileName = "route.exe", Arguments = "print", UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true }))
+                {
+                    netSb.AppendLine(pRoute?.StandardOutput.ReadToEnd() ?? "");
+                    pRoute?.WaitForExit();
+                }
+
+                File.WriteAllText(System.IO.Path.Combine(tempDir, "03_network_and_routing.txt"), netSb.ToString());
             }
             catch { }
 
@@ -600,17 +636,18 @@ public partial class MainWindow
             try
             {
                 var procSb = new StringBuilder();
-                procSb.AppendLine("PID\t\tProcess Name\t\tWorking Set (MB)\tThreads");
-                procSb.AppendLine("------------------------------------------------------------------------");
+                procSb.AppendLine("PID,ProcessName,WorkingSetMB,ThreadCount,StartTime");
                 foreach (var pr in Process.GetProcesses().OrderByDescending(x => { try { return x.WorkingSet64; } catch { return 0L; } }))
                 {
                     try
                     {
-                        procSb.AppendLine($"{pr.Id}\t\t{pr.ProcessName,-24}\t{Math.Round(pr.WorkingSet64 / 1048576.0, 1),8} MB\t\t{pr.Threads.Count}");
+                        string start = "";
+                        try { start = pr.StartTime.ToString("HH:mm:ss"); } catch { }
+                        procSb.AppendLine($"{pr.Id},\"{pr.ProcessName}\",{Math.Round(pr.WorkingSet64 / 1048576.0, 1)},{pr.Threads.Count},\"{start}\"");
                     }
                     catch { }
                 }
-                File.WriteAllText(System.IO.Path.Combine(tempDir, "04_running_processes.txt"), procSb.ToString());
+                File.WriteAllText(System.IO.Path.Combine(tempDir, "04_running_processes.csv"), procSb.ToString());
             }
             catch { }
 
@@ -640,18 +677,53 @@ public partial class MainWindow
             }
             catch { }
 
-            // 7. Full Interactive Mega HTML Diagnostic Report
+            // 7. Installed Corporate Software Inventory
+            try
+            {
+                var swSb = new StringBuilder();
+                swSb.AppendLine("=== INSTALLED SOFTWARE INVENTORY ===");
+                swSb.AppendLine(string.Format("{0,-50} {1,-20} {2}", "Display Name", "Version", "Publisher"));
+                swSb.AppendLine(new string('-', 95));
+
+                string[] uninstKeys = [
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                    @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+                ];
+
+                foreach (var kPath in uninstKeys)
+                {
+                    using var k = Registry.LocalMachine.OpenSubKey(kPath);
+                    if (k == null) continue;
+                    foreach (var sub in k.GetSubKeyNames())
+                    {
+                        try
+                        {
+                            using var sk = k.OpenSubKey(sub);
+                            string? name = sk?.GetValue("DisplayName")?.ToString();
+                            if (string.IsNullOrWhiteSpace(name)) continue;
+                            string ver = sk?.GetValue("DisplayVersion")?.ToString() ?? "N/A";
+                            string pub = sk?.GetValue("Publisher")?.ToString() ?? "N/A";
+                            swSb.AppendLine(string.Format("{0,-50} {1,-20} {2}", name.Length > 48 ? name[..48] : name, ver, pub));
+                        }
+                        catch { }
+                    }
+                }
+                File.WriteAllText(System.IO.Path.Combine(tempDir, "07_installed_software.txt"), swSb.ToString());
+            }
+            catch { }
+
+            // 8. Full Interactive Mega HTML Diagnostic Report
             string megaHtml = BuildMegaReportContent(specs.ToString(), healthSnapshot, crashSnapshot);
             File.WriteAllText(System.IO.Path.Combine(tempDir, "00_SVLL_IT_MEGA_REPORT.html"), megaHtml);
 
-            // 8. Create Final ZIP Archive
+            // 9. Create Final ZIP Archive
             if (File.Exists(zipPath)) File.Delete(zipPath);
             ZipFile.CreateFromDirectory(tempDir, zipPath, CompressionLevel.Optimal, false);
-            Directory.Delete(tempDir, true);
+            try { Directory.Delete(tempDir, true); } catch { }
         });
 
         Log($"[SUPPORT] Support bundle generated successfully: {zipPath}");
-        MessageBox.Show($"Complete IT Support Bundle has been exported to your Desktop:\n\n{System.IO.Path.GetFileName(zipPath)}\n\nContains: System Specs, IPConfig, Route Tables, Process List, Services, Event Crashes, and the Mega HTML Report.", "Support Bundle Ready", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"Complete IT Support Bundle has been packaged successfully:\n\n{zipPath}\n\nContents:\n• System Specs & Topology\n• Storage Partitions & Space Health\n• Full Network Configuration & Routing\n• Running Processes Map & Services\n• Event Log Crash Snapshots (48h)\n• Installed Software Inventory\n• Interactive IT Mega Diagnostic HTML Report", "Support Bundle Ready", MessageBoxButton.OK, MessageBoxImage.Information);
         try
         {
             Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"/select,\"{zipPath}\"", UseShellExecute = true });
@@ -662,8 +734,24 @@ public partial class MainWindow
     private async Task GenerateMegaReportAsync()
     {
         Log("\n[REPORT] Compiling Comprehensive IT Mega Diagnostic Report...");
+
+        if (_healthResults.Count == 0)
+        {
+            await RunHealthAuditAsync();
+        }
+        if (_allEventLogs.Count == 0)
+        {
+            await ScanEventLogsAsync();
+        }
+
         string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string reportPath = System.IO.Path.Combine(desktop, $"SVLL_IT_Mega_Report_{Environment.MachineName}_{DateTime.Now:yyyyMMdd_HHmm}.html");
+        string targetFolder = Directory.Exists(desktop) ? desktop : @"C:\SVLL_Support";
+        if (!Directory.Exists(targetFolder))
+        {
+            try { Directory.CreateDirectory(targetFolder); } catch { targetFolder = MainWindow.AuditLogDirectory; }
+        }
+
+        string reportPath = System.IO.Path.Combine(targetFolder, $"SVLL_IT_Mega_Report_{Environment.MachineName}_{DateTime.Now:yyyyMMdd_HHmm}.html");
 
         string ramSpec = _lblSpecRam?.Text ?? "RAM Telemetry available";
         string osSpec = _cachedOsBuild;
@@ -687,7 +775,7 @@ public partial class MainWindow
         });
 
         Log($"[REPORT] IT Mega Report created at: {reportPath}");
-        MessageBox.Show($"IT Mega Diagnostic Report created on your Desktop:\n\n{System.IO.Path.GetFileName(reportPath)}\n\nOpening in your browser...", "Mega Report Ready", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"IT Mega Diagnostic Report created successfully:\n\n{reportPath}\n\nOpening report in browser...", "Mega Report Ready", MessageBoxButton.OK, MessageBoxImage.Information);
         try
         {
             Process.Start(new ProcessStartInfo { FileName = reportPath, UseShellExecute = true });
@@ -707,7 +795,7 @@ public partial class MainWindow
         sb.AppendLine(".header p { margin: 0; opacity: 0.85; font-size: 13px; }");
         sb.AppendLine(".card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }");
         sb.AppendLine(".card h2 { margin: 0 0 14px 0; font-size: 15px; color: #1a4bb2; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; }");
-        sb.AppendLine("table { width: 100%; border-collapse: collapse; font-size: 12px; }");
+        sb.AppendLine("table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }");
         sb.AppendLine("th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }");
         sb.AppendLine("th { background: #f8fafc; color: #475569; font-weight: 600; }");
         sb.AppendLine(".badge { padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; }");
@@ -718,6 +806,8 @@ public partial class MainWindow
         sb.AppendLine(".metric { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; }");
         sb.AppendLine(".metric-title { font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 4px; }");
         sb.AppendLine(".metric-val { font-size: 16px; font-weight: 700; color: #0f172a; }");
+        sb.AppendLine(".progress-bar { width: 100%; background: #e2e8f0; border-radius: 4px; height: 12px; overflow: hidden; }");
+        sb.AppendLine(".progress-fill { height: 100%; background: #1a4bb2; }");
         sb.AppendLine("</style></head><body>");
 
         sb.AppendLine("<div class='header'>");
@@ -725,7 +815,7 @@ public partial class MainWindow
         sb.AppendLine($"<p>Enterprise Fleet IT Workstation Diagnostic Mega Report &bull; Host: <b>{Environment.MachineName}</b> &bull; Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}</p>");
         sb.AppendLine("</div>");
 
-        // System Specs Grid
+        // 1. System Specs Grid
         sb.AppendLine("<div class='card'>");
         sb.AppendLine("<h2>1. HARDWARE TOPOLOGY & HOST SPECIFICATIONS</h2>");
         sb.AppendLine("<div class='grid'>");
@@ -739,10 +829,32 @@ public partial class MainWindow
         sb.AppendLine("<pre>" + specsSummary + "</pre>");
         sb.AppendLine("</div>");
 
-        // Health Audit Table
+        // 2. Storage Partitions & Disks
         sb.AppendLine("<div class='card'>");
-        sb.AppendLine("<h2>2. OPERATING SYSTEM FOUNDATIONAL HEALTH AUDIT</h2>");
-        sb.AppendLine("<table><tr><th>Component</th><th>Status</th><th>Diagnostic Details</th><th>Recommended Remediation</th></tr>");
+        sb.AppendLine("<h2>2. STORAGE DRIVES & PARTITIONS HEALTH</h2>");
+        sb.AppendLine("<table><tr><th>Drive</th><th>Volume Label</th><th>File System</th><th>Total Capacity</th><th>Free Space</th><th>Usage Headroom</th><th>Status</th></tr>");
+        try
+        {
+            foreach (var d in DriveInfo.GetDrives())
+            {
+                if (!d.IsReady) continue;
+                double totGb = Math.Round((double)d.TotalSize / 1073741824.0, 1);
+                double freeGb = Math.Round((double)d.AvailableFreeSpace / 1073741824.0, 1);
+                double usedPct = ((double)(d.TotalSize - d.AvailableFreeSpace) / d.TotalSize) * 100.0;
+                double freePct = (double)d.AvailableFreeSpace / d.TotalSize * 100.0;
+                bool warn = freePct < 15.0;
+                string badgeCls = warn ? "badge-warn" : "badge-ok";
+                string statusTxt = warn ? "WARNING (< 15%)" : "HEALTHY";
+                sb.AppendLine($"<tr><td><b>{d.Name}</b></td><td>{d.VolumeLabel}</td><td>{d.DriveFormat}</td><td>{totGb} GB</td><td>{freeGb} GB</td><td><div class='progress-bar'><div class='progress-fill' style='width: {usedPct:F0}%'></div></div></td><td><span class='badge {badgeCls}'>{statusTxt}</span></td></tr>");
+            }
+        }
+        catch { }
+        sb.AppendLine("</table></div>");
+
+        // 3. Health Audit Table
+        sb.AppendLine("<div class='card'>");
+        sb.AppendLine($"<h2>3. OPERATING SYSTEM FOUNDATIONAL HEALTH AUDIT ({healthList.Count} CHECKPOINTS)</h2>");
+        sb.AppendLine("<table><tr><th>Component</th><th>Audit Status</th><th>Diagnostic Details</th><th>Recommended Remediation</th></tr>");
         foreach (var r in healthList)
         {
             string cls = r.IsWarning ? "badge-warn" : "badge-ok";
@@ -750,9 +862,9 @@ public partial class MainWindow
         }
         sb.AppendLine("</table></div>");
 
-        // Event Logs & Crash Analysis
+        // 4. Event Logs & Crash Analysis
         sb.AppendLine("<div class='card'>");
-        sb.AppendLine($"<h2>3. CRITICAL EVENT LOGS & RECENT CRASHES (FOUND: {crashList.Count})</h2>");
+        sb.AppendLine($"<h2>4. CRITICAL EVENT LOGS & RECENT CRASHES (FOUND: {crashList.Count})</h2>");
         if (crashList.Count > 0)
         {
             sb.AppendLine("<table><tr><th>Timestamp</th><th>Category</th><th>Event ID</th><th>Level</th><th>Message Details</th></tr>");
