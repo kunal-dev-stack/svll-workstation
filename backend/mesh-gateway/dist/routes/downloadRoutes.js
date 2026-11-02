@@ -18,6 +18,26 @@ router.get('/windows-agent', (req, res) => {
         res.status(404).json({ error: 'Agent package not found on server' });
     }
 });
+// Direct User Setup EXE download
+router.get('/user-setup', (req, res) => {
+    const p = path_1.default.join(PUBLIC_DIR, 'SVLL-IT-Workstation-User-v8.4-Setup.exe');
+    if (fs_1.default.existsSync(p)) {
+        res.download(p, 'SVLL-IT-Workstation-User-v8.4-Setup.exe');
+    }
+    else {
+        res.status(404).json({ error: 'User setup package not found on server' });
+    }
+});
+// Direct Admin Setup EXE download
+router.get('/admin-setup', (req, res) => {
+    const p = path_1.default.join(PUBLIC_DIR, 'SVLL-IT-Workstation-Admin-v8.4-Setup.exe');
+    if (fs_1.default.existsSync(p)) {
+        res.download(p, 'SVLL-IT-Workstation-Admin-v8.4-Setup.exe');
+    }
+    else {
+        res.status(404).json({ error: 'Admin setup package not found on server' });
+    }
+});
 // One-line PowerShell web installer for target systems
 router.get('/install.ps1', (req, res) => {
     const host = req.headers.host || 'localhost:5000';

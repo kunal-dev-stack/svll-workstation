@@ -25,7 +25,12 @@ namespace AegisMeshAgent
 
         public AgentCore(string serverUrl, string token, string? deviceId = null)
         {
-            _serverUrl = serverUrl.TrimEnd('/');
+            string cleanUrl = serverUrl.TrimEnd('/');
+            if (cleanUrl.EndsWith("/ws", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanUrl = cleanUrl.Substring(0, cleanUrl.Length - 3).TrimEnd('/');
+            }
+            _serverUrl = cleanUrl;
             _token = token;
             _deviceId = deviceId ?? GetOrCreateDeviceId();
         }

@@ -14,6 +14,7 @@ const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const deviceRoutes_1 = require("./routes/deviceRoutes");
 const auditRoutes_1 = __importDefault(require("./routes/auditRoutes"));
 const downloadRoutes_1 = __importDefault(require("./routes/downloadRoutes"));
+const relayRoutes_1 = require("./routes/relayRoutes");
 const meshGateway_1 = require("./meshGateway");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -40,6 +41,7 @@ exports.gateway = gateway;
 // Mount REST Routes
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/agent', downloadRoutes_1.default);
+app.use('/api', (0, relayRoutes_1.createRelayRoutes)());
 app.use('/api', (0, deviceRoutes_1.createDeviceRoutes)(gateway));
 app.use('/api/audit-logs', auditRoutes_1.default);
 // Serve static client-web production build if available

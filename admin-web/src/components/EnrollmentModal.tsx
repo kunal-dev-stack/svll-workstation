@@ -86,6 +86,74 @@ export const EnrollmentModal: React.FC<EnrollmentModalProps> = ({ isOpen, onClos
           </button>
         </div>
 
+        {/* Rapid 1-Liner Deployment Commands */}
+        <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.3)', marginBottom: '20px' }}>
+          <h4 style={{ fontSize: '0.9rem', marginBottom: '10px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Terminal size={16} color="#38bdf8" /> Rapid 1-Liner PowerShell Deployment
+          </h4>
+          <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '12px' }}>
+            Run these commands in Windows PowerShell (Admin) for zero-touch silent deployment.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+            {/* User Workstation */}
+            <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#93c5fd' }}>👤 User Workstation (Tool + Agent)</span>
+                <span className="badge badge-online" style={{ fontSize: '0.65rem' }}>Auto-Start</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.5)', padding: '6px 8px', borderRadius: '6px' }}>
+                <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#38bdf8', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  irm https://tinyurl.com/svll-user | iex
+                </code>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '3px 8px', fontSize: '0.7rem' }}
+                  onClick={() => copyToClipboard('irm https://tinyurl.com/svll-user | iex', 'user-deploy')}
+                >
+                  {copiedToken === 'user-deploy' ? <Check size={12} color="#34d399" /> : <Copy size={12} />}
+                  <span>{copiedToken === 'user-deploy' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+              <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Installs SVLL User App + AegisMesh service</span>
+                <a href="https://tinyurl.com/2aktq8dh" target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#60a5fa', textDecoration: 'none' }}>
+                  Direct EXE ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Admin Command Center */}
+            <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d8b4fe' }}>👑 Admin Command Center (NOC)</span>
+                <span className="badge badge-online" style={{ fontSize: '0.65rem', background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>Full Control</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.5)', padding: '6px 8px', borderRadius: '6px' }}>
+                <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: '#c084fc', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  irm https://tinyurl.com/svll-admin | iex
+                </code>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '3px 8px', fontSize: '0.7rem' }}
+                  onClick={() => copyToClipboard('irm https://tinyurl.com/svll-admin | iex', 'admin-deploy')}
+                >
+                  {copiedToken === 'admin-deploy' ? <Check size={12} color="#34d399" /> : <Copy size={12} />}
+                  <span>{copiedToken === 'admin-deploy' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+              <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Hub 7 NOC console, fleet monitoring & remote</span>
+                <a href="https://tinyurl.com/25edwv9j" target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#c084fc', textDecoration: 'none' }}>
+                  Direct EXE ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Create Token Form */}
         <form onSubmit={handleCreateToken} style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-subtle)', marginBottom: '24px' }}>
           <h4 style={{ fontSize: '0.9rem', marginBottom: '12px', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px' }}>
