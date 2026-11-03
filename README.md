@@ -1,141 +1,186 @@
-# SVLL IT Support Workstation (v7.0)
+# SVLL IT Workstation & AegisMesh Suite (v8.5)
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-blue.svg)](https://microsoft.com)
 [![Framework](https://img.shields.io/badge/Framework-.NET%208.0%20WPF-purple.svg)](https://dotnet.microsoft.com)
 [![License](https://img.shields.io/badge/License-Proprietary%20SVLL-darkred.svg)](#)
-[![Release](https://img.shields.io/badge/Release-v7.0-success.svg)](#)
+[![Release](https://img.shields.io/badge/Release-v8.5-success.svg)](https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5)
+[![Editions](https://img.shields.io/badge/Editions-User%20%7C%20Admin-blueviolet.svg)](#)
 
-> **Enterprise IT Diagnostics, Fleet Management & Automated Remediation Suite**  
+> **Unified Corporate IT Management, Fleet Telemetry, Remote Diagnostics & Zero-Touch Remote Control Platform**  
 > Developed for **Shree Vasu Logistics Limited** by **Kunal Turkar**.
 
 ---
 
 ## 🚀 Overview
 
-**SVLL IT Support Workstation** is a high-performance desktop workstation engineered specifically for corporate logistics hubs, branch networks, and warehouse computer fleets. It delivers real-time system vitals, zero-touch new PC provisioning, offline USB deployment, automated Microsoft WHQL driver catalog installation, logistics hardware diagnostics (Zebra/TSC & COM serial sniffer), S.M.A.R.T. storage crash prediction, endpoint USB DLP security, 1-click RAM & CPU acceleration, network troubleshooting, unattended software deployment, automated Windows debloating, zero-code AnyDesk remote fleet control, AI-powered IT complaint intake, and 24/7 endpoint reliability.
+**SVLL IT Workstation** is a high-performance enterprise IT management and support suite engineered specifically for corporate logistics hubs, branch networks, and warehouse computer fleets across India. 
+
+Operating under a dual-edition model, the platform delivers real-time system vitals telemetry, zero-touch new PC provisioning, automated driver catalog installation, logistics hardware diagnostics (Zebra/TSC thermal printers & digital weighbridge serial sniffers), 11-point PC health inspection with 1-click self-healing, S.M.A.R.T. storage crash prediction, endpoint USB DLP security, 24/7 ping monitoring with acoustic alerts, native 60FPS AegisMesh remote fleet control, emergency incident forensic triage acquisition, AI-powered IT complaint intake, and seamless in-app version upgrades.
 
 ---
 
 ## ⚡ 1-Click System Deployment (PowerShell)
 
-To deploy or update SVLL IT Support Workstation on any clean PC or laptop in seconds, open **Windows PowerShell** (Run as Administrator) and run:
+Deploy or update the SVLL IT Workstation on any clean PC or laptop in seconds using elevated Windows PowerShell:
 
+### 👤 User Workstation Edition (Employees & Warehouses)
 ```powershell
-irm https://tinyurl.com/svll-setup | iex
+irm https://tinyurl.com/svll-user | iex
 ```
+*Direct Installer Download:* [https://tinyurl.com/2aktq8dh](https://tinyurl.com/2aktq8dh)
 
-*Alternative mirror:*
+### 👑 Admin Command Center Edition (IT Engineers & NOC)
 ```powershell
-irm https://tinyurl.com/svll-workstation | iex
+irm https://tinyurl.com/svll-admin | iex
 ```
+*Direct Installer Download:* [https://tinyurl.com/25edwv9j](https://tinyurl.com/25edwv9j)
 
-> **How it works**: This one-liner downloads the official setup package directly into memory, validates dependencies, executes silent unattended deployment into `C:\Program Files\ShreeVasuLogistics\ITWorkstation`, creates Start Menu and Desktop shortcuts, and launches the workstation immediately.
+> **How it works:** The one-liner validates environment dependencies, fetches the authentic release package from GitHub Releases (with fallback to the SVLL Server Gateway), executes silent unattended deployment into `C:\Program Files\ShreeVasuLogistics\ITWorkstation`, creates Start Menu and Desktop shortcuts, and launches the workstation immediately.
 
 ---
 
-## 🏛️ 7-Hub Enterprise Architecture
+## 🏛️ Subsystems & Architecture
 
-The workstation consolidates **40 advanced administrative tools** into 7 structured workspaces:
+```mermaid
+graph TB
+    subgraph Endpoints["Endpoints & Field Devices"]
+        U["User Workstation App\n(WPF .NET 8 - BUILD_USER)"]
+        A["Admin Command Center\n(WPF .NET 8 - BUILD_ADMIN)"]
+        D["AegisMesh Agent Daemon\n(SYSTEM Service - C# .NET 8)"]
+    end
 
-1. **Live Monitoring & Triage (`Hub_Monitoring`)**: System Vitals, Continuous Watchdog, Latency Tests, Bandwidth Speed Test.
-2. **Network Operations Center (`Hub_Network`)**: IPConfig & Netsh Suite, Network & DNS Profiles, Subnet IP Scanner (Free vs Occupied), Active Ports & Bandwidth Hog Hunter, Wi-Fi Keys & Diagnostics, LAN File Shares.
-3. **System Optimization & Servicing (`Hub_Optimization`)**: 1-Click Turbo Booster, Endpoint Security & USB Storage DLP, WinUtil Debloat, Storage TRIM & Temp Purge, Windows Optional Features, Windows Update Strategy, Baseline Config Manager.
-4. **Fleet Diagnostics & Helpdesk (`Hub_Diagnostics`)**: Windows OS Repairs, Logistics Hardware Doctor (Zebra/TSC & Serial COM), S.M.A.R.T. Drive Health & Crash Predictor, Print Spooler, Services & Processes, Event Log Analyzer, PC Health & Battery Report, Hardware Asset Passport & QR, IT Support Bundle.
-5. **Command Playbook & Deployment (`Hub_Playbook`)**: Zero-Touch New PC Setup Wizard, 37 IT Dual-Syntax Fixes, Offline USB Software & Driver Depot, App Uninstaller & Nuclear Force Purge, WinGet Software Deployer, Local Users & Vault, Updates & About.
-6. **Remote Access & Fleet Console (`Hub_Remote`)**: Local AnyDesk Endpoint Controller, 1-Click Remote Support Beacon, Windows Quick Assist & RDP, Password-Protected Admin Fleet Console (Live Connected Devices, 1-Click Remote AnyDesk Session, RDP & Ping).
-7. **IT Complaint & AI Service Desk (`Hub_Complaints`)**: Auto-Telemetry Complaint Registration, AI Diagnostic Triage Assistant with Clarifying Questions & Self-Healing Fixes, Password-Protected Admin Service Desk Dashboard, Local Ticket Tracking.
+    subgraph Infrastructure["Corporate Server & Cloud Layer"]
+        GW["SVLL Server Gateway :5000\n(Node.js + Express + WebSockets)"]
+        CF["Cloudflare 24/7 Internet Tunnel\n(Zero-Trust Edge Relay)"]
+        WEB["Admin Web Console\n(React + Vite + Lucide)"]
+    end
+
+    subgraph Upstream["Upstream Distribution"]
+        GH["GitHub Releases (v8.5)\n(Binaries, Checksums, Release Notes)"]
+    end
+
+    U -->|Telemetry & Tickets| GW
+    A -->|Fleet Control & NOC| GW
+    D -->|Continuous Vitals & Remote Exec| GW
+    GW <--> CF
+    WEB <--> GW
+    U -.->|Auto-Update / Fallback| GH
+    A -.->|Auto-Update / Fallback| GH
+```
+
+1. **WPF Desktop Application (`src/`)**: .NET 8.0 WPF client compiled with dual preprocessor directives:
+   - `BUILD_USER`: Standard employee workstation app, background agent enrollment, self-service IT complaints, PC health triage, and in-app updates.
+   - `BUILD_ADMIN`: Complete IT NOC Command Center, live fleet scorecards, vitals telemetry (CPU/RAM/Disk), native 60FPS remote desktop, network diagnostics, incident forensics, and 37-command playbook.
+2. **Server Gateway (`backend/mesh-gateway/`)**: Node.js + Express + WebSocket backend running on port **5000**. Handles real-time agent WebSockets (`/ws`), fleet heartbeat telemetry (`/api/fleet`, `/api/heartbeat`), ticket management (`/api/tickets`), and binary downloads (`/api/agent/*`).
+3. **Web Management Console (`admin-web/`)**: React + Vite + Lucide icons dashboard served directly from the server gateway with remote terminal, desktop view, file manager, and token enrollment.
+4. **Workstation Agent Daemon (`agent-windows/`)**: C# .NET 8 background daemon deployed as scheduled task `AegisMeshAgent` running under `SYSTEM` account for continuous vitals and remote execution.
+5. **Installers & Setup Tooling (`installer/`, `scripts/`)**: Inno Setup 7 scripts generating standalone, silent single-file installers.
 
 ---
 
-## 🌟 Next-Gen Features in v7.0
+## 🌟 What's New in Version 8.5
 
-### 1. 🔴 Zero-Code AnyDesk Remote Access & Fleet Console (`Hub 6 -> Hub_Remote`)
-* **Endpoint Mode (Regular Users)**:
-  * Prominently displays the workstation's unique AnyDesk ID (auto-read from `%ProgramData%\AnyDesk\system.conf`).
-  * 1-Click "Launch AnyDesk", "Copy ID", "Windows Quick Assist", and "Toggle Windows RDP".
-  * **1-Click Remote Support Beacon**: When a user experiences an issue, they click "Broadcast Remote Support Beacon". The request is instantly transmitted to the Central Fleet Console with their issue description, machine name, and AnyDesk ID—zero codes need to be dictated over the phone!
-* **Fleet Device Admin Console (Password Protected)**:
-  * Accessible exclusively via the IT Admin Master Password (`SVLL@Admin2026`).
-  * Real-time grid of all connected corporate endpoints across Mumbai, Delhi, Raipur, Ahmedabad, and Kolkata branches.
-  * Live status indicators (`🟢 Online`, `🚨 Support Requested`, `⚪ Offline`).
-  * **1-Click Remote Control**: IT Admin clicks `[🚀 Connect AnyDesk]` on any device card to launch an AnyDesk session directly into that machine!
-  * **1-Click RDP & Ping**: Launch Remote Desktop (`mstsc /v:ip`) or measure network latency.
-  * Export complete fleet directory to CSV.
+### 1. 🔄 In-App Check Updates Tool (User & Admin Panels)
+* **Top Navigation Bar:** Prominent `🔄 Updates` button accessible from every tab.
+* **1-Click Online Upgrade:** Automatically queries GitHub Releases API, checks current version against latest release tag, downloads edition-matched setup installer (`SVLL-IT-Workstation-Admin-v8.5-Setup.exe` or `SVLL-IT-Workstation-User-v8.5-Setup.exe`), runs silent update, and restarts cleanly.
+* **Global Access:** Integrated into Top Status Bar, Sidebar Attribution Card, Quick Menu (`⚡ Quick ▾`), Command Palette (`Ctrl+K`), and About view.
 
-### 2. 🤖 AI-Powered IT Diagnostic & Triage Assistant (`Hub 7 -> AiComplaintBot`)
-* **Conversational AI Intake**: An interactive chat assistant that guides users through structured troubleshooting before submitting a ticket.
-* **Intelligent Clarifying Questions**:
-  * For Zebra/TSC Printers: Asks if status LED is solid green vs blinking red/amber, sensor calibration issues, or stuck spooler jobs.
-  * For Network/WMS: Pinpoints gateway connectivity vs ERP application downtime and checks DNS.
-  * For Freezing/Slow PCs: Gathers triggers (Chrome/Excel), memory saturation, and uptime.
-* **1-Click Self-Healing Interventions**: Offers instant in-chat fixes (e.g. *Restart Print Spooler Now*, *Flush DNS*, *1-Click Turbo Boost*) before filing a formal ticket.
-* **Automatic Ticket Synthesis**: Compiles user answers, assessed severity, and auto-captured hardware telemetry into a structured IT support ticket.
+### 2. 📡 24/7 Ping Watchdog & Acoustic Alert Engine
+* **Persistent Target List:** Added `💾 Save Target List` button so customized IP/DNS monitoring targets persist across reboots in `%APPDATA%\SVLL_IT_Workstation\watchdog_targets.json`.
+* **Audible Chime Alert Engine:** Employs dual multi-frequency acoustic tones (`1318 Hz` / `880 Hz`) with `SystemSounds.Exclamation` fallback, providing distinct audible alerts on gateway/ERP downtime and state transitions. Added dedicated `🔊 Test Chime` button.
 
-### 3. 📋 IT Complaint Registration & Admin Service Desk (`Hub 7 -> SubmitComplaint & TicketAdminDesk`)
-* **Auto-Attached System Diagnostics**: Tickets automatically bundle Hostname, Logged-in User, IPv4, AnyDesk ID, Print Spooler state, OS build, and Disk health.
-* **Password-Protected Admin Service Desk**:
-  * Real-time metrics on Total, Open, In Progress, and Critical tickets.
-  * Search, Branch filter, Priority filter, and Status workflows.
-  * Update ticket status (`Open` -> `In Progress` -> `Resolved` -> `Closed`), add internal resolution notes, and assign technicians.
-  * **1-Click AnyDesk Connect to Requester**: Instantly jump onto the screen of the user who filed the ticket.
-  * Export service tickets to CSV.
+### 3. ⚙️ Baseline Profiles Manager (Mojibake Purged)
+* **Encoding Cleaned:** Replaced all corrupted glyphs with standard Unicode escape sequences.
+* **⚡ Best Performance Profile:** Activates Windows Ultimate Performance power plan, flushes standby RAM cache, applies TCP window auto-tuning (`autotuninglevel=normal`), and clears telemetry bloat.
+* **🏢 Normal Use Profile:** Applies standard Balanced power scheme, clears user temp files, and flushes DNS cache for daily office operations.
+* **🛡️ High-Security Profile:** Enforces CIS compliance, Windows Defender hygiene, and USB DLP policy.
 
-### 4. 👑 Master Password Admin Session Security
-* PBKDF2 / SHA-256 + Salt protected administrative security layer.
-* Restricts sensitive fleet management and ticketing consoles to authorized IT administrators while regular employees only have access to user-mode tools.
-* 1-Click "Lock Admin Session" / "Unlock Admin Mode" toggle on the top status bar.
+### 4. 🩺 11-Point Deep PC Health Checker & 1-Click Auto-Fix
+* **Enterprise Diagnostic Checkpoints:**
+  1. *Storage (C:)* — Capacity headroom & free space
+  2. *Physical Memory (RAM)* — Utilization load & commit limit
+  3. *Pending Reboot Flags* — Component Based Servicing (CBS) & WindowsUpdate registry keys
+  4. *Print Spooler Service* — Service health & stuck queue job counter
+  5. *Windows Firewall Status* — Domain, Private, and Public profile validation
+  6. *Windows Defender Antivirus* — Real-time protection & signature hygiene
+  7. *Windows Update Services* — `wuauserv` & `BITS` operational status
+  8. *Network Connectivity* — Default gateway & external DNS latency
+  9. *Windows Time (NTP)* — W32Time service state and synchronization
+  10. *Junk & Temporary Files* — System & user temporary space accumulation
+  11. *Battery & Power System* — Battery health, charge state, and power plan
+* **1-Click Auto-Remediation:** Purges stuck spooler jobs, restores firewall profiles, restarts update/time services, forces NTP re-sync, flushes DNS, and clears temporary junk.
 
-### 1. 🚀 Zero-Touch New PC Provisioning Pipeline (`Hub 5 -> ProvisioningWizard`)
-* **Standardized Corporate Identity**: Automatically generates hostnames following enterprise conventions (`SVLL-<LOC>-<TYPE>-<SERIAL>` e.g., `SVLL-BOM-LAP-8921`).
-* **1-Click Commissioning Pipeline**:
-  1. Sets corporate computer name & validates workgroup.
-  2. Ingests OEM & Microsoft WHQL certified drivers via kernel PnP bus scan.
-  3. Deploys standard software suite (Chrome, 7-Zip, AnyDesk, Acrobat Reader, Java).
-  4. Configures Ultimate Performance power plan and disables sleep on AC.
-  5. Audits Windows Defender real-time protection baseline.
-  6. Exports a timestamped Commissioning Certificate and Asset Passport QR to the Desktop.
+### 5. 📊 Reliable Hub 4 IT Support Bundle & Mega Report
+* **Full Diagnostic Audit:** Collects partition tables, IP configuration, running processes, active Windows services, event log crash audit, and installed software inventory.
+* **Interactive HTML Mega Report:** SVLL-branded dark-themed HTML report with drive capacity meters and categorized triage tabs.
+* **Resilient Output:** Automatically routes output to Desktop or `C:\SVLL_Support` if permissions are constrained.
 
-### 2. 🖨️ Logistics Hardware Doctor (`Hub 4 -> LogisticsDoctor`)
-* **Direct RAW Spooler ZPL/TSPL Sender**: Sends pure ASCII printer control code (`^XA...^XZ`) directly to USB, Network, and LPT thermal printers via `winspool.drv` using the `RAW` datatype—completely bypassing buggy Windows graphics drivers and rasterization distortions.
-* **Serial RS-232 / USB COM Port Sniffer**: Live monitor for weighbridge digital indicators, dimensional scales, and serial barcode scanners with configurable baud rates (`9600`, `19200`, `115200 8-N-1`).
-* **Deep Print Spooler Purge**: Forcefully halts `spoolsv.exe`, terminates stuck print handles, deletes corrupt `.SHD` and `.SPL` lockfiles in `C:\Windows\System32\spool\PRINTERS`, and restarts the print spooler.
+### 6. 🏷️ Hub 5 New PC Provisioning Wizard (Chassis Auto-Detection)
+* **Standardized Corporate Identity:**
+  - Laptops: `LT-SVLL-<LOC>-<SERIAL>`
+  - Desktops: `DT-SVLL-<LOC>-<SERIAL>`
+  - Warehouse Terminals: `WT-SVLL-<LOC>-<SERIAL>`
+* **Automated Chassis Enclosure Detection:** Queries hardware enclosure types to automatically suggest Laptop (`LT-SVLL`) or Desktop (`DT-SVLL`).
+* **NetBIOS Compliance:** Strictly enforces 15-character Windows NetBIOS naming limits.
 
-### 3. 💾 S.M.A.R.T. Storage Health & Crash Predictor (`Hub 4 -> StorageSmart`)
-* **Direct Controller Register Inspection**: Directly queries NVMe and SATA registers via WMI (`MSStorageDriver_FailurePredictStatus`, `Win32_DiskDrive`, `Win32_StorageReliabilityCounter`).
-* **Predictive Metrics**: Real-time display of Remaining Life (Wear %), Power-On Hours, Reallocated Bad Sectors, Controller Operating Temperatures, and Terabytes Written (TBW).
-* **1-Click Diagnostics Export**: Saves a detailed disk reliability report to the Desktop for warranty claims and predictive replacements.
+### 7. 🕵️ Emergency Incident Forensics & Live Triage Collector
+* **Direct Drive Storage:** Exports forensic evidence directly to physical drives (`C:\SVLL_Forensics`, Desktop, or connected USB drives), avoiding hidden user directories.
+* **10 Rich Forensic Artifacts Captured:**
+  - `01_system_and_hardware_profile.txt`: OS build, hardware architecture, AnyDesk/Relay ID.
+  - `02_active_logon_sessions.txt`: Interactive console and RDP user logon sessions (`quser.exe`).
+  - `03_local_administrators_and_users.txt`: Local administrator group membership and user accounts.
+  - `04_processes_and_command_lines.csv`: Process memory map with working set and rogue Temp execution flags.
+  - `05_listening_and_active_sockets.txt`: Active TCP/UDP listening ports and foreign connections mapped to PID.
+  - `06_startup_and_autorun_persistence.txt`: Registry autorun keys (HKLM/HKCU Run & RunOnce).
+  - `07_security_event_log_triage.txt`: Failed logon events (4625), success logons (4624), and new services (7045).
+  - `08_usb_storage_device_history.txt`: USBSTOR registry device enumeration and connected serial tags.
+  - `09_network_config_and_dns_cache.txt`: Full network adapter configuration and hosts file mappings.
+  - `10_installed_patches_and_hotfixes.txt`: Microsoft Windows QFE hotfix installation history.
+  - `00_FORENSIC_TRIAGE_REPORT.html`: Interactive dark-themed triage dashboard with risk indicators.
+  - `SVLL_Forensics_<HOST>_<TIMESTAMP>.zip`: Full compressed zip package on destination drive.
 
-### 4. 🔒 Endpoint Security, DLP & USB Port Lockdown (`Hub 3 -> SecurityDlp`)
-* **USB Storage DLP Policy**:
-  * `🔒 Set USB Storage Read-Only`: Sets `StorageDevicePolicies\WriteProtect = 1` to block corporate data exfiltration while still allowing users to read documents.
-  * `🚫 Block USB Storage Completely`: Disables `usbstor.sys` (`Start = 4`) to prevent unauthorized USB flash drives while keeping USB mice, keyboards, and barcode scanners functional.
-  * `🟢 Restore Unrestricted Access`: Restores default read/write access.
-* **Local Admin Vault (LAPS)**: Generates cryptographically secure 16-character passwords and rotates local administrator credentials on demand.
-* **Defender Cloud Shield**: Live real-time protection status and 1-click cloud definition updates + background quick scan.
+### 8. 🤖 SVLL AI Quick Support Copilot (Expanded Brain)
+* **Expanded Technical Knowledge:** Resolves issues beyond workstation tools—covering Microsoft Excel (XLOOKUP, VLOOKUP, INDEX-MATCH, SUMIFS, Pivot Tables, freeze fixes), Windows PowerShell/CMD scripts, Blue Screen of Death (BSOD) stop codes, barcode/thermal printers (Zebra/TVS/TSC), and Boss ERP logistics billing.
+* **Smart Query Routing:** Distinguishes questions from operational commands, preventing informational inquiries from being hijacked by canned tool buttons.
 
-### 5. 📡 Active Ports & Bandwidth Hog Hunter (`Hub 2 -> SocketInspector`)
-* **Live TCP Socket Mapping**: Maps every open port and established outbound connection directly to process executable names (`Get-NetTCPConnection`).
-* **Bandwidth Hog Hunter**: Identifies unauthorized background downloaders or torrents saturating warehouse internet links.
-* **1-Click Process Termination**: Instantly terminates rogue processes to liberate branch office bandwidth.
+### 9. 🚀 Native AegisMesh 60FPS Remote Engine (Zero Third-Party Dependencies)
+* Native high-frame-rate remote control over WebSockets and Cloudflare tunnels.
+* All legacy third-party dependencies (AnyDesk, RustDesk, UltraRemote) have been completely purged in v8.5.
 
-### 6. 🔍 Global Command Palette (`Ctrl + K`)
-* **Instant Spotlight Navigation**: Press `Ctrl + K` anywhere in the app to open the fuzzy search palette.
-* **Instant Action Execution**: Search any of the 34 tools, playbook commands, or quick actions (e.g. `flush dns`, `turbo`, `zebra`, `laps`) and execute in one keystroke!
+---
 
-### 7. 🔌 Offline USB Software & Driver Depot (`Hub 5 -> UsbDepot`)
-* **Auto-Discovery & Folder Structure**: Automatically discovers connected USB thumb drives and initializes depot folders (`\Software`, `\Drivers`, `\Scripts`).
-* **Intelligent Silent Switch Detection**: Automatically applies silent unattended switches for `.msi`, `.exe`, `.inf`, and script files.
-* **Sequential Batch Deployment**: Deploys multi-app queues with live progress reporting and safety restore points.
+## 🏛️ Comprehensive Hub Directory
 
-### 8. 🗑️ App Uninstaller & Nuclear Force Purge (`Hub 5 -> AppUninstaller`)
-* **Silent Elevated Uninstall**: Removes software silently without prompting for UAC or admin passwords.
-* **Nuclear Force Purge**: For stubborn apps protected by uninstall passwords: kills process trees, destroys services, reclaims NTFS ownership (`takeown` / `icacls`), and scrubs registry keys.
+| Hub | Name | Key Modules & Capabilities |
+| :--- | :--- | :--- |
+| **Hub 1** | **Live Monitoring & Triage** | CPU/RAM/Disk gauges, 24/7 Ping Watchdog with acoustic chime & target saving, internet speed test, latency triager. |
+| **Hub 2** | **Network Operations Center** | IPConfig & Netsh suite, network profile changer, Subnet IP scanner, active socket inspector, bandwidth hog hunter, Wi-Fi keys, LAN file shares. |
+| **Hub 3** | **System Optimization & Security** | 1-Click Turbo Booster, Enterprise Baseline Profiles (Best Performance, Normal, High Security), USB Storage DLP lockdown, WinUtil debloat, storage TRIM. |
+| **Hub 4** | **Fleet Diagnostics & Helpdesk** | Windows OS DISM/SFC repairs, Logistics Hardware Doctor (Zebra/TSC ZPL raw sender & serial COM sniffer), S.M.A.R.T. Drive Health & Crash Predictor, Print Spooler deep purge, 11-point PC Health Checker, Support Bundle with HTML Mega Report. |
+| **Hub 5** | **Command Playbook & Deployment** | Zero-Touch New PC Provisioning Wizard (`LT-SVLL` / `DT-SVLL`), 37 dual-syntax IT fixes, offline USB software & driver depot, app uninstaller with nuclear force purge, WinGet deployer. |
+| **Hub 6** | **AegisMesh Remote Control** | Native AegisMesh 60FPS remote desktop, live fleet scorecards, session audit logging, remote terminal, web console integration. |
+| **Hub 7** | **IT Service Desk & AI Copilot** | Auto-telemetry IT complaint submission, ticket administration dashboard, AI Quick Support Copilot with expanded technical brain, local ticket tracking. |
+| **Hub 8** | **Emergency Incident Forensics** | 1-Click live forensic evidence acquisition (`C:\SVLL_Forensics`), 10 triage artifacts, interactive HTML dashboard, automated zip archive generation. |
 
-### 9. ⚡ 1-Click RAM & CPU Turbo Booster
-* Flushes working set memory pages (`EmptyWorkingSet`), terminates non-essential background telemetry processes, and activates Windows Ultimate Performance power mode.
+---
 
-### 10. 📖 37 Dual-Syntax Enterprise Fixes Playbook
-* Ready-to-run PowerShell and CMD code snippets for network resets, OS integrity scans, print repairs, user administration, and warehouse endpoint troubleshooting.
+## 🔍 Global Command Palette (`Ctrl + K`)
+
+Press `Ctrl + K` anywhere in the app to access the Spotlight Search Palette:
+- Instant search across all 40+ administrative tools and playbook commands.
+- Quick shortcuts: `updates`, `turbo`, `health`, `zebra`, `ping`, `forensics`, `profile`, `spooler`, `dns`.
+
+---
+
+## 📦 Official Distribution Packages & Checksums (v8.5)
+
+| Package | Filename | Size | SHA-256 Checksum |
+| :--- | :--- | :--- | :--- |
+| **Admin Edition Installer** | `SVLL-IT-Workstation-Admin-v8.5-Setup.exe` | 19.32 MB | `72bd39d49a500d4f7d0c5b4a771658959bb46914cf7075eda30be14d6b2a4fca` |
+| **User Edition Installer** | `SVLL-IT-Workstation-User-v8.5-Setup.exe` | 19.31 MB | `6f5eef51b3d28c833ee8b338e4b68207d20fe570e30cdfda5ab227ce10731eb7` |
+| **Universal Installer** | `SVLL-IT-Workstation-v8.5-Setup.exe` | 19.31 MB | `6f5eef51b3d28c833ee8b338e4b68207d20fe570e30cdfda5ab227ce10731eb7` |
+| **Admin Portable Binary** | `SVLL-IT-Workstation-Admin.exe` | 69.02 MB | Published on GitHub Releases |
+| **User Portable Binary** | `SVLL-IT-Workstation-User.exe` | 68.97 MB | Published on GitHub Releases |
 
 ---
 
@@ -143,30 +188,49 @@ The workstation consolidates **40 advanced administrative tools** into 7 structu
 
 ### Prerequisites
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (Windows x64)
-- [Inno Setup 6](https://jrsoftware.org/isdl.php) (Auto-detected in Program Files or AppData)
+- [Inno Setup 7](https://jrsoftware.org/isdl.php) (Auto-detected in `Program Files` or `AppData`)
+- [Node.js 18+](https://nodejs.org/) (for Server Gateway & Web Console)
 
-### Build Executable & Setup Installer
-Run the automated build script:
+### 1. Build Desktop Dual Editions
+```powershell
+# Build Admin Edition
+dotnet build src/SVLL-IT-Workstation.csproj -c Release-Admin
+
+# Build User Edition
+dotnet build src/SVLL-IT-Workstation.csproj -c Release-User
+```
+
+### 2. Build Installers & Dual Packages
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\make_project.ps1
 ```
-This script will:
-1. Compile the self-contained, single-file Windows x64 binary into `publish/SVLL-IT-Workstation.exe`.
-2. Locate the Inno Setup compiler (`ISCC.exe`).
-3. Compile the setup package with custom transparent icons into `release/SVLL-IT-Workstation-v6.0-Setup.exe`.
 
----
+### 3. Publish to GitHub Releases
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\publish_release.ps1 -Target client
+```
 
-## 📦 Distribution Packages & SHA-256 Checksums
+### 4. Run / Test Server Gateway & Web Console
+```bash
+# Gateway
+cd backend/mesh-gateway
+npm install
+npm run build
+npm start
 
-| Package | Filename | Size | SHA-256 Checksum |
-| :--- | :--- | :--- | :--- |
-| **Enterprise Installer** | `release\SVLL-IT-Workstation-v6.0-Setup.exe` | 64.08 MB | `C1E2CBA519F4E2FDAD2ECE64891216A7ED00287C1732095ABE7B239D564D05D3` |
-| **Portable Executable** | `publish\SVLL-IT-Workstation.exe` | 68.89 MB | `E3D3EA2137F9C32B205A78C08CAF03F9BF9897E7E0DA1895D3786DCC0ECC8079` |
+# Admin Web Console
+cd admin-web
+npm install
+npm run build
+```
 
 ---
 
 ## 👤 Author & Organization
+
 - **Developer:** Kunal Turkar
 - **Organization:** Shree Vasu Logistics Limited
-- **Version:** 6.0 (Enterprise Edition)
+- **Project:** SVLL IT Workstation & AegisMesh Suite
+- **Version:** 8.5 (Dual Editions: User & Admin)
+- **Repository:** [https://github.com/kunal-dev-stack/svll-workstation](https://github.com/kunal-dev-stack/svll-workstation)
+- **Releases:** [https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5](https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5)
