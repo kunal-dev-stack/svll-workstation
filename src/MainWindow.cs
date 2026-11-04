@@ -64,7 +64,7 @@ public partial class MainWindow : Window
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-    public const string CurrentVersion = "8.5";
+    public const string CurrentVersion = "8.6";
 
     // Corporate Color Palette (Shree Vasu Logistics Limited)
     public static readonly SolidColorBrush SvllBlue = new SolidColorBrush(Color.FromRgb(26, 75, 178));
@@ -241,11 +241,12 @@ public partial class MainWindow : Window
         {
             Id = "Hub_AdminCenter",
             Title = "ADMIN COMMAND CENTER",
-            Subtitle = "Live Fleet Monitor, 1-Click Remote Access & System Control",
+            Subtitle = "Live Fleet Monitor, 1-Click Remote Access & CCTV Surveillance",
             Glyph = "\uEC09",
             SubTools = new()
             {
                 ("AdminCommandCenter", "Fleet & Remote Control", "👑"),
+                ("CctvNvrMonitor", "CCTV & NVR Monitor", "📹"),
             }
         },
 #endif
@@ -1026,6 +1027,10 @@ public partial class MainWindow : Window
         var itemFleet = new MenuItem { Header = "👑  Fleet Device Admin Console", FontWeight = FontWeights.SemiBold };
         itemFleet.Click += (s, e) => NavigateTo("FleetAdminConsole");
         quickMenu.Items.Add(itemFleet);
+
+        var itemCctv = new MenuItem { Header = "📹  CCTV & NVR Camera Surveillance", FontWeight = FontWeights.SemiBold };
+        itemCctv.Click += (s, e) => NavigateTo("CctvNvrMonitor");
+        quickMenu.Items.Add(itemCctv);
 #endif
 
         quickMenu.Items.Add(new Separator());
@@ -1299,13 +1304,13 @@ public partial class MainWindow : Window
 
         string hubBadgeText = hub.Id switch
         {
-            "Hub_Monitoring" => "HUB 1  •  LIVE MONITORING & TRIAGE",
-            "Hub_Network" => "HUB 2  •  NETWORK OPERATIONS (NOC)",
-            "Hub_Optimization" => "HUB 3  •  SYSTEM OPTIMIZATION",
-            "Hub_Diagnostics" => "HUB 4  •  FLEET DIAGNOSTICS & SUPPORT",
-            "Hub_Playbook" => "HUB 5  •  PLAYBOOK & DEPLOYMENT",
-            "Hub_Security" => "HUB 6  •  ENDPOINT SECURITY & HARDENING",
-            "Hub_AdminCenter" => "HUB 7  •  ADMIN COMMAND CENTER",
+            "Hub_Monitoring" => "HUB 1",
+            "Hub_Network" => "HUB 2",
+            "Hub_Optimization" => "HUB 3",
+            "Hub_Diagnostics" => "HUB 4",
+            "Hub_Playbook" => "HUB 5",
+            "Hub_Security" => "HUB 6",
+            "Hub_AdminCenter" => "HUB 7",
             _ => "WORKSPACE"
         };
 
@@ -1580,6 +1585,7 @@ public partial class MainWindow : Window
 #if BUILD_ADMIN
             "FleetAdminConsole" => BuildAdminCommandCenterView(), // legacy redirect
             "AdminCommandCenter" => BuildAdminCommandCenterView(),
+            "CctvNvrMonitor" => BuildCctvNvrMonitorView(),
 #endif
             "ProcessShield" => BuildProcessShieldView(),
             "SecurityHardening" => BuildSecurityHardeningView(),

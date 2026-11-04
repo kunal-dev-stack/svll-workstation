@@ -341,8 +341,9 @@ public partial class MainWindow
             new() { Title = "SSL/TLS & Corporate Domain Health Inspector", Subtitle = "Live certificate expiry, TLS protocol and latency for svll.in & APIs", Category = "SECURITY", Icon = "🌐", TargetTag = "CertHealthInspector" },
 
 #if BUILD_ADMIN
-            // Hub 7: Admin Command Center
+            // Hub 7: Admin Command Center & CCTV Surveillance
             new() { Title = "Fleet Device Management & Admin Console", Subtitle = "Live monitor and 1-click AnyDesk connection to all fleet workstations", Category = "ADMIN", Icon = "👑", TargetTag = "AdminCommandCenter" },
+            new() { Title = "CCTV & NVR Camera Surveillance Monitor", Subtitle = "Live multi-view camera feeds from Hikvision, CP PLUS, Dahua & Uniview NVRs/DVRs", Category = "ADMIN", Icon = "📹", TargetTag = "CctvNvrMonitor" },
 #endif
 
             // Fast Instant Actions

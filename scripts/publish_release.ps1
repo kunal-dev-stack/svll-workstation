@@ -1,7 +1,7 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - GitHub Release Publisher
 # Developed by: Kunal Turkar
-# Publishes Workstation v8.5 (Client & Admin) and Server v1.1 Releases to GitHub
+# Publishes Workstation v8.6 (Client & Admin) and Server v1.1 Releases to GitHub
 # =========================================================================
 
 param(
@@ -143,22 +143,32 @@ function Publish-GitHubRelease {
     Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
 }
 
-# ── 1. Publish Workstation v8.5 Release (Client & Admin) ───────────────────────────
+# ── 1. Publish Workstation v8.6 Release (Client & Admin) ───────────────────────────
 if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
     $clientAssets = @(
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.5-Setup.exe"
-            Name = "SVLL-IT-Workstation-User-v8.5-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-v8.6-Setup.exe"
+            Name = "SVLL-IT-Workstation-User-v8.6-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.5-Setup.exe"
-            Name = "SVLL-IT-Workstation-Admin-v8.5-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-v8.6-Setup.exe"
+            Name = "SVLL-IT-Workstation-Admin-v8.6-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.5-Setup.exe"
-            Name = "SVLL-IT-Workstation-v8.5-Setup.exe"
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-v8.6-Setup.exe"
+            Name = "SVLL-IT-Workstation-v8.6-Setup.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+                @{
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-User-Setup.exe"
+            Name = "SVLL-IT-Workstation-User-Setup.exe"
+            Type = "application/vnd.microsoft.portable-executable"
+        },
+        @{
+            Path = Join-Path $releaseDir "SVLL-IT-Workstation-Admin-Setup.exe"
+            Name = "SVLL-IT-Workstation-Admin-Setup.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
@@ -179,9 +189,9 @@ if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
     )
 
     Publish-GitHubRelease `
-        -Tag "v8.5" `
-        -ReleaseName "SVLL IT Support Workstation v8.5 (Dual Editions: Client & Admin)" `
-        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.5.md") `
+        -Tag "v8.6" `
+        -ReleaseName "SVLL IT Support Workstation v8.6 (Dual Editions & CCTV Suite)" `
+        -NotesPath (Join-Path $releaseDir "RELEASE_NOTES_v8.6.md") `
         -Assets $clientAssets
 }
 

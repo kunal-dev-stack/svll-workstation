@@ -1,6 +1,6 @@
 # =========================================================================
 # Shree Vasu Logistics Limited - Admin Workstation Automated Installer
-# Target: SVLL IT Support Workstation (Admin Edition v8.4)
+# Target: SVLL IT Support Workstation (Admin Edition v8.6)
 # Developed by: Kunal Turkar
 # Compatible with Windows 10/11 & Windows Server (x64)
 # =========================================================================
@@ -24,7 +24,7 @@ if (-not $isAdmin) {
 Clear-Host
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host "   SHREE VASU LOGISTICS LIMITED - ADMIN CONSOLE DEPLOYMENT" -ForegroundColor Cyan
-Write-Host "   Version: Admin Edition v8.4 | Developed by Kunal Turkar" -ForegroundColor Cyan
+Write-Host "   Version: Admin Edition v8.6 | Developed by Kunal Turkar" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 
 # 2. Dynamic Server Discovery (LAN direct with Cloudflare Internet Fallback)
@@ -67,18 +67,18 @@ $secConfig = @{
 Set-Content -Path $cfgPath -Value $secConfig -Force
 Write-Host "[+] Configured Admin Security and Relay settings." -ForegroundColor Green
 
-# 4. Terminate any running old version and install Admin Edition v8.4
+# 4. Terminate any running old version and install Admin Edition v8.6
 Write-Host "`n[+] Closing any running previous versions of SVLL Workstation for clean in-place upgrade..." -ForegroundColor Cyan
 Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
 $downloadCandidates = @(
-    "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.4/SVLL-IT-Workstation-Admin-v8.4-Setup.exe",
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/latest/download/SVLL-IT-Workstation-Admin-v8.6-Setup.exe",
     "$ServerUrl/api/agent/admin-setup"
 )
-$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.4-Setup.exe"
+$tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.6-Setup.exe"
 
-Write-Host "[1/2] Downloading latest SVLL Workstation Admin v8.4..." -ForegroundColor Yellow
+Write-Host "[1/2] Downloading latest SVLL Workstation Admin v8.6..." -ForegroundColor Yellow
 $downloadSuccess = $false
 foreach ($u in $downloadCandidates) {
     try {

@@ -1,4 +1,4 @@
-# Shree Vasu Logistics - SVLL IT Workstation & AegisMesh Suite (v8.5)
+# Shree Vasu Logistics - SVLL IT Workstation & AegisMesh Suite (v8.6)
 
 > **Antigravity Context & Instructions**: This file is automatically loaded by Google Antigravity across all devices when opening this workspace.
 
@@ -24,8 +24,8 @@
    - Connects back to the server gateway via WebSocket, providing continuous vitals and remote execution.
 5. **Installers & Setup Tooling (`installer/`, `scripts/`)**:
    - Inno Setup 7 scripts generating standalone silent installers:
-     - `SVLL-IT-Workstation-User-v8.5-Setup.exe` (~20.2 MB)
-     - `SVLL-IT-Workstation-Admin-v8.5-Setup.exe` (~20.2 MB)
+     - `SVLL-IT-Workstation-User-v8.6-Setup.exe` (~20.2 MB)
+     - `SVLL-IT-Workstation-Admin-v8.6-Setup.exe` (~20.2 MB)
 
 ---
 
@@ -37,7 +37,7 @@
 | **Local LAN IP** | `http://192.168.10.11:5000` *(Alt: `http://192.168.100.25:5000`)* |
 | **Cloudflare 24/7 Internet Tunnel** | `https://roberts-basis-early-likewise.trycloudflare.com` |
 | **GitHub Repository** | `https://github.com/kunal-dev-stack/svll-workstation.git` (`main`) |
-| **GitHub Releases** | `https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5` |
+| **GitHub Releases** | `https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.6` |
 
 ---
 
@@ -55,7 +55,7 @@
 ## 4. Key Rules & Coding Conventions
 
 1. **UTF-8 Without BOM**: All PowerShell scripts (`install.ps1`, `install-admin.ps1`, etc.) MUST be saved in UTF-8 without BOM (`New-Object System.Text.UTF8Encoding($false)`). Windows PowerShell 5.1 fails with syntax errors (`?#`) if a BOM exists.
-2. **Zero Third-Party Remote Dependencies**: All legacy RustDesk, UltraRemote, and direct port 21118 references have been purged in v8.5. Remote control uses the native AegisMesh 60FPS engine and Web Console over Cloudflare/WebSockets.
+2. **Zero Third-Party Remote Dependencies**: All legacy RustDesk, UltraRemote, and direct port 21118 references have been purged in v8.6. Remote control uses the native AegisMesh 60FPS engine and Web Console over Cloudflare/WebSockets.
 3. **Dual Endpoint Fallback**: Installers must always attempt download from GitHub Releases first; if GitHub is unreachable, fall back to the live Server Gateway (`$ServerUrl/api/agent/*`).
 4. **Defensive WebSocket Parsing**: `AgentCore.cs` must always normalize the server URI to strip any trailing `/ws` before formatting `ws://.../ws`.
 

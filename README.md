@@ -1,9 +1,9 @@
-# SVLL IT Workstation & AegisMesh Suite (v8.5)
+# SVLL IT Workstation & AegisMesh Suite (v8.6)
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(x64)-blue.svg)](https://microsoft.com)
 [![Framework](https://img.shields.io/badge/Framework-.NET%208.0%20WPF-purple.svg)](https://dotnet.microsoft.com)
 [![License](https://img.shields.io/badge/License-Proprietary%20SVLL-darkred.svg)](#)
-[![Release](https://img.shields.io/badge/Release-v8.5-success.svg)](https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5)
+[![Release](https://img.shields.io/badge/Release-v8.6-success.svg)](https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.6)
 [![Editions](https://img.shields.io/badge/Editions-User%20%7C%20Admin-blueviolet.svg)](#)
 
 > **Unified Corporate IT Management, Fleet Telemetry, Remote Diagnostics & Zero-Touch Remote Control Platform**  
@@ -56,7 +56,7 @@ graph TB
     end
 
     subgraph Upstream["Upstream Distribution"]
-        GH["GitHub Releases (v8.5)\n(Binaries, Checksums, Release Notes)"]
+        GH["GitHub Releases (v8.6)\n(Binaries, Checksums, Release Notes)"]
     end
 
     U -->|Telemetry & Tickets| GW
@@ -78,11 +78,28 @@ graph TB
 
 ---
 
+## 🌟 What's New in Version 8.6
+
+### 1. 📹 CCTV & Enterprise Multi-NVR Surveillance Center (Admin Hub 7 & Top Menu)
+* **Pre-Configured 46 Campus NVR Matrix:** Full integration of all 46 enterprise NVR/DVR nodes across Central Depots and Regional Hubs (Raipur Head Office, Central Warehouse, Transport Nagar, Bilaspur, Durg, Bhilai, Indore, Jabalpur, Kolkata, Nagpur, etc.) with 450+ channels.
+* **Persistent Encrypted Credential Vault:** Securely stores NVR IP hosts, RTSP ports, facility manager contacts, and passwords in %APPDATA%\SVLL_IT_Workstation\cctv_nvrs.json.
+* **Hardware-Accelerated Live Video Wall (30 FPS):** LibVLC GPU decoding engine (--avcodec-hw=any, 250ms buffer, Direct3D11) supporting 1x1 Focus, 2x2 Quad, 3x3 Multi-View, and 4x4 Enterprise Video Wall with smooth playback.
+* **24-Hour Historical Playback Studio:** Full timeline scrubber, calendar date picker with recording checkmarks, quick shift jump presets, prev/next camera switcher, variable speeds (0.5x to 16.0x), and 1-click snapshot evidence frame export.
+
+### 2. 🩺 Dedicated CCTV Diagnostic & Health Studio
+* **Multi-Port Fleet Probing:** Concurrent diagnostic sweeps checking ICMP ping, RTSP (554), Web (80), Hikvision SDK (8000), and Dahua/CP PLUS SDK (37777).
+* **Subnet CIDR Range Discovery:** Scans /24 subnets (e.g., 192.168.1.0/24) to discover active IP cameras and open RTSP streams.
+* **Audit Reports & Downtime Alarm:** 1-Click structured CSV and executive HTML audit reports with acoustic downtime alarms.
+
+### 3. 🖥️ Non-Overlapping 2-Tier Layout & In-App Upgrade
+* Separated action tools and studio mode tabs into a clean 2-tier responsive header.
+* Automatic GitHub release detection (8.6) and 1-click background upgrade.
+
 ## 🌟 What's New in Version 8.5
 
 ### 1. 🔄 In-App Check Updates Tool (User & Admin Panels)
 * **Top Navigation Bar:** Prominent `🔄 Updates` button accessible from every tab.
-* **1-Click Online Upgrade:** Automatically queries GitHub Releases API, checks current version against latest release tag, downloads edition-matched setup installer (`SVLL-IT-Workstation-Admin-v8.5-Setup.exe` or `SVLL-IT-Workstation-User-v8.5-Setup.exe`), runs silent update, and restarts cleanly.
+* **1-Click Online Upgrade:** Automatically queries GitHub Releases API, checks current version against latest release tag, downloads edition-matched setup installer (`SVLL-IT-Workstation-Admin-v8.6-Setup.exe` or `SVLL-IT-Workstation-User-v8.6-Setup.exe`), runs silent update, and restarts cleanly.
 * **Global Access:** Integrated into Top Status Bar, Sidebar Attribution Card, Quick Menu (`⚡ Quick ▾`), Command Palette (`Ctrl+K`), and About view.
 
 ### 2. 📡 24/7 Ping Watchdog & Acoustic Alert Engine
@@ -147,6 +164,13 @@ graph TB
 * Native high-frame-rate remote control over WebSockets and Cloudflare tunnels.
 * All legacy third-party dependencies (AnyDesk, RustDesk, UltraRemote) have been completely purged in v8.5.
 
+### 10. 📹 CCTV & NVR Surveillance Center (Admin Edition Exclusive)
+* **Direct In-App Camera Monitoring:** Native multi-camera live video wall integrated directly into the Admin Command Center (`1x1` Focus, `2x2` Quad View, `3x3` Multi, `4x4` Enterprise Wall).
+* **Multi-Brand NVR / DVR Presets:** Automatic RTSP and HTTP snapshot protocol negotiation for **Hikvision / HiLook**, **CP PLUS (Indigo/Orange)**, **Dahua Technology**, **Uniview (UNV)**, and Generic ONVIF/RTSP surveillance hardware.
+* **Encrypted Credential Vault:** NVR host IPs, HTTP/RTSP ports, usernames, and passwords are saved locally in `%APPDATA%\SVLL_IT_Workstation\cctv_nvr_devices.json` with Windows DPAPI encryption for seamless persistent auto-login.
+* **Logistics Hub Channel Mapping:** Customizable channel labels (e.g., Inbound Gate, Digital Weighbridge, Docking Bay, Cash Vault, IT Rack) with 1-click feed assignment and drag-to-slot monitoring.
+* **Real-time Diagnostics & Snapshot Engine:** Live ping and TCP port reachability check (`:80` / `:554`), 1-click high-res frame capture to `Pictures\SVLL_CCTV_Snapshots`, 1-click RTSP stream launcher for VLC, and direct NVR web management console access.
+
 ---
 
 ## 🏛️ Comprehensive Hub Directory
@@ -172,13 +196,13 @@ Press `Ctrl + K` anywhere in the app to access the Spotlight Search Palette:
 
 ---
 
-## 📦 Official Distribution Packages & Checksums (v8.5)
+## 📦 Official Distribution Packages & Checksums (v8.6)
 
 | Package | Filename | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- |
-| **Admin Edition Installer** | `SVLL-IT-Workstation-Admin-v8.5-Setup.exe` | 19.32 MB | `72bd39d49a500d4f7d0c5b4a771658959bb46914cf7075eda30be14d6b2a4fca` |
-| **User Edition Installer** | `SVLL-IT-Workstation-User-v8.5-Setup.exe` | 19.31 MB | `6f5eef51b3d28c833ee8b338e4b68207d20fe570e30cdfda5ab227ce10731eb7` |
-| **Universal Installer** | `SVLL-IT-Workstation-v8.5-Setup.exe` | 19.31 MB | `6f5eef51b3d28c833ee8b338e4b68207d20fe570e30cdfda5ab227ce10731eb7` |
+| **Admin Edition Installer** | `SVLL-IT-Workstation-Admin-v8.6-Setup.exe` | 19.32 MB | `72bd39d49a500d4f7d0c5b4a771658959bb46914cf7075eda30be14d6b2a4fca` |
+| **User Edition Installer** | `SVLL-IT-Workstation-User-v8.6-Setup.exe` | 19.31 MB | `6f5eef51b3d28c833ee8b338e4b68207d20fe570e30cdfda5ab227ce10731eb7` |
+| **Universal Installer** | `SVLL-IT-Workstation-v8.6-Setup.exe` | 19.31 MB | `6f5eef51b3d28c833ee8b338e4b68207d20fe570e30cdfda5ab227ce10731eb7` |
 | **Admin Portable Binary** | `SVLL-IT-Workstation-Admin.exe` | 69.02 MB | Published on GitHub Releases |
 | **User Portable Binary** | `SVLL-IT-Workstation-User.exe` | 68.97 MB | Published on GitHub Releases |
 
@@ -231,6 +255,6 @@ npm run build
 - **Developer:** Kunal Turkar
 - **Organization:** Shree Vasu Logistics Limited
 - **Project:** SVLL IT Workstation & AegisMesh Suite
-- **Version:** 8.5 (Dual Editions: User & Admin)
+- **Version:** 8.6 (Dual Editions: User & Admin)
 - **Repository:** [https://github.com/kunal-dev-stack/svll-workstation](https://github.com/kunal-dev-stack/svll-workstation)
-- **Releases:** [https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5](https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.5)
+- **Releases:** [https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.6](https://github.com/kunal-dev-stack/svll-workstation/releases/tag/v8.6)
