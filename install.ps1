@@ -96,10 +96,13 @@ Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Pr
 Start-Sleep -Seconds 1
 
 $downloadCandidates = @(
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.6/SVLL-IT-Workstation-User-v8.6-Setup.exe",
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.6/SVLL-IT-Workstation-User-Setup.exe",
     "https://github.com/kunal-dev-stack/svll-workstation/releases/latest/download/SVLL-IT-Workstation-User-v8.6-Setup.exe",
-    "$ServerUrl/api/agent/user-setup"
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/latest/download/SVLL-IT-Workstation-User-Setup.exe"
 )
 $tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-User-v8.6-Setup.exe"
+Remove-Item $tempExe -Force -ErrorAction SilentlyContinue
 
 Write-Host "[1/3] Downloading latest SVLL Workstation User v8.6..." -ForegroundColor Yellow
 $downloadSuccess = $false

@@ -128,7 +128,7 @@ if (Test-Path $adminExe) {
 }
 
 Write-Host "`n=========================================================================" -ForegroundColor Green
-Write-Host "   [+] SVLL ADMIN WORKSTATION v8.4 INSTALLED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "   [+] SVLL ADMIN WORKSTATION v8.6 INSTALLED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "=========================================================================" -ForegroundColor Green
 Write-Host "   Edition:        Admin Edition (Full IT Control & Fleet Management)" -ForegroundColor White
 Write-Host "   Relay Server:   $ServerUrl" -ForegroundColor Cyan

@@ -91,13 +91,6 @@ function Publish-GitHubRelease {
 
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -Method Post -Body $payload -ContentType "application/json; charset=utf-8"
         Write-Host ("Created Release ID: " + $release.id) -ForegroundColor Green
-    } else {
-        Write-Host "Updating release notes on '$Tag'..." -ForegroundColor Cyan
-        $patchPayload = @{
-            name = $ReleaseName
-            body = $body
-        } | ConvertTo-Json
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/$($release.id)" -Headers $headers -Method Patch -Body $patchPayload -ContentType "application/json; charset=utf-8"
     }
 
     $releaseId = $release.id
@@ -118,12 +111,17 @@ function Publish-GitHubRelease {
 
         $sizeMb = [Math]::Round(((Get-Item $assetPath).Length / 1MB), 2)
 
-        # If asset already exists, delete it first to replace with clean build
+        # If asset already exists, check if size matches, otherwise replace
         if ($existingAssets) {
             $match = $existingAssets | Where-Object { $_.name -eq $assetName }
-            if ($match) {
-                Write-Host ("Deleting existing asset " + $match.name + "...") -ForegroundColor Yellow
+            if ($match -and $match.size -eq (Get-Item $assetPath).Length) {
+                Write-Host ("Asset " + $match.name + " already exists with matching size (" + $sizeMb + " MB), skipping.") -ForegroundColor Green
+                continue
+            }
+            elseif ($match) {
+                Write-Host ("Deleting existing asset " + $match.name + " to re-upload...") -ForegroundColor Yellow
                 Invoke-RestMethod -Uri ("https://api.github.com/repos/" + $repo + "/releases/assets/" + $match.id) -Headers $headers -Method Delete
+                Start-Sleep -Seconds 10
             }
         }
 
@@ -136,8 +134,24 @@ function Publish-GitHubRelease {
             "Content-Type"  = $assetType
         }
 
-        $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $assetPath -TimeoutSec 1200
-        Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
+        $retryCount = 0
+        $uploaded = $false
+        while ($retryCount -lt 4 -and -not $uploaded) {
+            try {
+                $retryCount++
+                $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $assetPath -TimeoutSec 1200
+                Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
+                $uploaded = $true
+            } catch {
+                Write-Warning ("Upload attempt $retryCount failed: " + $_.Exception.Message)
+                if ($retryCount -lt 4) {
+                    Write-Host "Waiting 12 seconds before retry..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 12
+                } else {
+                    throw $_
+                }
+            }
+        }
     }
 
     Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
