@@ -106,7 +106,7 @@ function Publish-GitHubRelease {
         $assetName = $asset.Name
         $assetType = $asset.Type
 
-        if (-not (Test-Path $assetPath)) {
+        if (-not $assetPath -or -not (Test-Path $assetPath)) {
             Write-Warning ("Asset not found: " + $assetPath)
             continue
         }
