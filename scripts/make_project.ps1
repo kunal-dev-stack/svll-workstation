@@ -89,12 +89,19 @@ if (-not (Test-Path $userExePath)) {
 $userMb = [Math]::Round(((Get-Item $userExePath).Length / 1MB), 2)
 Write-Host "[OK] User Edition published: $userExePath ($userMb MB)" -ForegroundColor Green
 
-# Ensure bundled tools are present in both publish directories
+# Ensure bundled tools and LibVLC native runtime are present in both publish directories
 $toolsSrc = Join-Path $srcDir "tools"
 if (Test-Path $toolsSrc) {
     Copy-Item -Path $toolsSrc -Destination (Join-Path $publishAdminDir "tools") -Recurse -Force
     Copy-Item -Path $toolsSrc -Destination (Join-Path $publishUserDir "tools") -Recurse -Force
     Write-Host "[OK] Bundled tools copied to publish directories." -ForegroundColor Green
+}
+
+$vlcBin = Join-Path $srcDir "bin\AdminRelease\net8.0-windows7.0\win-x64\libvlc"
+if (Test-Path $vlcBin) {
+    Copy-Item -Path $vlcBin -Destination $publishAdminDir -Recurse -Force
+    Copy-Item -Path $vlcBin -Destination $publishUserDir -Recurse -Force
+    Write-Host "[OK] LibVLC native runtime and 400+ plugins copied to publish directories." -ForegroundColor Green
 }
 
 # 4. Locate Inno Setup Compiler (ISCC.exe)

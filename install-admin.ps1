@@ -73,7 +73,9 @@ Get-Process -Name "SVLL-IT-Workstation*" -ErrorAction SilentlyContinue | Stop-Pr
 Start-Sleep -Seconds 1
 
 $downloadCandidates = @(
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.6/SVLL-IT-Workstation-Admin-v8.6-Setup.exe",
     "https://github.com/kunal-dev-stack/svll-workstation/releases/latest/download/SVLL-IT-Workstation-Admin-v8.6-Setup.exe",
+    "https://github.com/kunal-dev-stack/svll-workstation/releases/download/v8.6/SVLL-IT-Workstation-Admin-Setup.exe",
     "$ServerUrl/api/agent/admin-setup"
 )
 $tempExe = Join-Path $env:TEMP "SVLL-IT-Workstation-Admin-v8.6-Setup.exe"

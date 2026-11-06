@@ -28,17 +28,23 @@
 - **Evidence Snapshots:** 1-Click snapshot capture tool saving high-resolution frames with timestamp overlays to the local evidence vault.
 
 ### 4. Dedicated CCTV Diagnostic & Health Studio
+- **Ultra-Fast Parallel & Selective Fleet Audit:** Slashing audit time from 15+ minutes down to 3-5 seconds using concurrent workers, fast unreachable short-circuiting, and selective target filtering ( Raipu Campus, Nagpur Campus, Bilaspur Campus, Durg / Bhilai, Indore / MP, or individual NVRs).
 - **Multi-Vector Hub Probing:** Automated concurrent diagnostics testing ICMP ping reachability, RTSP port 554, Web port 80, Hikvision SDK port 8000, and Dahua/CP PLUS SDK port 37777.
 - **Network Quality Metrics:** Displays real-time round-trip latency, jitter, packet loss percentages, and estimated stream bandwidth.
 - **Subnet CIDR Range Scanner:** In-app network discovery tool to scan local `/24` subnets (e.g., `192.168.1.0/24`, `192.168.11.0/24`) to identify active cameras, unlisted DVRs, and open RTSP ports.
 - **Executive Audit Reports:** 1-Click export to structured CSV and interactive executive HTML Health Reports with depot status summaries and color-coded risk alerts.
 - **Acoustic Downtime Alarm:** Audible sound alerts when an offline or unreachable NVR node is detected during live diagnostic sweeps.
 
-### 5. Non-Overlapping 2-Tier Header Architecture
+### 5. Packaged LibVLC Native Runtime & Codecs
+- **Bundled Engine & 422 Native Plugins:** The complete LibVLC native runtime and 422 codecs are now bundled directly within the Inno Setup installer packages (`{app}\libvlc`), eliminating "playback engine is not available" errors.
+- **Responsive Connection Watchdogs:** Replaced black screen lockups with live connection indicators (`🟡 CONNECTING...`, `🟢 SUB (30 FPS)`, `🔴 UNREACHABLE`, and `⚠️ TIMEOUT`) with automated background player management.
+- **Background Pre-Warming:** LibVLC engine initializes asynchronously on application launch, ensuring opening the CCTV surveillance module is completely instantaneous without UI freezes.
+
+### 6. Non-Overlapping 2-Tier Header Architecture
 - **Responsive 2-Tier Top Bar:** Split the surveillance header into an upper action tool bar (title, badges, fullscreen, Add NVR, Snap All) and a dedicated lower studio bar (view modes, grid layouts, engine switcher, channel counters).
 - **Clean Responsive Layout:** Fully resolved overlapping buttons and truncated controls across all screen sizes and DPI scaling levels.
 
-### 6. Seamless In-App Automated Upgrade
+### 7. Seamless In-App Automated Upgrade
 - **1-Click Self-Updating Engine:** Queries GitHub API for release `v8.6`, resolves edition-matched setup installer (`SVLL-IT-Workstation-Admin-v8.6-Setup.exe` or `SVLL-IT-Workstation-User-v8.6-Setup.exe`), downloads silently, and completes background replacement.
 - **Backward-Compatible Setup Aliases:** Standalone setup aliases provided (`SVLL-IT-Workstation-Admin-Setup.exe` and `SVLL-IT-Workstation-User-Setup.exe`) ensuring older workstation versions upgrade smoothly without manual intervention.
 

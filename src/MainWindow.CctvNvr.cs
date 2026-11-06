@@ -67,13 +67,14 @@ public partial class MainWindow
     private readonly Dictionary<int, (NvrDevice Device, int Channel)> _cctvSlots = new();
     private readonly Dictionary<int, MediaPlayer> _slotMediaPlayers = new();
     private readonly Dictionary<int, VideoView> _slotVideoViews = new();
+    private readonly Dictionary<int, long> _slotStreamGen = new();
 
     // UI Host Elements (Live)
     private Grid _cctvRootGrid = null!;
     private Grid _cctvMainContainer = null!;
     private UIElement _cctvHeaderElement = null!;
-    private UIElement _cctvLiveContent = null!;
-    private UIElement _cctvPlaybackContent = null!;
+    private UIElement? _cctvLiveContent;
+    private UIElement? _cctvPlaybackContent;
     private Grid _cctvMainGridContainer = null!;
     private StackPanel _cctvNvrTreePanel = null!;
     private TextBox _cctvSearchBox = null!;
@@ -83,7 +84,8 @@ public partial class MainWindow
     private Button _btnModeLive = null!;
     private Button _btnModePlayback = null!;
     private Button _btnModeDiag = null!;
-    private UIElement _cctvDiagContent = null!;
+    private UIElement? _cctvDiagContent;
+    private MediaElement? _fallbackPlaybackMediaElement;
     private ComboBox _cctvEngineCombo = null!;
 
     // Cell UI Elements cache
@@ -166,38 +168,84 @@ public partial class MainWindow
         }
     }
 
+    private static readonly object _libVlcLock = new();
+
     private static void InitializeLibVlcEngine()
     {
         if (_globalLibVLC != null) return;
-        try
+        lock (_libVlcLock)
         {
-            if (!_libVlcCoreInitialized)
+            if (_globalLibVLC != null) return;
+            try
             {
-                Core.Initialize();
-                _libVlcCoreInitialized = true;
-            }
+                if (!_libVlcCoreInitialized)
+                {
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string[] candidateDirs = new[]
+                    {
+                        Path.Combine(baseDir, "libvlc", "win-x64"),
+                        Path.Combine(baseDir, "libvlc", "win-x86"),
+                        Path.Combine(baseDir, "libvlc"),
+                        Path.Combine(baseDir, "win-x64"),
+                        baseDir,
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ShreeVasuLogistics", "ITWorkstationAdmin", "libvlc", "win-x64"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ShreeVasuLogistics", "ITWorkstationAdmin", "libvlc"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ShreeVasuLogistics", "ITWorkstationUser", "libvlc", "win-x64"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ShreeVasuLogistics", "ITWorkstationUser", "libvlc"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ITWorkstationAdmin", "libvlc", "win-x64"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ITWorkstationUser", "libvlc", "win-x64"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "VideoLAN", "VLC"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "VideoLAN", "VLC")
+                    };
 
-            _globalLibVLC = new LibVLC(
-                "--rtsp-tcp",                 // Force RTSP over TCP (avoids UDP packet drop artifacts)
-                "--network-caching=300",       // 300ms network jitter buffer
-                "--live-caching=300",          // 300ms live stream buffer
-                "--clock-jitter=0",            // Zero clock jitter for real-time surveillance
-                "--clock-synchro=0",           // Avoid audio/video clock drift stalls
-                "--drop-late-frames",          // Discard delayed frames to eliminate video lag & stucking
-                "--skip-frames",               // Skip non-reference frames under network pressure
-                "--avcodec-hw=any",            // Full GPU hardware acceleration (DXVA2, D3D11VA, NVDEC)
-                "--avcodec-fast",              // Fast motion vector decoding optimizations
-                "--avcodec-skiploopfilter=4",  // Skip non-critical deblocking filters to reduce CPU load by 70%
-                "--avcodec-threads=2",         // Limit decode threads per feed to prevent CPU thread starvation
-                "--no-audio",                  // Multi-channel CCTV surveillance focus
-                "--no-sub-autodetect-file",
-                "--no-stats"
-            );
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"LibVLC Initialization fallback: {ex.Message}");
-            _globalLibVLC = null;
+                    string? foundDir = null;
+                    foreach (var dir in candidateDirs)
+                    {
+                        if (Directory.Exists(dir) && File.Exists(Path.Combine(dir, "libvlc.dll")))
+                        {
+                            foundDir = dir;
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(foundDir))
+                    {
+                        string pluginsDir = Path.Combine(foundDir, "plugins");
+                        if (Directory.Exists(pluginsDir))
+                        {
+                            Environment.SetEnvironmentVariable("VLC_PLUGIN_PATH", pluginsDir);
+                        }
+                        Core.Initialize(foundDir);
+                    }
+                    else
+                    {
+                        Core.Initialize();
+                    }
+                    _libVlcCoreInitialized = true;
+                }
+
+                _globalLibVLC = new LibVLC(
+                    "--rtsp-tcp",                 // Force RTSP over TCP (avoids UDP packet drop artifacts)
+                    "--network-caching=250",       // 250ms network jitter buffer
+                    "--live-caching=250",          // 250ms live stream buffer
+                    "--clock-jitter=0",            // Zero clock jitter for real-time surveillance
+                    "--clock-synchro=0",           // Avoid audio/video clock drift stalls
+                    "--drop-late-frames",          // Discard delayed frames to eliminate video lag & stucking
+                    "--skip-frames",               // Skip non-reference frames under network pressure
+                    "--avcodec-hw=any",            // Full GPU hardware acceleration (DXVA2, D3D11VA, NVDEC)
+                    "--avcodec-fast",              // Fast motion vector decoding optimizations
+                    "--avcodec-skiploopfilter=4",  // Skip non-critical deblocking filters to reduce CPU load by 70%
+                    "--avcodec-threads=2",         // Limit decode threads per feed to prevent CPU thread starvation
+                    "--no-audio",                  // Multi-channel CCTV surveillance focus
+                    "--no-sub-autodetect-file",
+                    "--no-stats"
+                );
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"LibVLC Initialization fallback: {ex.Message}");
+                _globalLibVLC = null;
+            }
         }
     }
 
@@ -220,14 +268,7 @@ public partial class MainWindow
         // 3. View Host (Swaps between Live, Playback, and Diagnostic)
         _cctvMainContainer = new Grid();
 
-        _cctvLiveContent = BuildCctvLiveView();
-        _cctvPlaybackContent = BuildCctvPlaybackView();
-        _cctvDiagContent = BuildCctvDiagnosticView();
-
-        _cctvMainContainer.Children.Add(_cctvLiveContent);
-        _cctvMainContainer.Children.Add(_cctvPlaybackContent);
-        _cctvMainContainer.Children.Add(_cctvDiagContent);
-
+        // Lazy initialize views: only build the active view on demand
         SwitchCctvMode(_cctvCurrentMode);
 
         Grid.SetRow(_cctvMainContainer, 1);
@@ -241,8 +282,6 @@ public partial class MainWindow
             RefreshDiagnosticViewIfVisible();
         });
 
-        InitializeDefaultSlots();
-
         return _cctvRootGrid;
     }
 
@@ -252,41 +291,66 @@ public partial class MainWindow
 
         if (mode == "LIVE")
         {
+            if (_cctvLiveContent == null)
+            {
+                _cctvLiveContent = BuildCctvLiveView();
+                _cctvMainContainer.Children.Add(_cctvLiveContent);
+                InitializeDefaultSlots();
+            }
+
             _cctvLiveContent.Visibility = Visibility.Visible;
-            _cctvPlaybackContent.Visibility = Visibility.Collapsed;
-            _cctvDiagContent.Visibility = Visibility.Collapsed;
+            if (_cctvPlaybackContent != null) _cctvPlaybackContent.Visibility = Visibility.Collapsed;
+            if (_cctvDiagContent != null) _cctvDiagContent.Visibility = Visibility.Collapsed;
 
             if (_btnModeLive != null) { _btnModeLive.Background = SvllBlue; _btnModeLive.Foreground = Brushes.White; }
             if (_btnModePlayback != null) { _btnModePlayback.Background = Brushes.White; _btnModePlayback.Foreground = TextDark; }
             if (_btnModeDiag != null) { _btnModeDiag.Background = Brushes.White; _btnModeDiag.Foreground = TextDark; }
 
-            // Pause playback player if running
+            // Pause playback players if running
             try { _playbackMediaPlayer?.Pause(); } catch { }
+            try { _fallbackPlaybackMediaElement?.Pause(); } catch { }
 
             // Resume live video feeds
             StartCctvMonitoring();
         }
         else if (mode == "PLAYBACK")
         {
-            _cctvLiveContent.Visibility = Visibility.Collapsed;
+            if (_cctvPlaybackContent == null)
+            {
+                _cctvPlaybackContent = BuildCctvPlaybackView();
+                _cctvMainContainer.Children.Add(_cctvPlaybackContent);
+                PopulatePlaybackNvrDropdown();
+            }
+
+            if (_cctvLiveContent != null) _cctvLiveContent.Visibility = Visibility.Collapsed;
             _cctvPlaybackContent.Visibility = Visibility.Visible;
-            _cctvDiagContent.Visibility = Visibility.Collapsed;
+            if (_cctvDiagContent != null) _cctvDiagContent.Visibility = Visibility.Collapsed;
 
             if (_btnModeLive != null) { _btnModeLive.Background = Brushes.White; _btnModeLive.Foreground = TextDark; }
             if (_btnModePlayback != null) { _btnModePlayback.Background = SvllBlue; _btnModePlayback.Foreground = Brushes.White; }
             if (_btnModeDiag != null) { _btnModeDiag.Background = Brushes.White; _btnModeDiag.Foreground = TextDark; }
 
-            PopulatePlaybackNvrDropdown();
+            StopCctvMonitoring();
         }
         else if (mode == "DIAGNOSTIC")
         {
-            _cctvLiveContent.Visibility = Visibility.Collapsed;
-            _cctvPlaybackContent.Visibility = Visibility.Collapsed;
+            if (_cctvDiagContent == null)
+            {
+                _cctvDiagContent = BuildCctvDiagnosticView();
+                _cctvMainContainer.Children.Add(_cctvDiagContent);
+            }
+
+            if (_cctvLiveContent != null) _cctvLiveContent.Visibility = Visibility.Collapsed;
+            if (_cctvPlaybackContent != null) _cctvPlaybackContent.Visibility = Visibility.Collapsed;
             _cctvDiagContent.Visibility = Visibility.Visible;
 
             if (_btnModeLive != null) { _btnModeLive.Background = Brushes.White; _btnModeLive.Foreground = TextDark; }
             if (_btnModePlayback != null) { _btnModePlayback.Background = Brushes.White; _btnModePlayback.Foreground = TextDark; }
             if (_btnModeDiag != null) { _btnModeDiag.Background = SvllBlue; _btnModeDiag.Foreground = Brushes.White; }
+
+            StopCctvMonitoring();
+            try { _playbackMediaPlayer?.Pause(); } catch { }
+            try { _fallbackPlaybackMediaElement?.Pause(); } catch { }
 
             RefreshDiagnosticViewIfVisible();
         }
@@ -314,15 +378,16 @@ public partial class MainWindow
         topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var left = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2) };
+        var left = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) };
+        var titleRow = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 2), VerticalAlignment = VerticalAlignment.Center };
         titleRow.Children.Add(new TextBlock
         {
             Text = "📹 CCTV & NVR Surveillance Center",
             FontSize = 16,
             FontWeight = FontWeights.ExtraBold,
             Foreground = TextDark,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0)
         });
         titleRow.Children.Add(CctvBadge("🟢 30 FPS HARDWARE ACCEL", Color.FromRgb(5, 150, 105), Color.FromRgb(209, 250, 229)));
         titleRow.Children.Add(CctvBadge("46 FLEET HUBS", Color.FromRgb(26, 75, 178), Color.FromRgb(219, 234, 254)));
@@ -332,7 +397,8 @@ public partial class MainWindow
         {
             Text = "Shree Vasu Logistics Fleet Surveillance • 46 Enterprise Hubs • 24h Playback Studio • SLA Health Diagnostics",
             FontSize = 11,
-            Foreground = TextSubtle
+            Foreground = TextSubtle,
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
         Grid.SetColumn(left, 0);
         topRow.Children.Add(left);
@@ -546,13 +612,9 @@ public partial class MainWindow
             Padding = new Thickness(12, 6, 12, 6)
         };
 
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Left: Sidebar Toggle & Grid Layout
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Mid: Engine Selector & Fullscreen
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Stretch
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Right: Counters
+        var barWrap = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
-        var leftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var leftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 14, 2) };
 
         // 1. Sidebar Toggle Button: [ ◀ Hide Sidebar ] / [ ▶ Show Cameras ]
         _btnToggleSidebar = new Button
@@ -588,11 +650,10 @@ public partial class MainWindow
         leftStack.Children.Add(CreateGridModeButton("2x2 Quad", 4));
         leftStack.Children.Add(CreateGridModeButton("3x3 Multi", 9));
         leftStack.Children.Add(CreateGridModeButton("4x4 Wall", 16));
-        Grid.SetColumn(leftStack, 0);
-        grid.Children.Add(leftStack);
+        barWrap.Children.Add(leftStack);
 
         // Mid Stack: Stream Engine & Fullscreen
-        var midStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var midStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 14, 2), VerticalAlignment = VerticalAlignment.Center };
         midStack.Children.Add(new TextBlock
         {
             Text = "Engine: ",
@@ -633,21 +694,19 @@ public partial class MainWindow
         btnFsTool.Click += (s, e) => ToggleCctvFullscreen();
         midStack.Children.Add(btnFsTool);
 
-        Grid.SetColumn(midStack, 1);
-        grid.Children.Add(midStack);
+        barWrap.Children.Add(midStack);
 
         // Right Counters
-        var countersStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var countersStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 0, 2) };
         _cctvTotalNvrsCounter = CreateMetricLabel("NVRs", "0");
         _cctvTotalChannelsCounter = CreateMetricLabel("Channels", "0");
         _cctvActiveFeedsCounter = CreateMetricLabel("Active Feeds", "0");
         countersStack.Children.Add(_cctvTotalNvrsCounter);
         countersStack.Children.Add(_cctvTotalChannelsCounter);
         countersStack.Children.Add(_cctvActiveFeedsCounter);
-        Grid.SetColumn(countersStack, 3);
-        grid.Children.Add(countersStack);
+        barWrap.Children.Add(countersStack);
 
-        bar.Child = grid;
+        bar.Child = barWrap;
         return bar;
     }
 
@@ -998,92 +1057,104 @@ public partial class MainWindow
         headGrid.Children.Add(actStack);
         rootStack.Children.Add(headGrid);
 
-        // Channels List Expander
+        // Channels List Expander (Lazy load channels to make 46 NVRs open in < 30ms)
+        bool isFirstNvr = (_cctvNvrTreePanel == null || _cctvNvrTreePanel.Children.Count == 0);
         var expander = new Expander
         {
             Header = $"Cameras ({device.ChannelCount} Channels)",
             FontSize = 11,
             Foreground = TextSubtle,
-            IsExpanded = true,
+            IsExpanded = isFirstNvr,
             Margin = new Thickness(0, 4, 0, 0)
         };
 
         var chListStack = new StackPanel { Margin = new Thickness(6, 4, 0, 0) };
-        for (int i = 1; i <= device.ChannelCount; i++)
+
+        void PopulateChannelItems()
         {
-            int chNum = i;
-            string chName = device.GetChannelName(chNum);
-
-            var chRow = new Border
+            if (chListStack.Children.Count > 0) return;
+            for (int i = 1; i <= device.ChannelCount; i++)
             {
-                Background = Brushes.Transparent,
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(4, 2, 4, 2),
-                Margin = new Thickness(0, 1, 0, 1),
-                Cursor = Cursors.Hand
-            };
+                int chNum = i;
+                string chName = device.GetChannelName(chNum);
 
-            var chGrid = new Grid();
-            chGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            chGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var chRow = new Border
+                {
+                    Background = Brushes.Transparent,
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(4, 2, 4, 2),
+                    Margin = new Thickness(0, 1, 0, 1),
+                    Cursor = Cursors.Hand
+                };
 
-            var lblCh = new TextBlock
-            {
-                Text = $"📹 Ch {chNum:D2}: {chName}",
-                FontSize = 11,
-                Foreground = TextDark,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            Grid.SetColumn(lblCh, 0);
-            chGrid.Children.Add(lblCh);
+                var chGrid = new Grid();
+                chGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                chGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var actionRow = new StackPanel { Orientation = Orientation.Horizontal };
+                var lblCh = new TextBlock
+                {
+                    Text = $"📹 Ch {chNum:D2}: {chName}",
+                    FontSize = 11,
+                    Foreground = TextDark,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(lblCh, 0);
+                chGrid.Children.Add(lblCh);
 
-            var btnView = new TextBlock
-            {
-                Text = "＋ Live",
-                FontSize = 10,
-                FontWeight = FontWeights.Bold,
-                Foreground = SvllBlue,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 6, 0)
-            };
-            btnView.MouseLeftButtonDown += (s, e) =>
-            {
-                AssignChannelToSlot(_cctvSelectedSlot, device, chNum);
-                e.Handled = true;
-            };
-            actionRow.Children.Add(btnView);
+                var actionRow = new StackPanel { Orientation = Orientation.Horizontal };
 
-            var btnPlay = new TextBlock
-            {
-                Text = "⏪ Play",
-                FontSize = 10,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(124, 58, 237)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            btnPlay.MouseLeftButtonDown += (s, e) =>
-            {
-                LaunchPlaybackForCamera(device, chNum);
-                e.Handled = true;
-            };
-            actionRow.Children.Add(btnPlay);
+                var btnView = new TextBlock
+                {
+                    Text = "＋ Live",
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = SvllBlue,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 6, 0)
+                };
+                btnView.MouseLeftButtonDown += (s, e) =>
+                {
+                    AssignChannelToSlot(_cctvSelectedSlot, device, chNum);
+                    e.Handled = true;
+                };
+                actionRow.Children.Add(btnView);
 
-            Grid.SetColumn(actionRow, 1);
-            chGrid.Children.Add(actionRow);
+                var btnPlay = new TextBlock
+                {
+                    Text = "⏪ Play",
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(124, 58, 237)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                btnPlay.MouseLeftButtonDown += (s, e) =>
+                {
+                    LaunchPlaybackForCamera(device, chNum);
+                    e.Handled = true;
+                };
+                actionRow.Children.Add(btnPlay);
 
-            chRow.Child = chGrid;
-            chRow.MouseEnter += (s, e) => chRow.Background = new SolidColorBrush(Color.FromRgb(224, 231, 255));
-            chRow.MouseLeave += (s, e) => chRow.Background = Brushes.Transparent;
+                Grid.SetColumn(actionRow, 1);
+                chGrid.Children.Add(actionRow);
 
-            chRow.MouseLeftButtonDown += (s, e) =>
-            {
-                AssignChannelToSlot(_cctvSelectedSlot, device, chNum);
-            };
+                chRow.Child = chGrid;
+                chRow.MouseEnter += (s, e) => chRow.Background = new SolidColorBrush(Color.FromRgb(224, 231, 255));
+                chRow.MouseLeave += (s, e) => chRow.Background = Brushes.Transparent;
 
-            chListStack.Children.Add(chRow);
+                chRow.MouseLeftButtonDown += (s, e) =>
+                {
+                    AssignChannelToSlot(_cctvSelectedSlot, device, chNum);
+                };
+
+                chListStack.Children.Add(chRow);
+            }
         }
+
+        if (expander.IsExpanded)
+        {
+            PopulateChannelItems();
+        }
+        expander.Expanded += (s, e) => PopulateChannelItems();
 
         expander.Content = chListStack;
         rootStack.Children.Add(expander);
@@ -1510,12 +1581,38 @@ public partial class MainWindow
 
     private void StartStreamForSlot(int slotIndex, NvrDevice device, int channel)
     {
+        long currentGen = 0;
+        lock (_slotStreamGen)
+        {
+            if (!_slotStreamGen.TryGetValue(slotIndex, out var g)) g = 0;
+            g++;
+            _slotStreamGen[slotIndex] = g;
+            currentGen = g;
+        }
+
+        // 1. Immediately update UI to show informative standby state
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (_cellUiCache.TryGetValue(slotIndex, out var ui))
+            {
+                string chName = device.GetChannelName(channel);
+                ui.OsdTitle.Text = $"CH {channel:D2}: {chName} ({device.CleanHost})";
+                ui.OsdStats.Text = "🟡 CONNECTING...";
+                ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(250, 204, 21));
+                ui.StandbyOverlay.Visibility = Visibility.Visible;
+                ui.StandbyMessage.Text = $"Connecting to {device.Name}...\nChannel {channel:D2} • RTSP :{device.RtspPort}";
+            }
+        });
+
         if (_cctvUseSmoothStreaming && _slotMediaPlayers.TryGetValue(slotIndex, out var mp) && _globalLibVLC != null)
         {
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 try
                 {
+                    // Safely stop any previous media playback
+                    try { mp.Stop(); } catch { }
+
                     // Auto-select SubStream in multi-grid (2x2, 3x3, 4x4) to save 85% bandwidth & prevent frame drops/stucking!
                     // In 1x1 Focus, switch to MainStream for ultra-sharp full HD clarity.
                     var streamQuality = (_cctvGridSize == 1) ? StreamQuality.MainStream : StreamQuality.SubStream;
@@ -1523,8 +1620,8 @@ public partial class MainWindow
 
                     var media = new Media(_globalLibVLC, rtspUrl, FromType.FromLocation);
                     media.AddOption(":rtsp-tcp");
-                    media.AddOption(":network-caching=300");
-                    media.AddOption(":live-caching=300");
+                    media.AddOption(":network-caching=250");
+                    media.AddOption(":live-caching=250");
                     media.AddOption(":clock-jitter=0");
                     media.AddOption(":clock-synchro=0");
                     media.AddOption(":drop-late-frames");
@@ -1532,18 +1629,71 @@ public partial class MainWindow
                     media.AddOption(":avcodec-hw=any");
                     media.AddOption(":avcodec-fast");
 
+                    void OnPlaying(object? sender, EventArgs e)
+                    {
+                        mp.Playing -= OnPlaying;
+                        Dispatcher.InvokeAsync(() =>
+                        {
+                            lock (_slotStreamGen)
+                            {
+                                if (_slotStreamGen.TryGetValue(slotIndex, out var g) && g != currentGen) return;
+                            }
+                            if (_cellUiCache.TryGetValue(slotIndex, out var ui))
+                            {
+                                ui.StandbyOverlay.Visibility = Visibility.Collapsed;
+                                string qLabel = (streamQuality == StreamQuality.SubStream) ? "SUB (30 FPS)" : "MAIN (1080P HD)";
+                                ui.OsdStats.Text = $"🟢 {qLabel}";
+                                ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
+                            }
+                        });
+                    }
+
+                    void OnError(object? sender, EventArgs e)
+                    {
+                        mp.EncounteredError -= OnError;
+                        Dispatcher.InvokeAsync(() =>
+                        {
+                            lock (_slotStreamGen)
+                            {
+                                if (_slotStreamGen.TryGetValue(slotIndex, out var g) && g != currentGen) return;
+                            }
+                            if (_cellUiCache.TryGetValue(slotIndex, out var ui))
+                            {
+                                ui.StandbyOverlay.Visibility = Visibility.Visible;
+                                ui.OsdStats.Text = "🔴 UNREACHABLE";
+                                ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(239, 68, 68));
+                                ui.StandbyMessage.Text = $"⚠️ Stream Offline / Unreachable\n{device.Name} (Ch {channel:D2})\nHost: {device.CleanHost}:{device.RtspPort}\nCheck branch network connection.";
+                            }
+                        });
+                    }
+
+                    mp.Playing += OnPlaying;
+                    mp.EncounteredError += OnError;
+
                     mp.Play(media);
 
-                    Dispatcher.InvokeAsync(() =>
+                    // 8-second watchdog to catch unreachable or non-responsive RTSP hosts
+                    await Task.Delay(8000);
+                    lock (_slotStreamGen)
                     {
-                        if (_cellUiCache.TryGetValue(slotIndex, out var ui))
+                        if (_slotStreamGen.TryGetValue(slotIndex, out var g) && g != currentGen) return;
+                    }
+
+                    if (!mp.IsPlaying)
+                    {
+                        mp.Playing -= OnPlaying;
+                        mp.EncounteredError -= OnError;
+                        await Dispatcher.InvokeAsync(() =>
                         {
-                            ui.StandbyOverlay.Visibility = Visibility.Collapsed;
-                            string qLabel = (streamQuality == StreamQuality.SubStream) ? "SUB (SMOOTH 30FPS)" : "MAIN (1080P HD)";
-                            ui.OsdStats.Text = $"🟢 {qLabel}";
-                            ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
-                        }
-                    });
+                            if (_cellUiCache.TryGetValue(slotIndex, out var ui))
+                            {
+                                ui.StandbyOverlay.Visibility = Visibility.Visible;
+                                ui.OsdStats.Text = "⚠️ TIMEOUT";
+                                ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
+                                ui.StandbyMessage.Text = $"⚠️ Connection Timeout\n{device.Name} (Ch {channel:D2})\nNo RTSP response from {device.CleanHost}:{device.RtspPort}.";
+                            }
+                        });
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -2014,6 +2164,17 @@ public partial class MainWindow
             catch { }
         }
 
+        // Native WPF MediaElement Fallback
+        _fallbackPlaybackMediaElement = new MediaElement
+        {
+            LoadedBehavior = MediaState.Manual,
+            UnloadedBehavior = MediaState.Manual,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Visibility = Visibility.Collapsed
+        };
+        videoSurfaceHost.Children.Add(_fallbackPlaybackMediaElement);
+
         // Playback Status Message
         _lblPlaybackStatus = new TextBlock
         {
@@ -2358,13 +2519,9 @@ public partial class MainWindow
         stack.Children.Add(shiftRow);
 
         // 5. Transport Controls Row (Prev/Next Cam, Seek, Play/Pause, Speeds, Snap)
-        var transportGrid = new Grid();
-        transportGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Playback buttons
-        transportGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Speed buttons
-        transportGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Space
-        transportGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Snap / Export
+        var transportWrap = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
-        var playButtonsStack = new StackPanel { Orientation = Orientation.Horizontal };
+        var playButtonsStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 14, 2) };
 
         // Previous Camera Button in Transport Bar
         var btnTransPrevCam = CreateTransportButton("|◀ Prev Cam", SelectPreviousCameraPlayback);
@@ -2401,11 +2558,10 @@ public partial class MainWindow
         btnTransNextCam.ToolTip = "Switch to next camera channel (▶|)";
         playButtonsStack.Children.Add(btnTransNextCam);
 
-        Grid.SetColumn(playButtonsStack, 0);
-        transportGrid.Children.Add(playButtonsStack);
+        transportWrap.Children.Add(playButtonsStack);
 
         // Speed Fast-Forward buttons with active highlight
-        var speedStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(14, 0, 0, 0) };
+        var speedStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 14, 2) };
         speedStack.Children.Add(new TextBlock { Text = "Speed: ", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Foreground = TextSubtle, Margin = new Thickness(0, 0, 4, 0) });
         _playbackSpeedButtons.Clear();
         speedStack.Children.Add(RegisterSpeedButton("0.5x", 0.5f));
@@ -2414,11 +2570,10 @@ public partial class MainWindow
         speedStack.Children.Add(RegisterSpeedButton("4.0x", 4.0f));
         speedStack.Children.Add(RegisterSpeedButton("8.0x", 8.0f));
         speedStack.Children.Add(RegisterSpeedButton("16x", 16.0f));
-        Grid.SetColumn(speedStack, 1);
-        transportGrid.Children.Add(speedStack);
+        transportWrap.Children.Add(speedStack);
 
         // Right tools: Snap Frame & Copy URL
-        var rightTools = new StackPanel { Orientation = Orientation.Horizontal };
+        var rightTools = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
 
         var btnSnapFrame = CreateTransportButton("📸 Snap Evidence Frame", CapturePlaybackSnapshot);
         btnSnapFrame.Background = new SolidColorBrush(Color.FromRgb(241, 245, 249));
@@ -2429,10 +2584,9 @@ public partial class MainWindow
         var btnCopyUrl = CreateTransportButton("📋 Copy RTSP Link", CopyPlaybackUrlToClipboard);
         rightTools.Children.Add(btnCopyUrl);
 
-        Grid.SetColumn(rightTools, 3);
-        transportGrid.Children.Add(rightTools);
+        transportWrap.Children.Add(rightTools);
 
-        stack.Children.Add(transportGrid);
+        stack.Children.Add(transportWrap);
 
         bar.Child = stack;
         return bar;
@@ -2636,12 +2790,35 @@ public partial class MainWindow
     {
         if (_globalLibVLC == null || _playbackMediaPlayer == null)
         {
-            MessageBox.Show("Video playback engine is not available.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (_fallbackPlaybackMediaElement != null && (streamUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) || streamUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) || streamUrl.EndsWith(".avi", StringComparison.OrdinalIgnoreCase) || streamUrl.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    _fallbackPlaybackMediaElement.Visibility = Visibility.Visible;
+                    _fallbackPlaybackMediaElement.Source = new Uri(streamUrl);
+                    _fallbackPlaybackMediaElement.Play();
+                    _lblPlaybackStatus.Text = $"▶ PLAYING (Native Engine): {descriptor}";
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _lblPlaybackStatus.Text = $"Playback failed: {ex.Message}";
+                    return;
+                }
+            }
+
+            MessageBox.Show("Surveillance video playback engine is initializing or not available.\nEnsure the complete application setup package was installed.", "Playback Engine Notice", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         try
         {
+            if (_fallbackPlaybackMediaElement != null)
+            {
+                _fallbackPlaybackMediaElement.Stop();
+                _fallbackPlaybackMediaElement.Visibility = Visibility.Collapsed;
+            }
+
             _lblPlaybackStatus.Text = $"Connecting to playback stream: {descriptor}...";
             var media = new Media(_globalLibVLC, streamUrl, FromType.FromLocation);
             media.AddOption(":rtsp-tcp");
@@ -2651,10 +2828,15 @@ public partial class MainWindow
             media.AddOption(":skip-frames");
             media.AddOption(":avcodec-hw=any");
             media.AddOption(":avcodec-fast");
+
+            _playbackMediaPlayer.EncounteredError -= OnPlaybackStudioError;
+            _playbackMediaPlayer.EncounteredError += OnPlaybackStudioError;
+            _playbackMediaPlayer.Playing -= OnPlaybackStudioPlaying;
+            _playbackMediaPlayer.Playing += OnPlaybackStudioPlaying;
+
             _playbackMediaPlayer.Play(media);
             _playbackMediaPlayer.SetRate(_currentPlaybackRate);
 
-            _lblPlaybackStatus.Text = $"▶ PLAYING: {descriptor}";
             Log($"[CCTV] Started NVR playback: {streamUrl}");
         }
         catch (Exception ex)
@@ -2663,12 +2845,33 @@ public partial class MainWindow
         }
     }
 
+    private void OnPlaybackStudioPlaying(object? sender, EventArgs e)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            _lblPlaybackStatus.Text = "▶ PLAYING (NVR Timeline Stream)";
+        });
+    }
+
+    private void OnPlaybackStudioError(object? sender, EventArgs e)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            _lblPlaybackStatus.Text = "⚠️ Stream Offline / Connection to NVR timed out. Check network or date range.";
+        });
+    }
+
     private void ResumePlayback()
     {
         if (_playbackMediaPlayer != null)
         {
             _playbackMediaPlayer.Play();
             _lblPlaybackStatus.Text = "▶ PLAYING";
+        }
+        else if (_fallbackPlaybackMediaElement != null)
+        {
+            _fallbackPlaybackMediaElement.Play();
+            _lblPlaybackStatus.Text = "▶ PLAYING (Native)";
         }
     }
 
@@ -2679,6 +2882,11 @@ public partial class MainWindow
             _playbackMediaPlayer.Pause();
             _lblPlaybackStatus.Text = "⏸ PAUSED";
         }
+        else if (_fallbackPlaybackMediaElement != null)
+        {
+            _fallbackPlaybackMediaElement.Pause();
+            _lblPlaybackStatus.Text = "⏸ PAUSED";
+        }
     }
 
     private void StopPlayback()
@@ -2686,6 +2894,11 @@ public partial class MainWindow
         if (_playbackMediaPlayer != null)
         {
             _playbackMediaPlayer.Stop();
+            _lblPlaybackStatus.Text = "⏹ STOPPED";
+        }
+        else if (_fallbackPlaybackMediaElement != null)
+        {
+            _fallbackPlaybackMediaElement.Stop();
             _lblPlaybackStatus.Text = "⏹ STOPPED";
         }
     }

@@ -38,7 +38,9 @@ public partial class MainWindow
     private ProgressBar _pbDiagAudit = null!;
     private TextBlock _lblDiagProgress = null!;
     private Button _btnRunFleetAudit = null!;
+    private Button _btnRunTargetAudit = null!;
     private Button _btnCancelFleetAudit = null!;
+    private ComboBox _cmbDiagTargetNvr = null!;
     private StackPanel _diagMatrixContainer = null!;
     private ComboBox _cmbReportType = null!;
     private Border _subnetDiscoveryDrawer = null!;
@@ -225,28 +227,66 @@ public partial class MainWindow
             Margin = new Thickness(0, 0, 0, 8)
         };
 
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Left Diagnostic Actions
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Space
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Right Report Exports
+        var barWrap = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
         // Left Actions
-        var leftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var leftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 14, 2) };
 
-        _btnRunFleetAudit = new Button
+        leftStack.Children.Add(new TextBlock
         {
-            Content = "⚡ Run Full Fleet Audit",
+            Text = "Target:",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 6, 0)
+        });
+
+        _cmbDiagTargetNvr = new ComboBox
+        {
             Height = 28,
-            Padding = new Thickness(14, 0, 14, 0),
+            Width = 230,
+            FontSize = 11,
+            Margin = new Thickness(0, 0, 6, 0),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            ToolTip = "Select a specific NVR or campus to diagnose, or choose All NVRs"
+        };
+        PopulateDiagTargetCombo();
+        leftStack.Children.Add(_cmbDiagTargetNvr);
+
+        _btnRunTargetAudit = new Button
+        {
+            Content = "🎯 Audit Selected Set",
+            Height = 28,
+            Padding = new Thickness(12, 0, 12, 0),
             FontSize = 11.5,
             FontWeight = FontWeights.Bold,
             Background = SvllBlue,
             Foreground = Brushes.White,
             BorderThickness = new Thickness(0),
             Cursor = Cursors.Hand,
-            ToolTip = "Concurrently tests Ping, Ports (HTTP/RTSP), Snapshots, and Stream handshakes across all NVRs"
+            ToolTip = "Fast audit of only the selected NVR or campus in 1-2 seconds",
+            Margin = new Thickness(0, 0, 6, 0)
         };
-        _btnRunFleetAudit.Click += async (s, e) => await RunFullFleetAuditWithUiAsync();
+        _btnRunTargetAudit.Click += async (s, e) => await RunSelectedTargetAuditAsync();
+        leftStack.Children.Add(_btnRunTargetAudit);
+
+        _btnRunFleetAudit = new Button
+        {
+            Content = "⚡ Full Fleet Audit",
+            Height = 28,
+            Padding = new Thickness(12, 0, 12, 0),
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Background = Brushes.White,
+            Foreground = SvllBlue,
+            BorderBrush = SvllBlue,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = "Fast parallel audit across all 46 NVRs and channels",
+            Margin = new Thickness(0, 0, 6, 0)
+        };
+        _btnRunFleetAudit.Click += async (s, e) => await RunDiagnosticAuditAsync(null);
         leftStack.Children.Add(_btnRunFleetAudit);
 
         _btnCancelFleetAudit = new Button
@@ -289,11 +329,10 @@ public partial class MainWindow
         };
         leftStack.Children.Add(btnSubnetDiscovery);
 
-        Grid.SetColumn(leftStack, 0);
-        grid.Children.Add(leftStack);
+        barWrap.Children.Add(leftStack);
 
         // Right Actions: Report Generation & Export Engine
-        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var rightStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 0, 2) };
 
         rightStack.Children.Add(new TextBlock
         {
@@ -368,10 +407,9 @@ public partial class MainWindow
         btnCopyMarkdown.Click += (s, e) => CopyMarkdownReport();
         rightStack.Children.Add(btnCopyMarkdown);
 
-        Grid.SetColumn(rightStack, 2);
-        grid.Children.Add(rightStack);
+        barWrap.Children.Add(rightStack);
 
-        bar.Child = grid;
+        bar.Child = barWrap;
         return bar;
     }
 
@@ -813,9 +851,68 @@ public partial class MainWindow
         }
     }
 
-    private async Task RunFullFleetAuditWithUiAsync()
+    private void PopulateDiagTargetCombo()
+    {
+        if (_cmbDiagTargetNvr == null) return;
+        _cmbDiagTargetNvr.Items.Clear();
+
+        _cmbDiagTargetNvr.Items.Add(new ComboBoxItem
+        {
+            Content = "🌐 Full Fleet (All 46 NVRs)",
+            Tag = "ALL",
+            IsSelected = true
+        });
+
+        var devices = NvrDeviceStorage.Instance.GetDevices();
+
+        // Add campus / location groups
+        var locations = devices.Select(d => d.Location).Where(l => !string.IsNullOrEmpty(l)).Distinct().OrderBy(l => l);
+        foreach (var loc in locations)
+        {
+            int count = devices.Count(d => d.Location == loc);
+            _cmbDiagTargetNvr.Items.Add(new ComboBoxItem
+            {
+                Content = $"🏢 {loc} Hubs ({count} NVRs)",
+                Tag = $"LOC:{loc}"
+            });
+        }
+
+        // Add individual NVRs
+        foreach (var d in devices)
+        {
+            _cmbDiagTargetNvr.Items.Add(new ComboBoxItem
+            {
+                Content = $"📹 {d.Name} ({d.CleanHost})",
+                Tag = $"NVR:{d.Id}"
+            });
+        }
+    }
+
+    private async Task RunSelectedTargetAuditAsync()
+    {
+        var item = _cmbDiagTargetNvr.SelectedItem as ComboBoxItem;
+        string tag = item?.Tag as string ?? "ALL";
+        List<NvrDevice>? targets = null;
+        var allDevices = NvrDeviceStorage.Instance.GetDevices();
+
+        if (tag.StartsWith("NVR:"))
+        {
+            string id = tag.Substring(4);
+            targets = allDevices.Where(d => d.Id == id).ToList();
+        }
+        else if (tag.StartsWith("LOC:"))
+        {
+            string loc = tag.Substring(4);
+            targets = allDevices.Where(d => d.Location == loc).ToList();
+        }
+
+        await RunDiagnosticAuditAsync(targets);
+    }
+
+    private async Task RunDiagnosticAuditAsync(List<NvrDevice>? targetDevices = null)
     {
         _btnRunFleetAudit.IsEnabled = false;
+        if (_btnRunTargetAudit != null) _btnRunTargetAudit.IsEnabled = false;
         _btnCancelFleetAudit.Visibility = Visibility.Visible;
         _pbDiagAudit.Value = 0;
 
@@ -830,7 +927,7 @@ public partial class MainWindow
 
         try
         {
-            var report = await CctvDiagnosticService.AuditAllDevicesAsync(progress, _diagCts.Token);
+            var report = await CctvDiagnosticService.AuditDevicesAsync(targetDevices, progress, _diagCts.Token);
             _latestDiagnosticReport = report;
 
             // Update KPI Banner
@@ -875,6 +972,7 @@ public partial class MainWindow
         finally
         {
             _btnRunFleetAudit.IsEnabled = true;
+            if (_btnRunTargetAudit != null) _btnRunTargetAudit.IsEnabled = true;
             _btnCancelFleetAudit.Visibility = Visibility.Collapsed;
         }
     }
@@ -1198,6 +1296,7 @@ public partial class MainWindow
     {
         if (_cctvCurrentMode == "DIAGNOSTIC")
         {
+            PopulateDiagTargetCombo();
             PopulateInitialDiagnosticMatrix();
         }
     }

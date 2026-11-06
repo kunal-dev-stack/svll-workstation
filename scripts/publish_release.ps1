@@ -39,7 +39,9 @@ while (-not $proc.StandardOutput.EndOfStream) {
         break
     }
 }
-$proc.WaitForExit()
+if (-not $proc.WaitForExit(5000)) {
+    try { $proc.Kill() } catch { }
+}
 
 if (-not $token) {
     throw "GitHub token could not be retrieved from git credential manager."
@@ -186,12 +188,12 @@ if ($Target -eq "all" -or $Target -eq "client" -or $Target -eq "workstation") {
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $publishAdminDir "SVLL-IT-Workstation-Admin.exe"
+            # Path = Join-Path $publishAdminDir "SVLL-IT-Workstation-Admin.exe"
             Name = "SVLL-IT-Workstation-Admin.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },
         @{
-            Path = Join-Path $publishUserDir "SVLL-IT-Workstation-User.exe"
+            # Path = Join-Path $publishUserDir "SVLL-IT-Workstation-User.exe"
             Name = "SVLL-IT-Workstation-User.exe"
             Type = "application/vnd.microsoft.portable-executable"
         },

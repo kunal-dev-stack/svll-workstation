@@ -6,6 +6,7 @@
 #if BUILD_ADMIN
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -114,57 +115,107 @@ public class DiscoveredCamera
 
 public static class CctvDiagnosticService
 {
-    public static async Task<FleetDiagnosticReport> AuditAllDevicesAsync(
+    public static Task<FleetDiagnosticReport> AuditAllDevicesAsync(
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
-        var devices = NvrDeviceStorage.Instance.GetDevices();
+        return AuditDevicesAsync(null, progress, ct);
+    }
+
+    public static async Task<FleetDiagnosticReport> AuditDevicesAsync(
+        List<NvrDevice>? targetDevices = null,
+        IProgress<(int current, int total, string message)>? progress = null,
+        CancellationToken ct = default)
+    {
+        var devices = (targetDevices != null && targetDevices.Count > 0)
+            ? targetDevices
+            : NvrDeviceStorage.Instance.GetDevices();
+
         var report = new FleetDiagnosticReport
         {
             GeneratedAt = DateTime.Now,
             TotalNvrs = devices.Count
         };
 
-        int totalExpectedChannels = devices.Sum(d => d.ChannelCount);
+        int totalExpectedChannels = devices.Sum(d => Math.Max(1, d.ChannelCount));
         report.TotalChannels = totalExpectedChannels;
 
-        int processed = 0;
-        var items = new List<CameraDiagnosticItem>();
+        var allItems = new ConcurrentBag<CameraDiagnosticItem>();
+        int processedChannels = 0;
 
-        foreach (var device in devices)
+        // Concurrent audit pool (up to 8 NVRs audited simultaneously for lightning speed)
+        using var semaphore = new SemaphoreSlim(8);
+        var auditTasks = devices.Select(async device =>
         {
-            if (ct.IsCancellationRequested) break;
-
-            // Audit NVR device reachability
-            var nvrResult = await NvrStreamHelper.TestConnectivityAsync(device);
-            device.IsOnline = nvrResult.OverallSuccess;
-            device.LatencyMs = nvrResult.PingLatencyMs;
-            device.LastChecked = DateTime.Now;
-
-            int channelsToAudit = Math.Max(1, device.ChannelCount);
-            for (int ch = 1; ch <= channelsToAudit; ch++)
+            await semaphore.WaitAsync(ct);
+            try
             {
-                if (ct.IsCancellationRequested) break;
-                processed++;
-                string chName = device.GetChannelName(ch);
-                progress?.Report((processed, totalExpectedChannels, $"Auditing {device.Name} — Ch {ch:D2} ({chName})..."));
+                if (ct.IsCancellationRequested) return;
 
-                var item = await AuditSingleCameraInternalAsync(device, ch, nvrResult, ct);
-                items.Add(item);
+                int channelsToAudit = Math.Max(1, device.ChannelCount);
+
+                // 1. Single reachability test per NVR (ICMP Ping + RTSP 554 + HTTP 80 + SDK ports)
+                var nvrResult = await NvrStreamHelper.TestConnectivityAsync(device);
+                device.IsOnline = nvrResult.OverallSuccess;
+                device.LatencyMs = nvrResult.PingLatencyMs;
+                device.LastChecked = DateTime.Now;
+
+                // FAST SHORT-CIRCUIT: If NVR host is completely unreachable, mark all its channels offline immediately!
+                if (!nvrResult.PingSuccess && !nvrResult.HttpPortOpen && !nvrResult.RtspPortOpen)
+                {
+                    for (int ch = 1; ch <= channelsToAudit; ch++)
+                    {
+                        var offlineItem = CreateOfflineDiagnosticItem(device, ch, nvrResult);
+                        allItems.Add(offlineItem);
+                        int currentCount = Interlocked.Increment(ref processedChannels);
+                        progress?.Report((currentCount, totalExpectedChannels, $"Audited {device.Name} (Offline)"));
+                    }
+                    return;
+                }
+
+                // If NVR is reachable, verify auth on channel 1 once with a fast 500ms check
+                bool authVerified = nvrResult.RtspPortOpen;
+                if (!authVerified && nvrResult.HttpPortOpen)
+                {
+                    try
+                    {
+                        using var fastCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+                        var snap = await NvrStreamHelper.FetchSnapshotBytesAsync(device, 1, fastCts.Token);
+                        if (snap != null && snap.Length > 200) authVerified = true;
+                    }
+                    catch { }
+                }
+
+                for (int ch = 1; ch <= channelsToAudit; ch++)
+                {
+                    if (ct.IsCancellationRequested) break;
+                    var item = CreateOnlineDiagnosticItem(device, ch, nvrResult, authVerified);
+                    allItems.Add(item);
+                    int currentCount = Interlocked.Increment(ref processedChannels);
+                    progress?.Report((currentCount, totalExpectedChannels, $"Audited {device.Name} — Ch {ch:D2}"));
+                }
             }
-        }
+            catch { }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
 
-        report.Items = items;
-        report.OnlineCount = items.Count(i => i.Status == CameraHealthStatus.Online);
-        report.DegradedCount = items.Count(i => i.Status == CameraHealthStatus.Degraded);
-        report.OfflineCount = items.Count(i => i.Status == CameraHealthStatus.Offline);
-        report.AuthFailedCount = items.Count(i => i.Status == CameraHealthStatus.AuthFailed);
+        await Task.WhenAll(auditTasks);
 
-        var validLatencies = items.Where(i => i.LatencyMs > 0).Select(i => i.LatencyMs).ToList();
+        var sortedItems = allItems.OrderBy(i => i.NvrName).ThenBy(i => i.ChannelNumber).ToList();
+        report.Items = sortedItems;
+        report.OnlineCount = sortedItems.Count(i => i.Status == CameraHealthStatus.Online);
+        report.DegradedCount = sortedItems.Count(i => i.Status == CameraHealthStatus.Degraded);
+        report.OfflineCount = sortedItems.Count(i => i.Status == CameraHealthStatus.Offline);
+        report.AuthFailedCount = sortedItems.Count(i => i.Status == CameraHealthStatus.AuthFailed);
+
+        var validLatencies = sortedItems.Where(i => i.LatencyMs > 0).Select(i => i.LatencyMs).ToList();
         report.AverageLatencyMs = validLatencies.Count > 0 ? Math.Round(validLatencies.Average(), 1) : 0.0;
 
         // Generate Prioritized Corrective Action Plan (CAP)
-        foreach (var item in items)
+        foreach (var item in sortedItems)
         {
             if (item.Status == CameraHealthStatus.Offline)
             {
@@ -186,6 +237,87 @@ public static class CctvDiagnosticService
         }
 
         return report;
+    }
+
+    private static CameraDiagnosticItem CreateOfflineDiagnosticItem(NvrDevice device, int channel, NvrTestResult nvrTest)
+    {
+        return new CameraDiagnosticItem
+        {
+            NvrId = device.Id,
+            NvrName = device.Name,
+            Location = device.Location,
+            SubLocation = device.SubLocation,
+            OwnerName = device.OwnerName,
+            OwnerContact = device.OwnerContact,
+            PlaybackDays = device.PlaybackDays,
+            Host = device.CleanHost,
+            BrandDisplayName = device.GetBrandDisplayName(),
+            ChannelNumber = channel,
+            ChannelName = device.GetChannelName(channel),
+            HttpPort = device.HttpPort > 0 ? device.HttpPort : 80,
+            RtspPort = device.RtspPort > 0 ? device.RtspPort : 554,
+            PingSuccess = false,
+            LatencyMs = -1,
+            HttpPortOpen = false,
+            RtspPortOpen = false,
+            AuthSuccess = false,
+            RtspUrl = NvrStreamHelper.BuildRtspUrl(device, channel, StreamQuality.SubStream),
+            LastAudited = DateTime.Now,
+            Status = CameraHealthStatus.Offline,
+            ErrorDetails = $"Host {device.CleanHost} unreachable. Device offline or LAN disconnected.",
+            CorrectiveAction = "1. Verify NVR power and Ethernet patch lead.\n2. Verify branch switch port link LED.\n3. Check if IP address changed on DHCP."
+        };
+    }
+
+    private static CameraDiagnosticItem CreateOnlineDiagnosticItem(NvrDevice device, int channel, NvrTestResult nvrTest, bool authVerified)
+    {
+        var item = new CameraDiagnosticItem
+        {
+            NvrId = device.Id,
+            NvrName = device.Name,
+            Location = device.Location,
+            SubLocation = device.SubLocation,
+            OwnerName = device.OwnerName,
+            OwnerContact = device.OwnerContact,
+            PlaybackDays = device.PlaybackDays,
+            Host = device.CleanHost,
+            BrandDisplayName = device.GetBrandDisplayName(),
+            ChannelNumber = channel,
+            ChannelName = device.GetChannelName(channel),
+            HttpPort = device.HttpPort > 0 ? device.HttpPort : 80,
+            RtspPort = device.RtspPort > 0 ? device.RtspPort : 554,
+            PingSuccess = nvrTest.PingSuccess,
+            LatencyMs = nvrTest.PingLatencyMs,
+            HttpPortOpen = nvrTest.HttpPortOpen,
+            RtspPortOpen = nvrTest.RtspPortOpen,
+            AuthSuccess = authVerified,
+            RtspUrl = NvrStreamHelper.BuildRtspUrl(device, channel, StreamQuality.SubStream),
+            LastAudited = DateTime.Now
+        };
+
+        if (item.RtspPortOpen || item.AuthSuccess)
+        {
+            if (item.LatencyMs > 180)
+            {
+                item.Status = CameraHealthStatus.Degraded;
+                item.ErrorDetails = $"High network latency ({item.LatencyMs}ms). Potential video stutter or frame loss.";
+                item.CorrectiveAction = "Inspect branch LAN bandwidth utilization or wireless bridge signal quality.";
+            }
+            else
+            {
+                item.Status = CameraHealthStatus.Online;
+                item.ErrorDetails = "Stream and RTSP ports responsive.";
+                item.CorrectiveAction = "Operating normally.";
+            }
+        }
+        else
+        {
+            item.Status = CameraHealthStatus.Degraded;
+            item.ErrorDetails = "ICMP Ping responsive but RTSP port closed.";
+            item.CorrectiveAction = "Verify RTSP port 554 is enabled in NVR network configuration.";
+        }
+
+        return item;
     }
 
     public static async Task<CameraDiagnosticItem> AuditSingleCameraAsync(NvrDevice device, int channel, CancellationToken ct = default)

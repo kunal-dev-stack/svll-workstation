@@ -319,6 +319,11 @@ public partial class MainWindow : Window
             Log($"[DEVICE AUDIT] Session started on host {Environment.MachineName} (User: {Environment.UserName}). Build: {BuildConstants.BuildEdition}. Initial state verified.");
             await HandleCommandLineArgsAsync(args);
 
+#if BUILD_ADMIN
+            // Pre-warm LibVLC CCTV Engine in background so opening CCTV tab is instant (0ms delay)
+            _ = Task.Run(() => InitializeLibVlcEngine());
+#endif
+
             // v8.0: Start cloud sync (heartbeat + fleet poll + reply poll)
             string relayUrl = AdminAuthService.Instance.GetRelayServerUrl();
             if (!string.IsNullOrEmpty(relayUrl))
