@@ -383,6 +383,7 @@ public partial class MainWindow : Window
                 CloudSyncService.Instance.Stop();
 #if BUILD_ADMIN
                 try { SvllMeshListener.Instance.Stop(); } catch { }
+                try { DisposeCctvResources(); } catch { }
 #else
                 try { SvllMeshAgentService.Instance.Stop(); } catch { }
 #endif

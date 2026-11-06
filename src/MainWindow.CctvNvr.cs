@@ -68,6 +68,7 @@ public partial class MainWindow
     private readonly Dictionary<int, MediaPlayer> _slotMediaPlayers = new();
     private readonly Dictionary<int, VideoView> _slotVideoViews = new();
     private readonly Dictionary<int, long> _slotStreamGen = new();
+    private readonly Dictionary<int, CancellationTokenSource> _slotCts = new();
 
     // UI Host Elements (Live)
     private Grid _cctvRootGrid = null!;
@@ -1250,18 +1251,22 @@ public partial class MainWindow
     {
         if (_cctvMainGridContainer == null) return;
 
-        // Stop and release previous media players in background task to prevent WPF UI thread freeze
-        var playersToDispose = _slotMediaPlayers.Values.ToList();
-        _slotMediaPlayers.Clear();
+        // Disconnect VideoView from MediaPlayer on UI thread first to prevent WinForms Host crash
+        foreach (var vv in _slotVideoViews.Values)
+        {
+            try { vv.MediaPlayer = null; } catch { }
+        }
         _slotVideoViews.Clear();
 
-        Task.Run(() =>
+        // Cancel running connection tasks for all slots
+        lock (_slotCts)
         {
-            foreach (var mp in playersToDispose)
+            foreach (var cts in _slotCts.Values)
             {
-                try { mp.Stop(); mp.Dispose(); } catch { }
+                try { cts.Cancel(); cts.Dispose(); } catch { }
             }
-        });
+            _slotCts.Clear();
+        }
 
         _cctvMainGridContainer.Children.Clear();
         _cctvMainGridContainer.RowDefinitions.Clear();
@@ -1285,6 +1290,16 @@ public partial class MainWindow
             _cctvMainGridContainer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         int totalCells = rows * cols;
+
+        // Stop any media players that are outside the new grid size
+        foreach (var kvp in _slotMediaPlayers)
+        {
+            if (kvp.Key >= totalCells)
+            {
+                try { if (kvp.Value.NativeReference != IntPtr.Zero) kvp.Value.Stop(); } catch { }
+            }
+        }
+
         for (int i = 0; i < totalCells; i++)
         {
             int slotIdx = i;
@@ -1359,8 +1374,11 @@ public partial class MainWindow
         {
             try
             {
-                var mp = new MediaPlayer(_globalLibVLC);
-                _slotMediaPlayers[slotIndex] = mp;
+                if (!_slotMediaPlayers.TryGetValue(slotIndex, out var mp) || mp == null || mp.NativeReference == IntPtr.Zero)
+                {
+                    mp = new MediaPlayer(_globalLibVLC);
+                    _slotMediaPlayers[slotIndex] = mp;
+                }
 
                 vlcVideoView = new VideoView
                 {
@@ -1579,18 +1597,46 @@ public partial class MainWindow
         SelectCctvSlot((slotIndex + 1) % _cctvGridSize);
     }
 
+    private static async Task<bool> FastProbeHostAsync(string host, int port, int timeoutMs, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return false;
+        try
+        {
+            using var client = new System.Net.Sockets.TcpClient();
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            linkedCts.CancelAfter(timeoutMs);
+
+            var connectTask = client.ConnectAsync(host, port > 0 ? port : 554);
+            var delayTask = Task.Delay(timeoutMs, linkedCts.Token);
+
+            var completed = await Task.WhenAny(connectTask, delayTask);
+            if (completed == connectTask && client.Connected)
+            {
+                return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private void StartStreamForSlot(int slotIndex, NvrDevice device, int channel)
     {
-        long currentGen = 0;
-        lock (_slotStreamGen)
+        CancellationToken token;
+        lock (_slotCts)
         {
-            if (!_slotStreamGen.TryGetValue(slotIndex, out var g)) g = 0;
-            g++;
-            _slotStreamGen[slotIndex] = g;
-            currentGen = g;
+            if (_slotCts.TryGetValue(slotIndex, out var oldCts))
+            {
+                try { oldCts.Cancel(); oldCts.Dispose(); } catch { }
+            }
+            var cts = new CancellationTokenSource();
+            _slotCts[slotIndex] = cts;
+            token = cts.Token;
         }
 
-        // 1. Immediately update UI to show informative standby state
+        // 1. Immediately update UI to show informative connecting state
         Dispatcher.InvokeAsync(() =>
         {
             if (_cellUiCache.TryGetValue(slotIndex, out var ui))
@@ -1604,21 +1650,50 @@ public partial class MainWindow
             }
         });
 
-        if (_cctvUseSmoothStreaming && _slotMediaPlayers.TryGetValue(slotIndex, out var mp) && _globalLibVLC != null)
+        Task.Run(async () =>
         {
-            Task.Run(async () =>
+            try
             {
-                try
-                {
-                    // Safely stop any previous media playback
-                    try { mp.Stop(); } catch { }
+                if (token.IsCancellationRequested) return;
 
-                    // Auto-select SubStream in multi-grid (2x2, 3x3, 4x4) to save 85% bandwidth & prevent frame drops/stucking!
-                    // In 1x1 Focus, switch to MainStream for ultra-sharp full HD clarity.
+                // 2. Instant Fast TCP Reachability Probe (500ms max) - Eliminates hanging sockets and LibVLC stalls!
+                bool isReachable = await FastProbeHostAsync(device.CleanHost, device.RtspPort > 0 ? device.RtspPort : 554, 500, token);
+                if (token.IsCancellationRequested) return;
+
+                if (!isReachable)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (token.IsCancellationRequested) return;
+                        if (_cellUiCache.TryGetValue(slotIndex, out var ui))
+                        {
+                            ui.StandbyOverlay.Visibility = Visibility.Visible;
+                            ui.OsdStats.Text = "🔴 OFFLINE";
+                            ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(239, 68, 68));
+                            ui.StandbyMessage.Text = $"⚠️ Device Offline / Unreachable\n{device.Name} (Ch {channel:D2})\nHost: {device.CleanHost}:{device.RtspPort}\nCheck branch network connection.";
+                        }
+                    });
+                    return;
+                }
+
+                // 3. Host is online! Start LibVLC RTSP stream or snapshot polling
+                if (_cctvUseSmoothStreaming && _slotMediaPlayers.TryGetValue(slotIndex, out var mp) && _globalLibVLC != null)
+                {
+                    try
+                    {
+                        if (mp.NativeReference != IntPtr.Zero)
+                        {
+                            mp.Stop();
+                        }
+                    }
+                    catch { }
+
+                    if (token.IsCancellationRequested) return;
+
                     var streamQuality = (_cctvGridSize == 1) ? StreamQuality.MainStream : StreamQuality.SubStream;
                     string rtspUrl = NvrStreamHelper.BuildRtspUrl(device, channel, streamQuality);
 
-                    var media = new Media(_globalLibVLC, rtspUrl, FromType.FromLocation);
+                    using var media = new Media(_globalLibVLC, rtspUrl, FromType.FromLocation);
                     media.AddOption(":rtsp-tcp");
                     media.AddOption(":network-caching=250");
                     media.AddOption(":live-caching=250");
@@ -1629,15 +1704,19 @@ public partial class MainWindow
                     media.AddOption(":avcodec-hw=any");
                     media.AddOption(":avcodec-fast");
 
-                    void OnPlaying(object? sender, EventArgs e)
+                    bool streamPlaying = false;
+                    EventHandler<EventArgs>? onPlaying = null;
+                    EventHandler<EventArgs>? onError = null;
+
+                    onPlaying = (s, e) =>
                     {
-                        mp.Playing -= OnPlaying;
+                        streamPlaying = true;
+                        try { mp.Playing -= onPlaying; } catch { }
+                        try { mp.EncounteredError -= onError; } catch { }
+
                         Dispatcher.InvokeAsync(() =>
                         {
-                            lock (_slotStreamGen)
-                            {
-                                if (_slotStreamGen.TryGetValue(slotIndex, out var g) && g != currentGen) return;
-                            }
+                            if (token.IsCancellationRequested) return;
                             if (_cellUiCache.TryGetValue(slotIndex, out var ui))
                             {
                                 ui.StandbyOverlay.Visibility = Visibility.Collapsed;
@@ -1646,45 +1725,55 @@ public partial class MainWindow
                                 ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(34, 197, 94));
                             }
                         });
-                    }
+                    };
 
-                    void OnError(object? sender, EventArgs e)
+                    onError = (s, e) =>
                     {
-                        mp.EncounteredError -= OnError;
+                        streamPlaying = false;
+                        try { mp.Playing -= onPlaying; } catch { }
+                        try { mp.EncounteredError -= onError; } catch { }
+
                         Dispatcher.InvokeAsync(() =>
                         {
-                            lock (_slotStreamGen)
-                            {
-                                if (_slotStreamGen.TryGetValue(slotIndex, out var g) && g != currentGen) return;
-                            }
+                            if (token.IsCancellationRequested) return;
                             if (_cellUiCache.TryGetValue(slotIndex, out var ui))
                             {
                                 ui.StandbyOverlay.Visibility = Visibility.Visible;
-                                ui.OsdStats.Text = "🔴 UNREACHABLE";
+                                ui.OsdStats.Text = "🔴 RTSP ERROR";
                                 ui.OsdStats.Foreground = new SolidColorBrush(Color.FromRgb(239, 68, 68));
                                 ui.StandbyMessage.Text = $"⚠️ Stream Offline / Unreachable\n{device.Name} (Ch {channel:D2})\nHost: {device.CleanHost}:{device.RtspPort}\nCheck branch network connection.";
                             }
                         });
-                    }
+                    };
 
-                    mp.Playing += OnPlaying;
-                    mp.EncounteredError += OnError;
+                    mp.Playing += onPlaying;
+                    mp.EncounteredError += onError;
 
                     mp.Play(media);
 
-                    // 8-second watchdog to catch unreachable or non-responsive RTSP hosts
-                    await Task.Delay(8000);
-                    lock (_slotStreamGen)
+                    // 5-second watchdog
+                    try
                     {
-                        if (_slotStreamGen.TryGetValue(slotIndex, out var g) && g != currentGen) return;
+                        await Task.Delay(5000, token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        try { mp.Playing -= onPlaying; } catch { }
+                        try { mp.EncounteredError -= onError; } catch { }
+                        return;
                     }
 
-                    if (!mp.IsPlaying)
+                    if (token.IsCancellationRequested) return;
+
+                    // Safe C# boolean check - NEVER call unmanaged mp.IsPlaying!
+                    if (!streamPlaying)
                     {
-                        mp.Playing -= OnPlaying;
-                        mp.EncounteredError -= OnError;
+                        try { mp.Playing -= onPlaying; } catch { }
+                        try { mp.EncounteredError -= onError; } catch { }
+
                         await Dispatcher.InvokeAsync(() =>
                         {
+                            if (token.IsCancellationRequested) return;
                             if (_cellUiCache.TryGetValue(slotIndex, out var ui))
                             {
                                 ui.StandbyOverlay.Visibility = Visibility.Visible;
@@ -1695,17 +1784,16 @@ public partial class MainWindow
                         });
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Debug.WriteLine($"Failed to start RTSP stream: {ex.Message}");
+                    await PollSingleSlotFrameAsync(slotIndex, device, channel);
                 }
-            });
-        }
-        else
-        {
-            // Snapshot polling fallback
-            Task.Run(async () => await PollSingleSlotFrameAsync(slotIndex, device, channel));
-        }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to start RTSP stream: {ex.Message}");
+            }
+        });
     }
 
     private void TriggerImmediateStreamStart()
@@ -1732,11 +1820,20 @@ public partial class MainWindow
 
     private void ClearSlot(int slotIndex)
     {
+        lock (_slotCts)
+        {
+            if (_slotCts.TryGetValue(slotIndex, out var cts))
+            {
+                try { cts.Cancel(); cts.Dispose(); } catch { }
+                _slotCts.Remove(slotIndex);
+            }
+        }
+
         _cctvSlots.Remove(slotIndex);
 
         if (_slotMediaPlayers.TryGetValue(slotIndex, out var mp))
         {
-            try { mp.Stop(); } catch { }
+            try { if (mp.NativeReference != IntPtr.Zero) mp.Stop(); } catch { }
         }
 
         if (_cellUiCache.TryGetValue(slotIndex, out var ui))
@@ -1772,8 +1869,6 @@ public partial class MainWindow
             _cctvSlots[2] = (devices[0], 3);
             _cctvSlots[3] = (devices[0], 4);
         }
-
-        TriggerImmediateStreamStart();
     }
 
     private void StartCctvMonitoring()
@@ -1782,7 +1877,7 @@ public partial class MainWindow
         _cctvIsMonitoring = true;
 
         _cctvRefreshTimer?.Stop();
-        _cctvRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_cctvRefreshIntervalSec) };
+        _cctvRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _cctvRefreshTimer.Tick += async (s, e) =>
         {
             if (!_cctvUseSmoothStreaming)
@@ -1809,10 +1904,38 @@ public partial class MainWindow
         _cctvRefreshTimer?.Stop();
         _cctvRefreshTimer = null;
 
+        lock (_slotCts)
+        {
+            foreach (var cts in _slotCts.Values)
+            {
+                try { cts.Cancel(); cts.Dispose(); } catch { }
+            }
+            _slotCts.Clear();
+        }
+
         foreach (var mp in _slotMediaPlayers.Values)
         {
-            try { mp.Stop(); } catch { }
+            try { if (mp.NativeReference != IntPtr.Zero) mp.Stop(); } catch { }
         }
+    }
+
+    public void DisposeCctvResources()
+    {
+        StopCctvMonitoring();
+        foreach (var vv in _slotVideoViews.Values)
+        {
+            try { vv.MediaPlayer = null; } catch { }
+        }
+        _slotVideoViews.Clear();
+
+        foreach (var mp in _slotMediaPlayers.Values)
+        {
+            try { mp.Dispose(); } catch { }
+        }
+        _slotMediaPlayers.Clear();
+
+        try { _playbackMediaPlayer?.Dispose(); } catch { }
+        _playbackMediaPlayer = null;
     }
 
     private async Task TriggerImmediateFramePollAsync()
@@ -2819,8 +2942,10 @@ public partial class MainWindow
                 _fallbackPlaybackMediaElement.Visibility = Visibility.Collapsed;
             }
 
+            try { if (_playbackMediaPlayer.NativeReference != IntPtr.Zero) _playbackMediaPlayer.Stop(); } catch { }
+
             _lblPlaybackStatus.Text = $"Connecting to playback stream: {descriptor}...";
-            var media = new Media(_globalLibVLC, streamUrl, FromType.FromLocation);
+            using var media = new Media(_globalLibVLC, streamUrl, FromType.FromLocation);
             media.AddOption(":rtsp-tcp");
             media.AddOption(":network-caching=300");
             media.AddOption(":live-caching=300");
@@ -2863,44 +2988,56 @@ public partial class MainWindow
 
     private void ResumePlayback()
     {
-        if (_playbackMediaPlayer != null)
+        try
         {
-            _playbackMediaPlayer.Play();
-            _lblPlaybackStatus.Text = "▶ PLAYING";
+            if (_playbackMediaPlayer != null && _playbackMediaPlayer.NativeReference != IntPtr.Zero)
+            {
+                _playbackMediaPlayer.Play();
+                _lblPlaybackStatus.Text = "▶ PLAYING";
+            }
+            else if (_fallbackPlaybackMediaElement != null)
+            {
+                _fallbackPlaybackMediaElement.Play();
+                _lblPlaybackStatus.Text = "▶ PLAYING (Native)";
+            }
         }
-        else if (_fallbackPlaybackMediaElement != null)
-        {
-            _fallbackPlaybackMediaElement.Play();
-            _lblPlaybackStatus.Text = "▶ PLAYING (Native)";
-        }
+        catch { }
     }
 
     private void PausePlayback()
     {
-        if (_playbackMediaPlayer != null)
+        try
         {
-            _playbackMediaPlayer.Pause();
-            _lblPlaybackStatus.Text = "⏸ PAUSED";
+            if (_playbackMediaPlayer != null && _playbackMediaPlayer.NativeReference != IntPtr.Zero)
+            {
+                _playbackMediaPlayer.Pause();
+                _lblPlaybackStatus.Text = "⏸ PAUSED";
+            }
+            else if (_fallbackPlaybackMediaElement != null)
+            {
+                _fallbackPlaybackMediaElement.Pause();
+                _lblPlaybackStatus.Text = "⏸ PAUSED";
+            }
         }
-        else if (_fallbackPlaybackMediaElement != null)
-        {
-            _fallbackPlaybackMediaElement.Pause();
-            _lblPlaybackStatus.Text = "⏸ PAUSED";
-        }
+        catch { }
     }
 
     private void StopPlayback()
     {
-        if (_playbackMediaPlayer != null)
+        try
         {
-            _playbackMediaPlayer.Stop();
-            _lblPlaybackStatus.Text = "⏹ STOPPED";
+            if (_playbackMediaPlayer != null && _playbackMediaPlayer.NativeReference != IntPtr.Zero)
+            {
+                _playbackMediaPlayer.Stop();
+                _lblPlaybackStatus.Text = "⏹ STOPPED";
+            }
+            else if (_fallbackPlaybackMediaElement != null)
+            {
+                _fallbackPlaybackMediaElement.Stop();
+                _lblPlaybackStatus.Text = "⏹ STOPPED";
+            }
         }
-        else if (_fallbackPlaybackMediaElement != null)
-        {
-            _fallbackPlaybackMediaElement.Stop();
-            _lblPlaybackStatus.Text = "⏹ STOPPED";
-        }
+        catch { }
     }
 
     private void JumpPlaybackSeconds(int deltaSeconds)
@@ -2920,12 +3057,16 @@ public partial class MainWindow
         _lblPlaybackTimeDisplay.Text = $"{targetTs:hh\\:mm\\:ss} / 24:00:00";
 
         // If local video file is loaded, LibVLC standard seek works:
-        if (_playbackMediaPlayer != null && _playbackMediaPlayer.Length > 0)
+        try
         {
-            float pos = (float)seconds / 86400f;
-            _playbackMediaPlayer.Position = Math.Clamp(pos, 0.0f, 1.0f);
-            return;
+            if (_playbackMediaPlayer != null && _playbackMediaPlayer.NativeReference != IntPtr.Zero && _playbackMediaPlayer.Length > 0)
+            {
+                float pos = (float)seconds / 86400f;
+                _playbackMediaPlayer.Position = Math.Clamp(pos, 0.0f, 1.0f);
+                return;
+            }
         }
+        catch { }
 
         // For NVR RTSP Playback: Restart the RTSP stream at the scrubbed target second!
         var devices = NvrDeviceStorage.Instance.GetDevices();
@@ -2947,17 +3088,21 @@ public partial class MainWindow
     {
         if (_cctvCurrentMode != "PLAYBACK" || _isUserDraggingTimeline) return;
 
-        if (_playbackMediaPlayer != null && _playbackMediaPlayer.IsPlaying)
+        try
         {
-            long elapsedMs = _playbackMediaPlayer.Time;
-            if (elapsedMs >= 0)
+            if (_playbackMediaPlayer != null && _playbackMediaPlayer.NativeReference != IntPtr.Zero && _playbackMediaPlayer.IsPlaying)
             {
-                long currentSeconds = Math.Clamp(_playbackBaseSeconds + (long)(elapsedMs / 1000 * _currentPlaybackRate), 0, 86400);
-                _sliderPlaybackTimeline.Value = currentSeconds;
-                TimeSpan ts = TimeSpan.FromSeconds(currentSeconds);
-                _lblPlaybackTimeDisplay.Text = $"{ts:hh\\:mm\\:ss} / 24:00:00";
+                long elapsedMs = _playbackMediaPlayer.Time;
+                if (elapsedMs >= 0)
+                {
+                    long currentSeconds = Math.Clamp(_playbackBaseSeconds + (long)(elapsedMs / 1000 * _currentPlaybackRate), 0, 86400);
+                    _sliderPlaybackTimeline.Value = currentSeconds;
+                    TimeSpan ts = TimeSpan.FromSeconds(currentSeconds);
+                    _lblPlaybackTimeDisplay.Text = $"{ts:hh\\:mm\\:ss} / 24:00:00";
+                }
             }
         }
+        catch { }
     }
 
     private void OpenLocalVideoFile()
