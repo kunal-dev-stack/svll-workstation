@@ -138,10 +138,13 @@ function Publish-GitHubRelease {
 
         $retryCount = 0
         $uploaded = $false
+        $uploadFile = Join-Path $env:TEMP ("svll_upload_" + $assetName)
+        try { Copy-Item -Path $assetPath -Destination $uploadFile -Force } catch { $uploadFile = $assetPath }
+
         while ($retryCount -lt 4 -and -not $uploaded) {
             try {
                 $retryCount++
-                $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $assetPath -TimeoutSec 1200
+                $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $uploadFile -TimeoutSec 1200
                 Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
                 $uploaded = $true
             } catch {
@@ -154,6 +157,7 @@ function Publish-GitHubRelease {
                 }
             }
         }
+        try { Remove-Item $uploadFile -Force -ErrorAction SilentlyContinue } catch { }
     }
 
     Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
