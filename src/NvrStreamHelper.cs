@@ -102,9 +102,9 @@ public static class NvrStreamHelper
         switch (device.Brand)
         {
             case NvrBrand.Hikvision:
-                // Format: YYYYMMDDTHHmmssZ
-                string hikStart = startTime.ToUniversalTime().ToString("yyyyMMddTHHmmssZ");
-                string hikEnd = endTime.ToUniversalTime().ToString("yyyyMMddTHHmmssZ");
+                // Format: YYYYMMDDTHHmmssZ - Note: Use camera local recording time directly (no UTC conversion) so requested exact time matches camera clock
+                string hikStart = startTime.ToString("yyyyMMddTHHmmssZ");
+                string hikEnd = endTime.ToString("yyyyMMddTHHmmssZ");
                 return $"rtsp://{creds}@{host}:{rtspPort}/Streaming/tracks/{channel}01?starttime={hikStart}&endtime={hikEnd}{scaleStr}";
 
             case NvrBrand.CpPlus:
@@ -115,7 +115,7 @@ public static class NvrStreamHelper
                 return $"rtsp://{creds}@{host}:{rtspPort}/cam/playback?channel={channel}&starttime={dahuaStart}&endtime={dahuaEnd}{dahuaRateStr}";
 
             case NvrBrand.Uniview:
-                string unvStart = startTime.ToUniversalTime().ToString("yyyyMMddTHHmmssZ");
+                string unvStart = startTime.ToString("yyyyMMddTHHmmssZ");
                 return $"rtsp://{creds}@{host}:{rtspPort}/unicast/c{channel}/s0/playback?starttime={unvStart}{scaleStr}";
 
             case NvrBrand.GenericRtsp:

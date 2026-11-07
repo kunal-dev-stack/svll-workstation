@@ -128,10 +128,17 @@ public partial class MainWindow
     private TextBlock _lblPlaybackTimeDisplay = null!;
     private TextBlock _lblPlaybackStatus = null!;
     private TextBlock _lblPlaybackCamOverlayTitle = null!;
+    private TextBlock _lblPlaybackExactTimestamp = null!;
     private TextBlock _lblPlaybackRecordingAvail = null!;
     private TextBlock _lblDateValidationBadge = null!;
     private Button _btnPlaybackPlay = null!;
     private Button _btnPlaybackPause = null!;
+    private Button _btnOsdFullscreen = null!;
+    private Button _btnTransportFullscreen = null!;
+    private Border _playbackFilterBar = null!;
+    private Border _playbackTransportBar = null!;
+    private Border _playbackPlayerBorder = null!;
+    private bool _isPlaybackFullscreen = false;
     private DispatcherTimer? _playbackTimelineTimer;
     private float _currentPlaybackRate = 1.0f;
     private bool _isUserDraggingTimeline = false;
@@ -181,7 +188,12 @@ public partial class MainWindow
 
     private void OnCctvWindowKeyDown(object sender, KeyEventArgs e)
     {
-        if (_isCctvFullscreen && (e.Key == Key.Escape || e.Key == Key.F11))
+        if (_isPlaybackFullscreen && (e.Key == Key.Escape || e.Key == Key.F11))
+        {
+            TogglePlaybackFullscreen(false);
+            e.Handled = true;
+        }
+        else if (_isCctvFullscreen && (e.Key == Key.Escape || e.Key == Key.F11))
         {
             ToggleCctvFullscreen(false);
             e.Handled = true;
@@ -189,6 +201,11 @@ public partial class MainWindow
         else if (e.Key == Key.F11 && _cctvCurrentMode == "LIVE")
         {
             ToggleCctvFullscreen(true);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F11 && _cctvCurrentMode == "PLAYBACK")
+        {
+            TogglePlaybackFullscreen(true);
             e.Handled = true;
         }
     }
@@ -312,6 +329,8 @@ public partial class MainWindow
 
     private void SwitchCctvMode(string mode)
     {
+        if (_isPlaybackFullscreen) TogglePlaybackFullscreen(false);
+        if (_isCctvFullscreen) ToggleCctvFullscreen(false);
         _cctvCurrentMode = mode;
 
         if (mode == "LIVE")
@@ -2368,10 +2387,14 @@ public partial class MainWindow
             _slotCts.Clear();
         }
 
-        foreach (var mp in _slotMediaPlayers.Values)
+        var players = _slotMediaPlayers.Values.ToList();
+        Task.Run(() =>
         {
-            try { if (mp.NativeReference != IntPtr.Zero) mp.Stop(); } catch { }
-        }
+            foreach (var mp in players)
+            {
+                try { if (mp.NativeReference != IntPtr.Zero) mp.Stop(); } catch { }
+            }
+        });
     }
 
     public void DisposeCctvResources()
@@ -2485,10 +2508,10 @@ public partial class MainWindow
 
         // Row A: Main Form Controls (NVR, Camera Channel with Switchers, Date, Time, Action Buttons)
         var fGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
-        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) }); // NVR
-        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) }); // Camera + Prev/Next
-        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(145) }); // Date Picker
-        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) }); // Time Range
+        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) }); // NVR
+        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); // Camera + Prev/Next
+        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) }); // Date Picker
+        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); // Time Range + Jump
         fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Space
         fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Action Buttons
 
@@ -2525,7 +2548,7 @@ public partial class MainWindow
         btnPrevCamField.Click += (s, e) => SelectPreviousCameraPlayback();
         camRow.Children.Add(btnPrevCamField);
 
-        _cmbPlaybackCamera = new ComboBox { Height = 28, FontSize = 11.5, Width = 158, Margin = new Thickness(2, 0, 2, 0) };
+        _cmbPlaybackCamera = new ComboBox { Height = 28, FontSize = 11.5, Width = 150, Margin = new Thickness(2, 0, 2, 0) };
         _cmbPlaybackCamera.SelectionChanged += (s, e) =>
         {
             UpdatePlaybackCamOverlayTitle();
@@ -2569,7 +2592,7 @@ public partial class MainWindow
 
         // Time Range
         var spTime = new StackPanel { Margin = new Thickness(0, 0, 8, 0) };
-        spTime.Children.Add(CreateFieldHeader("Time Range (Start - End):"));
+        spTime.Children.Add(CreateFieldHeader("Exact Time Range (Start - End):"));
         var timeRow = new StackPanel { Orientation = Orientation.Horizontal };
         _txtPlaybackStartTime = new TextBox { Text = "09:00:00", Width = 64, Height = 28, FontSize = 11.5, VerticalContentAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Center };
         var lblDash = new TextBlock { Text = " - ", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) };
@@ -2577,24 +2600,65 @@ public partial class MainWindow
         timeRow.Children.Add(_txtPlaybackStartTime);
         timeRow.Children.Add(lblDash);
         timeRow.Children.Add(_txtPlaybackEndTime);
+
+        var btnJumpExact = new Button
+        {
+            Content = "🎯 Jump",
+            Height = 28,
+            Padding = new Thickness(8, 0, 8, 0),
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "Seek playback directly to the exact start time typed"
+        };
+        btnJumpExact.Click += (s, e) =>
+        {
+            if (TimeSpan.TryParse(_txtPlaybackStartTime.Text.Trim(), out var ts))
+            {
+                JumpToExactTime(ts);
+            }
+        };
+        timeRow.Children.Add(btnJumpExact);
+
         spTime.Children.Add(timeRow);
         Grid.SetColumn(spTime, 3);
         fGrid.Children.Add(spTime);
 
-        // Action Buttons (Play, Local, Web)
+        // Action Buttons: 1-Click Instant Play, Play Footage, Local, Web
         var actStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
+
+        var btnOneClick = new Button
+        {
+            Content = "⚡ 1-Click Play (Last 1h)",
+            Height = 28,
+            Padding = new Thickness(12, 0, 12, 0),
+            FontWeight = FontWeights.ExtraBold,
+            Background = new SolidColorBrush(Color.FromRgb(5, 150, 105)), // Emerald
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Margin = new Thickness(0, 0, 6, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "1-Click Instant Playback: immediately starts streaming recorded footage from 1 hour ago up to now"
+        };
+        btnOneClick.Click += (s, e) => StartOneClickInstantPlay();
+        actStack.Children.Add(btnOneClick);
 
         var btnQuery = new Button
         {
-            Content = "⚡ Play Footage",
+            Content = "▶ Play Footage",
             Height = 28,
-            Padding = new Thickness(14, 0, 14, 0),
+            Padding = new Thickness(12, 0, 12, 0),
             FontWeight = FontWeights.Bold,
             Background = SvllBlue,
             Foreground = Brushes.White,
             BorderThickness = new Thickness(0),
             Margin = new Thickness(0, 0, 6, 0),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            ToolTip = "Stream footage from selected start time"
         };
         btnQuery.Click += (s, e) => StartNvrPlaybackFromForm();
         actStack.Children.Add(btnQuery);
@@ -2637,6 +2701,7 @@ public partial class MainWindow
         filterMainStack.Children.Add(BuildAvailableRecordingDaysStrip());
 
         filterBar.Child = filterMainStack;
+        _playbackFilterBar = filterBar;
         Grid.SetRow(filterBar, 0);
         root.Children.Add(filterBar);
 
@@ -2649,6 +2714,7 @@ public partial class MainWindow
             CornerRadius = new CornerRadius(10),
             ClipToBounds = true
         };
+        _playbackPlayerBorder = playerBorder;
 
         var playerLayoutGrid = new Grid();
         playerLayoutGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 0: Dedicated OSD Header
@@ -2664,8 +2730,9 @@ public partial class MainWindow
             Padding = new Thickness(12, 0, 12, 0)
         };
         var osdGrid = new Grid();
-        osdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        osdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        osdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Col 0: Title
+        osdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Col 1: Exact Camera Clock
+        osdGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Col 2: Switchers, Zoom, Fullscreen
 
         _lblPlaybackCamOverlayTitle = new TextBlock
         {
@@ -2679,7 +2746,22 @@ public partial class MainWindow
         Grid.SetColumn(_lblPlaybackCamOverlayTitle, 0);
         osdGrid.Children.Add(_lblPlaybackCamOverlayTitle);
 
-        // Previous / Next Camera buttons directly in dedicated header
+        // Col 1: Exact Live Footage Camera Clock
+        _lblPlaybackExactTimestamp = new TextBlock
+        {
+            Text = "⏱️ Camera Clock: --:--:--",
+            FontSize = 11.5,
+            FontFamily = new FontFamily("Consolas, Segoe UI"),
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(52, 211, 153)), // Emerald
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(12, 0, 12, 0),
+            ToolTip = "Exact synchronized time of the surveillance footage on the NVR"
+        };
+        Grid.SetColumn(_lblPlaybackExactTimestamp, 1);
+        osdGrid.Children.Add(_lblPlaybackExactTimestamp);
+
+        // Col 2: Previous / Next Camera buttons directly in dedicated header
         var osdSwitchStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
         var btnOsdPrev = new Button
@@ -2751,7 +2833,27 @@ public partial class MainWindow
         osdSwitchStack.Children.Add(btnPbZoomIn);
         osdSwitchStack.Children.Add(btnPbZoomReset);
 
-        Grid.SetColumn(osdSwitchStack, 1);
+        // Fullscreen Toggle in OSD Header
+        var fsSep = new Border { Width = 1, Height = 16, Background = new SolidColorBrush(Color.FromRgb(71, 85, 105)), Margin = new Thickness(6, 0, 6, 0) };
+        osdSwitchStack.Children.Add(fsSep);
+
+        _btnOsdFullscreen = new Button
+        {
+            Content = "⛶ Fullscreen",
+            Height = 24,
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(10, 0, 10, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "Enter immersive full-screen camera playback view (Press Esc to exit)"
+        };
+        _btnOsdFullscreen.Click += (s, e) => TogglePlaybackFullscreen();
+        osdSwitchStack.Children.Add(_btnOsdFullscreen);
+
+        Grid.SetColumn(osdSwitchStack, 2);
         osdGrid.Children.Add(osdSwitchStack);
         osdTopBar.Child = osdGrid;
 
@@ -2817,6 +2919,7 @@ public partial class MainWindow
 
         // 3. Playback Timeline & Transport Controls
         var transportBar = BuildPlaybackTransportBar();
+        _playbackTransportBar = transportBar as Border ?? new Border();
         Grid.SetRow(transportBar, 2);
         root.Children.Add(transportBar);
 
@@ -3104,11 +3207,9 @@ public partial class MainWindow
         };
         _sliderPlaybackTimeline.ValueChanged += (s, e) =>
         {
-            if (_isUserDraggingTimeline)
-            {
-                TimeSpan ts = TimeSpan.FromSeconds(_sliderPlaybackTimeline.Value);
-                _lblPlaybackTimeDisplay.Text = $"{ts:hh\\:mm\\:ss} / 24:00:00";
-            }
+            TimeSpan ts = TimeSpan.FromSeconds(_sliderPlaybackTimeline.Value);
+            _lblPlaybackTimeDisplay.Text = $"{ts:hh\\:mm\\:ss} / 24:00:00";
+            UpdateExactTimestampDisplay((long)_sliderPlaybackTimeline.Value);
         };
         timelineGrid.Children.Add(_sliderPlaybackTimeline);
 
@@ -3152,6 +3253,14 @@ public partial class MainWindow
         btnTransPrevCam.ToolTip = "Switch to previous camera channel (|◀)";
         playButtonsStack.Children.Add(btnTransPrevCam);
 
+        var btnBack5m = CreateTransportButton("⏪ -5m", () => JumpPlaybackSeconds(-300));
+        btnBack5m.ToolTip = "Rewind 5 minutes";
+        playButtonsStack.Children.Add(btnBack5m);
+
+        var btnBack1m = CreateTransportButton("⏪ -1m", () => JumpPlaybackSeconds(-60));
+        btnBack1m.ToolTip = "Rewind 1 minute";
+        playButtonsStack.Children.Add(btnBack1m);
+
         var btnBack30 = CreateTransportButton("⏪ -30s", () => JumpPlaybackSeconds(-30));
         playButtonsStack.Children.Add(btnBack30);
 
@@ -3172,6 +3281,14 @@ public partial class MainWindow
 
         var btnFwd30 = CreateTransportButton("⏩ +30s", () => JumpPlaybackSeconds(30));
         playButtonsStack.Children.Add(btnFwd30);
+
+        var btnFwd1m = CreateTransportButton("⏩ +1m", () => JumpPlaybackSeconds(60));
+        btnFwd1m.ToolTip = "Fast-forward 1 minute";
+        playButtonsStack.Children.Add(btnFwd1m);
+
+        var btnFwd5m = CreateTransportButton("⏩ +5m", () => JumpPlaybackSeconds(300));
+        btnFwd5m.ToolTip = "Fast-forward 5 minutes";
+        playButtonsStack.Children.Add(btnFwd5m);
 
         // Next Camera Button in Transport Bar
         var btnTransNextCam = CreateTransportButton("Next Cam ▶|", SelectNextCameraPlayback);
@@ -3194,8 +3311,8 @@ public partial class MainWindow
         speedStack.Children.Add(RegisterSpeedButton("16x", 16.0f));
         transportWrap.Children.Add(speedStack);
 
-        // Right tools: Snap Frame & Copy URL
-        var rightTools = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+        // Right tools: Snap Frame & Copy URL & Fullscreen
+        var rightTools = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 0, 2) };
 
         var btnSnapFrame = CreateTransportButton("📸 Snap Evidence Frame", CapturePlaybackSnapshot);
         btnSnapFrame.Background = new SolidColorBrush(Color.FromRgb(241, 245, 249));
@@ -3205,6 +3322,13 @@ public partial class MainWindow
 
         var btnCopyUrl = CreateTransportButton("📋 Copy RTSP Link", CopyPlaybackUrlToClipboard);
         rightTools.Children.Add(btnCopyUrl);
+
+        _btnTransportFullscreen = CreateTransportButton("⛶ Fullscreen", () => TogglePlaybackFullscreen());
+        _btnTransportFullscreen.Background = SvllBlue;
+        _btnTransportFullscreen.Foreground = Brushes.White;
+        _btnTransportFullscreen.FontWeight = FontWeights.Bold;
+        _btnTransportFullscreen.ToolTip = "Enter immersive full-screen camera playback view (Press Esc to exit)";
+        rightTools.Children.Add(_btnTransportFullscreen);
 
         transportWrap.Children.Add(rightTools);
 
@@ -3372,6 +3496,17 @@ public partial class MainWindow
             }
         }
 
+        // 1-Click Action: Start playback of recent footage (past 1 hour) immediately
+        DateTime now = DateTime.Now;
+        _dpPlaybackDate.SelectedDate = now.Date;
+        TimeSpan start = now.TimeOfDay.Subtract(TimeSpan.FromHours(1));
+        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
+        TimeSpan end = now.TimeOfDay;
+
+        _txtPlaybackStartTime.Text = start.ToString(@"hh\:mm\:ss");
+        _txtPlaybackEndTime.Text = end.ToString(@"hh\:mm\:ss");
+        _playbackBaseSeconds = (long)start.TotalSeconds;
+
         StartNvrPlaybackFromForm();
     }
 
@@ -3406,6 +3541,7 @@ public partial class MainWindow
 
         _sliderPlaybackTimeline.Value = _playbackBaseSeconds;
         UpdatePlaybackCamOverlayTitle();
+        UpdateExactTimestampDisplay(_playbackBaseSeconds);
     }
 
     private void PlayStreamInStudio(string streamUrl, string descriptor)
@@ -3554,6 +3690,7 @@ public partial class MainWindow
         TimeSpan targetTs = TimeSpan.FromSeconds(seconds);
         _txtPlaybackStartTime.Text = targetTs.ToString(@"hh\:mm\:ss");
         _lblPlaybackTimeDisplay.Text = $"{targetTs:hh\\:mm\\:ss} / 24:00:00";
+        UpdateExactTimestampDisplay(seconds);
 
         // If local video file is loaded, LibVLC standard seek works:
         try
@@ -3598,10 +3735,82 @@ public partial class MainWindow
                     _sliderPlaybackTimeline.Value = currentSeconds;
                     TimeSpan ts = TimeSpan.FromSeconds(currentSeconds);
                     _lblPlaybackTimeDisplay.Text = $"{ts:hh\\:mm\\:ss} / 24:00:00";
+                    UpdateExactTimestampDisplay(currentSeconds);
                 }
             }
         }
         catch { }
+    }
+
+    private void UpdateExactTimestampDisplay(long currentSeconds)
+    {
+        if (_lblPlaybackExactTimestamp == null) return;
+        var date = _dpPlaybackDate?.SelectedDate ?? DateTime.Today;
+        TimeSpan ts = TimeSpan.FromSeconds(currentSeconds);
+        DateTime exact = date.Date.Add(ts);
+        _lblPlaybackExactTimestamp.Text = $"⏱️ Camera Clock: {exact:yyyy-MM-dd HH:mm:ss}";
+    }
+
+    private void JumpToExactTime(TimeSpan time)
+    {
+        long seconds = Math.Clamp((long)time.TotalSeconds, 0, 86400);
+        _sliderPlaybackTimeline.Value = seconds;
+        SeekPlaybackToSeconds(seconds);
+    }
+
+    private void StartOneClickInstantPlay()
+    {
+        DateTime now = DateTime.Now;
+        _dpPlaybackDate.SelectedDate = now.Date;
+        TimeSpan start = now.TimeOfDay.Subtract(TimeSpan.FromHours(1));
+        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
+        TimeSpan end = now.TimeOfDay;
+
+        _txtPlaybackStartTime.Text = start.ToString(@"hh\:mm\:ss");
+        _txtPlaybackEndTime.Text = end.ToString(@"hh\:mm\:ss");
+        _playbackBaseSeconds = (long)start.TotalSeconds;
+        _sliderPlaybackTimeline.Value = _playbackBaseSeconds;
+
+        StartNvrPlaybackFromForm();
+    }
+
+    private void TogglePlaybackFullscreen(bool? forceState = null)
+    {
+        bool targetState = forceState ?? !_isPlaybackFullscreen;
+        if (targetState == _isPlaybackFullscreen) return;
+
+        _isPlaybackFullscreen = targetState;
+
+        if (_isPlaybackFullscreen)
+        {
+            _savedWindowState = this.WindowState;
+            _savedWindowStyle = this.WindowStyle;
+            _savedResizeMode = this.ResizeMode;
+            _savedNavVisibility = _navPanel?.Visibility ?? Visibility.Visible;
+
+            if (_navPanel != null) _navPanel.Visibility = Visibility.Collapsed;
+            if (_cctvHeaderElement != null) _cctvHeaderElement.Visibility = Visibility.Collapsed;
+            if (_playbackFilterBar != null) _playbackFilterBar.Visibility = Visibility.Collapsed;
+
+            this.WindowStyle = WindowStyle.None;
+            this.WindowState = WindowState.Maximized;
+
+            if (_btnOsdFullscreen != null) _btnOsdFullscreen.Content = "✕ Exit Fullscreen";
+            if (_btnTransportFullscreen != null) _btnTransportFullscreen.Content = "✕ Exit Fullscreen";
+        }
+        else
+        {
+            this.WindowStyle = _savedWindowStyle;
+            this.WindowState = _savedWindowState;
+            this.ResizeMode = _savedResizeMode;
+
+            if (_navPanel != null) _navPanel.Visibility = _savedNavVisibility;
+            if (_cctvHeaderElement != null) _cctvHeaderElement.Visibility = Visibility.Visible;
+            if (_playbackFilterBar != null) _playbackFilterBar.Visibility = Visibility.Visible;
+
+            if (_btnOsdFullscreen != null) _btnOsdFullscreen.Content = "⛶ Fullscreen";
+            if (_btnTransportFullscreen != null) _btnTransportFullscreen.Content = "⛶ Fullscreen";
+        }
     }
 
     private void OpenLocalVideoFile()

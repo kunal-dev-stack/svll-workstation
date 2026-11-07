@@ -764,8 +764,8 @@ public partial class MainWindow
 
         card.Child = grid;
 
-        // Populate initial readiness overview
-        PopulateInitialDiagnosticMatrix();
+        // Populate initial readiness overview asynchronously on background priority (zero freeze on tab click)
+        Dispatcher.BeginInvoke(new Action(PopulateInitialDiagnosticMatrix), System.Windows.Threading.DispatcherPriority.Background);
 
         return card;
     }
@@ -1955,7 +1955,10 @@ public partial class MainWindow
             }
             else
             {
-                PopulateInitialDiagnosticMatrix();
+                if (_diagMatrixContainer == null || _diagMatrixContainer.Children.Count == 0)
+                {
+                    Dispatcher.BeginInvoke(new Action(PopulateInitialDiagnosticMatrix), System.Windows.Threading.DispatcherPriority.Background);
+                }
             }
         }
     }
