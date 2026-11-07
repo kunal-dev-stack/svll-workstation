@@ -101,6 +101,11 @@ $vlcBin = Join-Path $srcDir "bin\AdminRelease\net8.0-windows7.0\win-x64\libvlc"
 if (Test-Path $vlcBin) {
     Copy-Item -Path $vlcBin -Destination $publishAdminDir -Recurse -Force
     Copy-Item -Path $vlcBin -Destination $publishUserDir -Recurse -Force
+    # Clean unused architectures to minimize installer package size and build duration
+    Remove-Item (Join-Path $publishAdminDir "libvlc\win-arm64") -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $publishAdminDir "libvlc\win-x86") -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $publishUserDir "libvlc\win-arm64") -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $publishUserDir "libvlc\win-x86") -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "[OK] LibVLC native runtime and 400+ plugins copied to publish directories." -ForegroundColor Green
 }
 

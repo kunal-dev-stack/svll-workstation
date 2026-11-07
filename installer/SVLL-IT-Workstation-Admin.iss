@@ -24,7 +24,7 @@ AllowNoIcons=yes
 OutputDir=..\release
 OutputBaseFilename=SVLL-IT-Workstation-Admin-v8.6-Setup
 SetupIconFile=app_logo.ico
-Compression=lzma2/ultra64
+Compression=lzma2/normal
 SolidCompression=yes
 WizardStyle=classic
 PrivilegesRequired=admin
@@ -40,7 +40,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\publish-admin\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\publish-admin\libvlc\*"; DestDir: "{app}\libvlc"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\publish-admin\libvlc\win-x64\*"; DestDir: "{app}\libvlc\win-x64"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\publish-admin\tools\*"; DestDir: "{app}\tools"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "app_logo.ico"; DestDir: "{app}"; DestName: "app_logo.ico"; Flags: ignoreversion
 
