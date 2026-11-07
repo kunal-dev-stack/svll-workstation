@@ -41,6 +41,7 @@ public partial class MainWindow
     private Button _btnRunTargetAudit = null!;
     private Button _btnCancelFleetAudit = null!;
     private ComboBox _cmbDiagTargetNvr = null!;
+    private Border _diagMatrixHeaderHost = null!;
     private StackPanel _diagMatrixContainer = null!;
     private ComboBox _cmbReportType = null!;
     private Border _subnetDiscoveryDrawer = null!;
@@ -53,6 +54,8 @@ public partial class MainWindow
     private FleetDiagnosticReport? _latestDiagnosticReport;
     private CancellationTokenSource? _diagCts;
     private CancellationTokenSource? _subnetCts;
+    private string _diagResultsFilter = "ALL";
+    private readonly List<(Border HubCard, bool HasFaults, Action ExpandChannels, Action CollapseChannels)> _diagHubCards = new();
 
     // ─── Entry Point: Diagnostic & Troubleshooting Studio View ────────────────
     public UIElement BuildCctvDiagnosticView()
@@ -738,39 +741,15 @@ public partial class MainWindow
         };
 
         var grid = new Grid();
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header row
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Dynamic Header / Filter row
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Scroll container
 
-        // Matrix Header
-        var headGrid = new Grid
-        {
-            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
-            Margin = new Thickness(0, 0, 0, 6)
-        };
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) }); // Status
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) }); // NVR Hub
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });  // Ch #
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) }); // Camera Name
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) }); // Host & Port
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });  // Latency
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) }); // Probes
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Actions & Troubleshooting
-        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) }); // Tools
+        // Dynamic Header Host (Switches between Fleet Hubs overview and Audit Results Filters)
+        _diagMatrixHeaderHost = new Border { Margin = new Thickness(0, 0, 0, 8) };
+        Grid.SetRow(_diagMatrixHeaderHost, 0);
+        grid.Children.Add(_diagMatrixHeaderHost);
 
-        headGrid.Children.Add(CreateMatrixHeadLabel("STATUS", 0));
-        headGrid.Children.Add(CreateMatrixHeadLabel("NVR HUB & LOCATION", 1));
-        headGrid.Children.Add(CreateMatrixHeadLabel("CH #", 2));
-        headGrid.Children.Add(CreateMatrixHeadLabel("CAMERA IDENTIFIER", 3));
-        headGrid.Children.Add(CreateMatrixHeadLabel("IP HOST : PORTS", 4));
-        headGrid.Children.Add(CreateMatrixHeadLabel("LATENCY", 5));
-        headGrid.Children.Add(CreateMatrixHeadLabel("PROBES (RTSP / SNAP)", 6));
-        headGrid.Children.Add(CreateMatrixHeadLabel("DIAGNOSIS & ACTIONS", 7));
-        headGrid.Children.Add(CreateMatrixHeadLabel("QUICK TOOLS", 8));
-
-        Grid.SetRow(headGrid, 0);
-        grid.Children.Add(headGrid);
-
-        // Scroll Viewer for Channel Cards
+        // Scroll Viewer for Diagnostic Cards
         var scroll = new ScrollViewer
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -785,7 +764,7 @@ public partial class MainWindow
 
         card.Child = grid;
 
-        // Populate initial placeholder rows
+        // Populate initial readiness overview
         PopulateInitialDiagnosticMatrix();
 
         return card;
@@ -809,10 +788,12 @@ public partial class MainWindow
     {
         if (_diagMatrixContainer == null) return;
         _diagMatrixContainer.Children.Clear();
+        _diagHubCards.Clear();
 
         var devices = NvrDeviceStorage.Instance.GetDevices();
         if (devices.Count == 0)
         {
+            if (_diagMatrixHeaderHost != null) _diagMatrixHeaderHost.Child = null;
             _diagMatrixContainer.Children.Add(new TextBlock
             {
                 Text = "No NVR/DVR hubs registered. Add an NVR above to run diagnostics.",
@@ -823,32 +804,671 @@ public partial class MainWindow
             return;
         }
 
+        // Header for Fleet Overview
+        var headerBar = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(12, 8, 12, 8)
+        };
+        var headGrid = new Grid();
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var titleStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        titleStack.Children.Add(new TextBlock
+        {
+            Text = "🏢 REGISTERED NVR SURVEILLANCE FLEET HUBS",
+            FontSize = 11.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark
+        });
+        titleStack.Children.Add(new TextBlock
+        {
+            Text = $"  ({devices.Count} Hubs • {devices.Sum(d => d.ChannelCount)} Channels)",
+            FontSize = 11,
+            Foreground = SvllBlue,
+            FontWeight = FontWeights.SemiBold
+        });
+        Grid.SetColumn(titleStack, 0);
+        headGrid.Children.Add(titleStack);
+
+        var lblStatusInfo = new TextBlock
+        {
+            Text = "Ready for SLA Health Audit",
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(22, 101, 52)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(lblStatusInfo, 1);
+        headGrid.Children.Add(lblStatusInfo);
+
+        headerBar.Child = headGrid;
+        if (_diagMatrixHeaderHost != null) _diagMatrixHeaderHost.Child = headerBar;
+
+        // Readiness Hero Banner
+        var heroBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(191, 219, 254)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 10, 14, 10),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        var heroGrid = new Grid();
+        heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        heroGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var heroStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        heroStack.Children.Add(new TextBlock
+        {
+            Text = "⚡ Diagnostic & Troubleshooting Studio Ready",
+            FontSize = 12.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue
+        });
+        heroStack.Children.Add(new TextBlock
+        {
+            Text = "Click '⚡ Run Full Fleet Audit' to audit all 46 hubs, or select a campus/hub above to diagnose in 1-2 seconds.",
+            FontSize = 11,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+        Grid.SetColumn(heroStack, 0);
+        heroGrid.Children.Add(heroStack);
+
+        var btnHeroRun = new Button
+        {
+            Content = "⚡ Run Full Fleet Audit",
+            Height = 28,
+            Padding = new Thickness(14, 0, 14, 0),
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        btnHeroRun.Click += async (s, e) => await RunDiagnosticAuditAsync(null);
+        Grid.SetColumn(btnHeroRun, 1);
+        heroGrid.Children.Add(btnHeroRun);
+
+        heroBorder.Child = heroGrid;
+        _diagMatrixContainer.Children.Add(heroBorder);
+
+        // Fast NVR Hub Readiness Cards (46 cards render in < 5ms)
         foreach (var d in devices)
         {
-            for (int ch = 1; ch <= d.ChannelCount; ch++)
+            var hubCard = BuildNvrReadinessCard(d);
+            _diagMatrixContainer.Children.Add(hubCard);
+        }
+    }
+
+    private Border BuildNvrReadinessCard(NvrDevice device)
+    {
+        var border = new Border
+        {
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(10, 8, 10, 8),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) }); // NVR Name
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) }); // Location
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) }); // Host & Ports
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // Channels
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Status
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Actions
+
+        // Col 0: NVR Name
+        var spName = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        spName.Children.Add(new TextBlock
+        {
+            Text = "🏢 " + device.Name,
+            FontSize = 11.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        spName.Children.Add(new TextBlock
+        {
+            Text = device.GetBrandDisplayName(),
+            FontSize = 9.5,
+            Foreground = TextSubtle
+        });
+        Grid.SetColumn(spName, 0);
+        grid.Children.Add(spName);
+
+        // Col 1: Location
+        var spLoc = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        spLoc.Children.Add(new TextBlock
+        {
+            Text = "📍 " + device.Location,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = SvllBlue,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        if (!string.IsNullOrWhiteSpace(device.SubLocation))
+        {
+            spLoc.Children.Add(new TextBlock { Text = device.SubLocation, FontSize = 9.5, Foreground = TextSubtle, TextTrimming = TextTrimming.CharacterEllipsis });
+        }
+        Grid.SetColumn(spLoc, 1);
+        grid.Children.Add(spLoc);
+
+        // Col 2: Host & Ports
+        var spHost = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        spHost.Children.Add(new TextBlock
+        {
+            Text = device.CleanHost,
+            FontSize = 10.5,
+            FontFamily = new FontFamily("Consolas, Segoe UI"),
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TextDark
+        });
+        spHost.Children.Add(new TextBlock { Text = $"HTTP :{device.HttpPort} | RTSP :{device.RtspPort}", FontSize = 9.5, Foreground = TextSubtle });
+        Grid.SetColumn(spHost, 2);
+        grid.Children.Add(spHost);
+
+        // Col 3: Channels
+        var spCh = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        spCh.Children.Add(new TextBlock
+        {
+            Text = $"📹 {device.ChannelCount} Channels",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark
+        });
+        spCh.Children.Add(new TextBlock { Text = $"{device.PlaybackDays}d retention", FontSize = 9.5, Foreground = TextSubtle });
+        Grid.SetColumn(spCh, 3);
+        grid.Children.Add(spCh);
+
+        // Col 4: Status Indicator
+        var badge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(8, 2, 8, 2),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        badge.Child = new TextBlock
+        {
+            Text = "⚪ READY FOR AUDIT",
+            FontSize = 9.5,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139))
+        };
+        Grid.SetColumn(badge, 4);
+        grid.Children.Add(badge);
+
+        // Col 5: Actions
+        var actStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var btnTest = new Button
+        {
+            Content = "⚡ Test Hub",
+            Height = 24,
+            Padding = new Thickness(8, 0, 8, 0),
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Background = Brushes.White,
+            Foreground = SvllBlue,
+            BorderBrush = SvllBlue,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 0, 4, 0),
+            ToolTip = $"Perform fast diagnostic probe on {device.Name} ({device.ChannelCount} channels)"
+        };
+        btnTest.Click += async (s, e) =>
+        {
+            await RunDiagnosticAuditAsync(new List<NvrDevice> { device });
+        };
+        actStack.Children.Add(btnTest);
+
+        var btnWeb = new Button
+        {
+            Content = "🌐 Web",
+            Height = 24,
+            Padding = new Thickness(8, 0, 8, 0),
+            FontSize = 10,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnWeb.Click += (s, e) =>
+        {
+            string url = NvrStreamHelper.BuildWebPortalUrl(device);
+            try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
+        };
+        actStack.Children.Add(btnWeb);
+
+        Grid.SetColumn(actStack, 5);
+        grid.Children.Add(actStack);
+
+        border.Child = grid;
+        return border;
+    }
+
+    private void RenderDiagnosticResults(FleetDiagnosticReport report)
+    {
+        if (_diagMatrixContainer == null) return;
+        _diagMatrixContainer.Children.Clear();
+        _diagHubCards.Clear();
+
+        var hubGroups = report.Items.GroupBy(i => i.NvrId).ToList();
+        int faultyHubCount = 0;
+        int healthyHubCount = 0;
+
+        foreach (var group in hubGroups)
+        {
+            bool hasFault = group.Any(i => i.Status != CameraHealthStatus.Online);
+            if (hasFault) faultyHubCount++;
+            else healthyHubCount++;
+        }
+
+        // Render Filter Header
+        var filterBar = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(10, 6, 10, 6)
+        };
+        var fGrid = new Grid();
+        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var leftTabs = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        Button? btnAll = null;
+        Button? btnFaulty = null;
+        Button? btnHealthy = null;
+
+        void ApplyFilter(string mode)
+        {
+            _diagResultsFilter = mode;
+            foreach (var hub in _diagHubCards)
             {
-                var placeholderItem = new CameraDiagnosticItem
-                {
-                    NvrId = d.Id,
-                    NvrName = d.Name,
-                    Location = d.Location,
-                    SubLocation = d.SubLocation,
-                    OwnerName = d.OwnerName,
-                    OwnerContact = d.OwnerContact,
-                    PlaybackDays = d.PlaybackDays,
-                    Host = d.CleanHost,
-                    BrandDisplayName = d.GetBrandDisplayName(),
-                    ChannelNumber = ch,
-                    ChannelName = d.GetChannelName(ch),
-                    HttpPort = d.HttpPort,
-                    RtspPort = d.RtspPort,
-                    Status = CameraHealthStatus.Checking,
-                    ErrorDetails = "Diagnostic test pending. Click '⚡ Run Full Fleet Audit' above.",
-                    CorrectiveAction = "Probes ready."
-                };
-                _diagMatrixContainer.Children.Add(BuildDiagnosticRowUi(placeholderItem));
+                if (mode == "FAULTY") hub.HubCard.Visibility = hub.HasFaults ? Visibility.Visible : Visibility.Collapsed;
+                else if (mode == "HEALTHY") hub.HubCard.Visibility = !hub.HasFaults ? Visibility.Visible : Visibility.Collapsed;
+                else hub.HubCard.Visibility = Visibility.Visible;
+            }
+
+            if (btnAll != null && btnFaulty != null && btnHealthy != null)
+            {
+                btnAll.Background = (mode == "ALL") ? SvllBlue : Brushes.White;
+                btnAll.Foreground = (mode == "ALL") ? Brushes.White : TextDark;
+
+                btnFaulty.Background = (mode == "FAULTY") ? SvllRed : Brushes.White;
+                btnFaulty.Foreground = (mode == "FAULTY") ? Brushes.White : TextDark;
+
+                btnHealthy.Background = (mode == "HEALTHY") ? new SolidColorBrush(Color.FromRgb(22, 101, 52)) : Brushes.White;
+                btnHealthy.Foreground = (mode == "HEALTHY") ? Brushes.White : TextDark;
             }
         }
+
+        btnAll = new Button
+        {
+            Content = $"🌐 All Hubs ({hubGroups.Count})",
+            Height = 26,
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            Padding = new Thickness(10, 0, 10, 0),
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnAll.Click += (s, e) => ApplyFilter("ALL");
+        leftTabs.Children.Add(btnAll);
+
+        btnFaulty = new Button
+        {
+            Content = $"🔴 Faulty / Issues ({faultyHubCount})",
+            Height = 26,
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Background = Brushes.White,
+            Foreground = (faultyHubCount > 0) ? SvllRed : TextSubtle,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Padding = new Thickness(10, 0, 10, 0),
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnFaulty.Click += (s, e) => ApplyFilter("FAULTY");
+        leftTabs.Children.Add(btnFaulty);
+
+        btnHealthy = new Button
+        {
+            Content = $"🟢 100% Healthy ({healthyHubCount})",
+            Height = 26,
+            FontSize = 10.5,
+            FontWeight = FontWeights.Bold,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Padding = new Thickness(10, 0, 10, 0)
+        };
+        btnHealthy.Click += (s, e) => ApplyFilter("HEALTHY");
+        leftTabs.Children.Add(btnHealthy);
+
+        Grid.SetColumn(leftTabs, 0);
+        fGrid.Children.Add(leftTabs);
+
+        var rightTools = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var btnExpandAll = new Button
+        {
+            Content = "👁 Expand All Channels",
+            Height = 24,
+            FontSize = 10,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(8, 0, 8, 0),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnExpandAll.Click += (s, e) =>
+        {
+            foreach (var h in _diagHubCards) h.ExpandChannels();
+        };
+        rightTools.Children.Add(btnExpandAll);
+
+        var btnCollapseAll = new Button
+        {
+            Content = "📁 Collapse All",
+            Height = 24,
+            FontSize = 10,
+            Background = Brushes.White,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(8, 0, 8, 0),
+            Cursor = Cursors.Hand
+        };
+        btnCollapseAll.Click += (s, e) =>
+        {
+            foreach (var h in _diagHubCards) h.CollapseChannels();
+        };
+        rightTools.Children.Add(btnCollapseAll);
+
+        Grid.SetColumn(rightTools, 1);
+        fGrid.Children.Add(rightTools);
+
+        filterBar.Child = fGrid;
+        if (_diagMatrixHeaderHost != null) _diagMatrixHeaderHost.Child = filterBar;
+
+        // Render Hub Result Cards
+        foreach (var group in hubGroups)
+        {
+            var hubItems = group.ToList();
+            var hubCard = BuildHubResultCard(hubItems);
+            _diagMatrixContainer.Children.Add(hubCard.Card);
+            _diagHubCards.Add((hubCard.Card, hubCard.HasFaults, hubCard.Expand, hubCard.Collapse));
+        }
+
+        ApplyFilter(_diagResultsFilter);
+    }
+
+    private (Border Card, bool HasFaults, Action Expand, Action Collapse) BuildHubResultCard(List<CameraDiagnosticItem> hubItems)
+    {
+        var first = hubItems[0];
+        int total = hubItems.Count;
+        int online = hubItems.Count(i => i.Status == CameraHealthStatus.Online);
+        var faultyItems = hubItems.Where(i => i.Status != CameraHealthStatus.Online).ToList();
+        bool hasFaults = faultyItems.Count > 0;
+
+        var cardBorder = new Border
+        {
+            Background = Brushes.White,
+            BorderBrush = hasFaults ? new SolidColorBrush(Color.FromRgb(248, 113, 113)) : BorderMuted,
+            BorderThickness = new Thickness(hasFaults ? 1.5 : 1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 10, 12, 10),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+
+        var rootStack = new StackPanel();
+
+        // Hub Header Row
+        var headGrid = new Grid();
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Status Badge
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Hub Info
+        headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Actions
+
+        // Status Badge
+        var badge = new Border
+        {
+            Background = hasFaults
+                ? new SolidColorBrush(Color.FromRgb(254, 242, 242))
+                : new SolidColorBrush(Color.FromRgb(240, 253, 244)),
+            BorderBrush = hasFaults
+                ? new SolidColorBrush(Color.FromRgb(239, 68, 68))
+                : new SolidColorBrush(Color.FromRgb(34, 197, 94)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(10, 3, 10, 3),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0)
+        };
+        badge.Child = new TextBlock
+        {
+            Text = hasFaults ? $"🔴 {faultyItems.Count} FAULTY ({online}/{total})" : $"🟢 100% ONLINE ({total}/{total})",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = hasFaults ? SvllRed : new SolidColorBrush(Color.FromRgb(22, 101, 52))
+        };
+        Grid.SetColumn(badge, 0);
+        headGrid.Children.Add(badge);
+
+        // Hub Info
+        var infoStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = "🏢 " + first.NvrName,
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Foreground = TextDark
+        });
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = $"  •  📍 {first.Location}" + (string.IsNullOrWhiteSpace(first.SubLocation) ? "" : $" • {first.SubLocation}"),
+            FontSize = 10.5,
+            Foreground = SvllBlue,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        infoStack.Children.Add(titleRow);
+
+        infoStack.Children.Add(new TextBlock
+        {
+            Text = $"{first.Host}:{first.HttpPort} | RTSP :{first.RtspPort} • {first.BrandDisplayName} • Latency: {(first.LatencyMs >= 0 ? $"{first.LatencyMs}ms" : "Timeout")}",
+            FontSize = 9.5,
+            Foreground = TextSubtle,
+            Margin = new Thickness(0, 1, 0, 0)
+        });
+        Grid.SetColumn(infoStack, 1);
+        headGrid.Children.Add(infoStack);
+
+        // Quick Actions
+        var actStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var btnReAudit = new Button
+        {
+            Content = "⚡ Re-Audit Hub",
+            Height = 24,
+            Padding = new Thickness(8, 0, 8, 0),
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Background = Brushes.White,
+            Foreground = SvllBlue,
+            BorderBrush = SvllBlue,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        btnReAudit.Click += async (s, e) =>
+        {
+            var dev = NvrDeviceStorage.Instance.GetDevices().FirstOrDefault(d => d.Id == first.NvrId);
+            if (dev != null) await RunDiagnosticAuditAsync(new List<NvrDevice> { dev });
+        };
+        actStack.Children.Add(btnReAudit);
+
+        var btnWeb = new Button
+        {
+            Content = "🌐 Web",
+            Height = 24,
+            Padding = new Thickness(8, 0, 8, 0),
+            FontSize = 10,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+        btnWeb.Click += (s, e) =>
+        {
+            var dev = NvrDeviceStorage.Instance.GetDevices().FirstOrDefault(d => d.Id == first.NvrId);
+            if (dev != null)
+            {
+                string url = NvrStreamHelper.BuildWebPortalUrl(dev);
+                try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
+            }
+        };
+        actStack.Children.Add(btnWeb);
+
+        Grid.SetColumn(actStack, 2);
+        headGrid.Children.Add(actStack);
+        rootStack.Children.Add(headGrid);
+
+        // Inline Alert Drawer for Faulty Channels
+        if (hasFaults)
+        {
+            var faultBox = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(254, 202, 202)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 6, 10, 6),
+                Margin = new Thickness(0, 8, 0, 4)
+            };
+            var fStack = new StackPanel();
+            fStack.Children.Add(new TextBlock
+            {
+                Text = $"⚠️ ATTENTION REQUIRED: {faultyItems.Count} FAULTY CAMERA CHANNEL{(faultyItems.Count > 1 ? "S" : "")} DETECTED",
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = SvllRed,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            foreach (var fi in faultyItems)
+            {
+                var fRow = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                fRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+                fRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                fRow.Children.Add(new TextBlock
+                {
+                    Text = $"• CH {fi.ChannelNumber:D2}: {fi.ChannelName}",
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = TextDark
+                });
+
+                var errText = new TextBlock
+                {
+                    Text = $"{fi.ErrorDetails} ➔ {fi.CorrectiveAction}",
+                    FontSize = 9.5,
+                    Foreground = SvllRed,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(errText, 1);
+                fRow.Children.Add(errText);
+
+                fStack.Children.Add(fRow);
+            }
+            faultBox.Child = fStack;
+            rootStack.Children.Add(faultBox);
+        }
+
+        // Lazy Expandable Channels Drawer
+        var chExpander = new Expander
+        {
+            Header = $"📹 View All {total} Channels (Detailed SLA Breakdown)",
+            FontSize = 10.5,
+            Foreground = TextSubtle,
+            IsExpanded = false,
+            Margin = new Thickness(0, 6, 0, 0)
+        };
+
+        var chListContainer = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
+
+        void PopulateChannels()
+        {
+            if (chListContainer.Children.Count > 0) return;
+
+            // Mini Matrix Header for Channels
+            var chHeadGrid = new Grid
+            {
+                Background = new SolidColorBrush(Color.FromRgb(241, 245, 249)),
+                Margin = new Thickness(0, 2, 0, 4)
+            };
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) }); // Status
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) }); // NVR Hub
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });  // Ch #
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) }); // Camera Name
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) }); // Host & Port
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });  // Latency
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) }); // Probes
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Actions
+            chHeadGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) }); // Tools
+
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("STATUS", 0));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("NVR HUB", 1));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("CH #", 2));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("CAMERA IDENTIFIER", 3));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("IP HOST : PORTS", 4));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("LATENCY", 5));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("PROBES", 6));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("DIAGNOSIS & ACTIONS", 7));
+            chHeadGrid.Children.Add(CreateMatrixHeadLabel("TOOLS", 8));
+
+            chListContainer.Children.Add(chHeadGrid);
+
+            foreach (var item in hubItems)
+            {
+                chListContainer.Children.Add(BuildDiagnosticRowUi(item));
+            }
+        }
+
+        chExpander.Expanded += (s, e) => PopulateChannels();
+        chExpander.Content = chListContainer;
+        rootStack.Children.Add(chExpander);
+
+        cardBorder.Child = rootStack;
+        return (cardBorder, hasFaults, () => { chExpander.IsExpanded = true; PopulateChannels(); }, () => { chExpander.IsExpanded = false; });
     }
 
     private void PopulateDiagTargetCombo()
@@ -951,12 +1571,8 @@ public partial class MainWindow
                 _lblDiagHealthGrade.Foreground = SvllRed;
             }
 
-            // Populate rows
-            _diagMatrixContainer.Children.Clear();
-            foreach (var item in report.Items)
-            {
-                _diagMatrixContainer.Children.Add(BuildDiagnosticRowUi(item));
-            }
+            // Render Results Grouped by NVR Hub with Fast Expandable Drawers (Zero Freeze)
+            RenderDiagnosticResults(report);
 
             _lblDiagProgress.Text = $"Audit complete at {report.GeneratedAt:HH:mm:ss}. Status: {report.OnlineCount} Online, {report.DegradedCount} Degraded, {report.OfflineCount} Offline, {report.AuthFailedCount} Auth Faults.";
             SystemSounds.Asterisk.Play();
@@ -1216,11 +1832,23 @@ public partial class MainWindow
     }
 
     // ─── 5. Report Export Engine (HTML Print / CSV / Markdown) ───────────────
-    private void ExportHtmlReport()
+    private async void ExportHtmlReport()
     {
         if (_latestDiagnosticReport == null || _latestDiagnosticReport.Items.Count == 0)
         {
-            MessageBox.Show("Please run '⚡ Run Full Fleet Audit' first to generate the latest diagnostic findings before exporting.", "Audit Required", MessageBoxButton.OK, MessageBoxImage.Information);
+            var res = MessageBox.Show(
+                "No fleet diagnostic audit has been performed yet.\n\nWould you like to run a quick Full Fleet Audit now to generate the report?",
+                "Run Diagnostic Audit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                await RunDiagnosticAuditAsync(null);
+                if (_latestDiagnosticReport != null && _latestDiagnosticReport.Items.Count > 0)
+                {
+                    ExportHtmlReport();
+                }
+            }
             return;
         }
 
@@ -1242,11 +1870,23 @@ public partial class MainWindow
         }
     }
 
-    private void ExportCsvReport()
+    private async void ExportCsvReport()
     {
         if (_latestDiagnosticReport == null || _latestDiagnosticReport.Items.Count == 0)
         {
-            MessageBox.Show("Please run '⚡ Run Full Fleet Audit' first before exporting.", "Audit Required", MessageBoxButton.OK, MessageBoxImage.Information);
+            var res = MessageBox.Show(
+                "No fleet diagnostic audit has been performed yet.\n\nWould you like to run a quick Full Fleet Audit now to export the CSV matrix?",
+                "Run Diagnostic Audit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                await RunDiagnosticAuditAsync(null);
+                if (_latestDiagnosticReport != null && _latestDiagnosticReport.Items.Count > 0)
+                {
+                    ExportCsvReport();
+                }
+            }
             return;
         }
 
@@ -1272,11 +1912,23 @@ public partial class MainWindow
         }
     }
 
-    private void CopyMarkdownReport()
+    private async void CopyMarkdownReport()
     {
         if (_latestDiagnosticReport == null || _latestDiagnosticReport.Items.Count == 0)
         {
-            MessageBox.Show("Please run '⚡ Run Full Fleet Audit' first before copying report.", "Audit Required", MessageBoxButton.OK, MessageBoxImage.Information);
+            var res = MessageBox.Show(
+                "No fleet diagnostic audit has been performed yet.\n\nWould you like to run a quick Full Fleet Audit now to copy the report?",
+                "Run Diagnostic Audit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                await RunDiagnosticAuditAsync(null);
+                if (_latestDiagnosticReport != null && _latestDiagnosticReport.Items.Count > 0)
+                {
+                    CopyMarkdownReport();
+                }
+            }
             return;
         }
 
@@ -1297,7 +1949,14 @@ public partial class MainWindow
         if (_cctvCurrentMode == "DIAGNOSTIC")
         {
             PopulateDiagTargetCombo();
-            PopulateInitialDiagnosticMatrix();
+            if (_latestDiagnosticReport != null)
+            {
+                RenderDiagnosticResults(_latestDiagnosticReport);
+            }
+            else
+            {
+                PopulateInitialDiagnosticMatrix();
+            }
         }
     }
 }

@@ -77,6 +77,23 @@ public class NvrDeviceStorage
         DevicesUpdated?.Invoke();
     }
 
+    public bool ToggleFavorite(string id)
+    {
+        bool newVal = false;
+        lock (_lock)
+        {
+            var dev = _devices.Find(d => d.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (dev != null)
+            {
+                dev.IsFavorite = !dev.IsFavorite;
+                newVal = dev.IsFavorite;
+                Persist();
+            }
+        }
+        DevicesUpdated?.Invoke();
+        return newVal;
+    }
+
     private void Persist()
     {
         try

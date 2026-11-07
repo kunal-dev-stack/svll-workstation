@@ -53,6 +53,7 @@ public class NvrDevice
     public string CustomRtspTemplate { get; set; } = "";
     public string CustomSnapshotTemplate { get; set; } = "";
     public List<NvrChannelConfig> Channels { get; set; } = new();
+    public bool IsFavorite { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

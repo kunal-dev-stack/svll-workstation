@@ -92,6 +92,30 @@ public partial class MainWindow
     // Cell UI Elements cache
     private readonly Dictionary<int, (Border CellBorder, Image VideoImg, VideoView? VlcView, TextBlock OsdTitle, TextBlock OsdStats, TextBlock OsdTime, Border StandbyOverlay, TextBlock StandbyMessage)> _cellUiCache = new();
 
+    // CCTV Sidebar Search & Favorites State
+    private bool _cctvShowOnlyFavorites = false;
+    private DispatcherTimer? _cctvSearchDebounceTimer;
+    private Button _btnFilterAllHubs = null!;
+    private Button _btnFilterFavHubs = null!;
+    private TextBlock _cctvNoSearchResultsMessage = null!;
+
+    private class NvrSidebarCardItem
+    {
+        public NvrDevice Device { get; set; } = null!;
+        public Border Card { get; set; } = null!;
+        public Expander Expander { get; set; } = null!;
+        public Action EnsureChannelsPopulated { get; set; } = null!;
+        public Button FavButton { get; set; } = null!;
+    }
+    private readonly List<NvrSidebarCardItem> _sidebarCards = new();
+
+    // Digital Zoom Magnification State
+    private readonly Dictionary<int, float> _slotZoomLevels = new();
+    private TextBlock? _lblLiveZoomDisplay;
+    private TextBlock? _lblFullscreenZoomDisplay;
+    private float _playbackZoomLevel = 1.0f;
+    private TextBlock? _lblPlaybackZoomDisplay;
+
     // ─── Playback Studio State ───────────────────────────────────────────────
     private MediaPlayer? _playbackMediaPlayer;
     private VideoView? _playbackVideoView;
@@ -335,10 +359,12 @@ public partial class MainWindow
         }
         else if (mode == "DIAGNOSTIC")
         {
+            bool newlyCreated = false;
             if (_cctvDiagContent == null)
             {
                 _cctvDiagContent = BuildCctvDiagnosticView();
                 _cctvMainContainer.Children.Add(_cctvDiagContent);
+                newlyCreated = true;
             }
 
             if (_cctvLiveContent != null) _cctvLiveContent.Visibility = Visibility.Collapsed;
@@ -353,7 +379,10 @@ public partial class MainWindow
             try { _playbackMediaPlayer?.Pause(); } catch { }
             try { _fallbackPlaybackMediaElement?.Pause(); } catch { }
 
-            RefreshDiagnosticViewIfVisible();
+            if (!newlyCreated)
+            {
+                RefreshDiagnosticViewIfVisible();
+            }
         }
     }
 
@@ -537,12 +566,46 @@ public partial class MainWindow
         Grid.SetColumn(left, 0);
         grid.Children.Add(left);
 
-        // Center: Quick Layout Buttons in Fullscreen
+        // Center: Quick Layout Buttons & Zoom Controls in Fullscreen
         var center = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         center.Children.Add(CreateGridModeButton("1x1 Focus", 1));
         center.Children.Add(CreateGridModeButton("2x2 Quad", 4));
         center.Children.Add(CreateGridModeButton("3x3 Multi", 9));
         center.Children.Add(CreateGridModeButton("4x4 Wall", 16));
+
+        var fsZoomSep = new Border { Width = 1, Height = 20, Background = new SolidColorBrush(Color.FromRgb(71, 85, 105)), Margin = new Thickness(12, 0, 12, 0) };
+        center.Children.Add(fsZoomSep);
+
+        center.Children.Add(new TextBlock
+        {
+            Text = "Zoom: ",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 4, 0)
+        });
+
+        var btnFsZoomOut = CreateSmallHeaderButton("➖", "Zoom Out (or Ctrl + Scroll Down)", ZoomOutActiveSlot);
+        _lblFullscreenZoomDisplay = new TextBlock
+        {
+            Text = "1.0x",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 32,
+            TextAlignment = TextAlignment.Center
+        };
+        var btnFsZoomIn = CreateSmallHeaderButton("➕", "Zoom In (or Ctrl + Scroll Up)", ZoomInActiveSlot);
+        var btnFsZoom2x = CreateSmallHeaderButton("🔍 2.0x", "Quick 2x Magnifier", ToggleQuickZoomActiveSlot);
+        var btnFsZoomReset = CreateSmallHeaderButton("🔄 Fit", "Reset Zoom to Fit", ResetZoomActiveSlot);
+
+        center.Children.Add(btnFsZoomOut);
+        center.Children.Add(_lblFullscreenZoomDisplay);
+        center.Children.Add(btnFsZoomIn);
+        center.Children.Add(btnFsZoom2x);
+        center.Children.Add(btnFsZoomReset);
         Grid.SetColumn(center, 1);
         grid.Children.Add(center);
 
@@ -583,7 +646,7 @@ public partial class MainWindow
 
         // Body: Left Sidebar (Collapsible) + Right Grid
         var bodyGrid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
-        _cctvSidebarCol = new ColumnDefinition { Width = new GridLength(280) };
+        _cctvSidebarCol = new ColumnDefinition { Width = new GridLength(320) };
         bodyGrid.ColumnDefinitions.Add(_cctvSidebarCol); // Col 0: Sidebar
         bodyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Col 1: Spacing
         bodyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Col 2: Video Wall Grid
@@ -652,6 +715,40 @@ public partial class MainWindow
         leftStack.Children.Add(CreateGridModeButton("3x3 Multi", 9));
         leftStack.Children.Add(CreateGridModeButton("4x4 Wall", 16));
         barWrap.Children.Add(leftStack);
+
+        // Zoom Controls Group
+        var zoomStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 2, 14, 2) };
+        zoomStack.Children.Add(new TextBlock
+        {
+            Text = "Zoom: ",
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TextSubtle,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 4, 0)
+        });
+
+        var btnZoomOut = CreateSmallHeaderButton("➖", "Zoom Out (or Ctrl + Scroll Down)", ZoomOutActiveSlot);
+        _lblLiveZoomDisplay = new TextBlock
+        {
+            Text = "1.0x",
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Foreground = SvllBlue,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 32,
+            TextAlignment = TextAlignment.Center
+        };
+        var btnZoomIn = CreateSmallHeaderButton("➕", "Zoom In (or Ctrl + Scroll Up)", ZoomInActiveSlot);
+        var btnZoom2x = CreateSmallHeaderButton("🔍 2.0x", "Quick 2.0x Magnification", ToggleQuickZoomActiveSlot);
+        var btnResetZoom = CreateSmallHeaderButton("🔄 Fit", "Reset Zoom to Fit", ResetZoomActiveSlot);
+
+        zoomStack.Children.Add(btnZoomOut);
+        zoomStack.Children.Add(_lblLiveZoomDisplay);
+        zoomStack.Children.Add(btnZoomIn);
+        zoomStack.Children.Add(btnZoom2x);
+        zoomStack.Children.Add(btnResetZoom);
+        barWrap.Children.Add(zoomStack);
 
         // Mid Stack: Stream Engine & Fullscreen
         var midStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 14, 2), VerticalAlignment = VerticalAlignment.Center };
@@ -725,7 +822,7 @@ public partial class MainWindow
         }
         else
         {
-            _cctvSidebarCol.Width = new GridLength(280);
+            _cctvSidebarCol.Width = new GridLength(320);
             _cctvSidebarBorder.Visibility = Visibility.Visible;
             _btnToggleSidebar.Content = "◀ Hide Sidebar";
             _btnToggleSidebar.Background = Brushes.White;
@@ -782,7 +879,7 @@ public partial class MainWindow
 
             if (!_isSidebarCollapsed)
             {
-                _cctvSidebarCol.Width = new GridLength(280);
+                _cctvSidebarCol.Width = new GridLength(320);
                 _cctvSidebarBorder.Visibility = Visibility.Visible;
                 _btnToggleSidebar.Content = "◀ Hide Sidebar";
             }
@@ -838,11 +935,52 @@ public partial class MainWindow
         };
 
         var grid = new Grid();
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Search
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Quick actions
-        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Tree
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // 0: Fav / All Filter Tabs
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // 1: Search Box
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // 2: Quick actions (Backup / Import)
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // 3: Scrollable tree
 
-        // Search Input
+        // 0. Fav / All Filter Tabs
+        var tabRow = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        tabRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        tabRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(4) });
+        tabRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        _btnFilterAllHubs = new Button
+        {
+            Content = "🌐 All Hubs",
+            Height = 26,
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = SvllBlue,
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand
+        };
+        _btnFilterAllHubs.Click += (s, e) => SetSidebarFavoriteFilter(false);
+        Grid.SetColumn(_btnFilterAllHubs, 0);
+        tabRow.Children.Add(_btnFilterAllHubs);
+
+        _btnFilterFavHubs = new Button
+        {
+            Content = "⭐ Favorites (0)",
+            Height = 26,
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+        _btnFilterFavHubs.Click += (s, e) => SetSidebarFavoriteFilter(true);
+        Grid.SetColumn(_btnFilterFavHubs, 2);
+        tabRow.Children.Add(_btnFilterFavHubs);
+
+        Grid.SetRow(tabRow, 0);
+        grid.Children.Add(tabRow);
+
+        // 1. Search Input (Debounced 120ms with instant Visibility filtering)
         _cctvSearchBox = new TextBox
         {
             Height = 32,
@@ -853,11 +991,21 @@ public partial class MainWindow
             BorderThickness = new Thickness(1),
             Margin = new Thickness(0, 0, 0, 8)
         };
-        _cctvSearchBox.TextChanged += (s, e) => RefreshCctvTree();
-        Grid.SetRow(_cctvSearchBox, 0);
+        _cctvSearchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        _cctvSearchDebounceTimer.Tick += (s, e) =>
+        {
+            _cctvSearchDebounceTimer.Stop();
+            ApplyCctvSidebarFilter();
+        };
+        _cctvSearchBox.TextChanged += (s, e) =>
+        {
+            _cctvSearchDebounceTimer.Stop();
+            _cctvSearchDebounceTimer.Start();
+        };
+        Grid.SetRow(_cctvSearchBox, 1);
         grid.Children.Add(_cctvSearchBox);
 
-        // Export / Import Row
+        // 2. Export / Import Row
         var expImpRow = new Grid { Margin = new Thickness(0, 0, 0, 8) };
         expImpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         expImpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(6) });
@@ -891,10 +1039,10 @@ public partial class MainWindow
         Grid.SetColumn(btnImport, 2);
         expImpRow.Children.Add(btnImport);
 
-        Grid.SetRow(expImpRow, 1);
+        Grid.SetRow(expImpRow, 2);
         grid.Children.Add(expImpRow);
 
-        // Scrollable NVR Tree
+        // 3. Scrollable NVR Tree
         var scroll = new ScrollViewer
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -902,7 +1050,7 @@ public partial class MainWindow
         };
         _cctvNvrTreePanel = new StackPanel();
         scroll.Content = _cctvNvrTreePanel;
-        Grid.SetRow(scroll, 2);
+        Grid.SetRow(scroll, 3);
         grid.Children.Add(scroll);
 
         card.Child = grid;
@@ -911,23 +1059,57 @@ public partial class MainWindow
         return card;
     }
 
+    private void SetSidebarFavoriteFilter(bool showFavs)
+    {
+        _cctvShowOnlyFavorites = showFavs;
+        if (_btnFilterAllHubs != null && _btnFilterFavHubs != null)
+        {
+            if (_cctvShowOnlyFavorites)
+            {
+                _btnFilterFavHubs.Background = new SolidColorBrush(Color.FromRgb(245, 158, 11)); // Gold
+                _btnFilterFavHubs.Foreground = Brushes.White;
+                _btnFilterFavHubs.BorderThickness = new Thickness(0);
+
+                _btnFilterAllHubs.Background = Brushes.White;
+                _btnFilterAllHubs.Foreground = TextDark;
+                _btnFilterAllHubs.BorderBrush = BorderMuted;
+                _btnFilterAllHubs.BorderThickness = new Thickness(1);
+            }
+            else
+            {
+                _btnFilterAllHubs.Background = SvllBlue;
+                _btnFilterAllHubs.Foreground = Brushes.White;
+                _btnFilterAllHubs.BorderThickness = new Thickness(0);
+
+                _btnFilterFavHubs.Background = Brushes.White;
+                _btnFilterFavHubs.Foreground = TextDark;
+                _btnFilterFavHubs.BorderBrush = BorderMuted;
+                _btnFilterFavHubs.BorderThickness = new Thickness(1);
+            }
+        }
+        ApplyCctvSidebarFilter();
+    }
+
     private void RefreshCctvTree()
     {
         if (_cctvNvrTreePanel == null) return;
         _cctvNvrTreePanel.Children.Clear();
+        _sidebarCards.Clear();
 
         var devices = NvrDeviceStorage.Instance.GetDevices();
-        string filter = _cctvSearchBox?.Text?.Trim().ToLower() ?? "";
 
         int totalCh = 0;
+        int favCount = 0;
         foreach (var d in devices)
         {
             totalCh += d.ChannelCount;
+            if (d.IsFavorite) favCount++;
         }
 
         if (_cctvTotalNvrsCounter != null) _cctvTotalNvrsCounter.Text = $"NVRs: {devices.Count}  •  ";
         if (_cctvTotalChannelsCounter != null) _cctvTotalChannelsCounter.Text = $"Channels: {totalCh}  •  ";
         if (_cctvActiveFeedsCounter != null) _cctvActiveFeedsCounter.Text = $"Active Feeds: {_cctvSlots.Count}  •  ";
+        if (_btnFilterFavHubs != null) _btnFilterFavHubs.Content = $"⭐ Favorites ({favCount})";
 
         if (devices.Count == 0)
         {
@@ -944,19 +1126,96 @@ public partial class MainWindow
 
         foreach (var device in devices)
         {
-            bool match = string.IsNullOrEmpty(filter) ||
-                         device.Name.ToLower().Contains(filter) ||
-                         device.Location.ToLower().Contains(filter) ||
-                         device.Host.ToLower().Contains(filter) ||
-                         device.Channels.Any(c => c.CustomName.ToLower().Contains(filter));
+            var item = BuildNvrSidebarCard(device);
+            _sidebarCards.Add(item);
+            _cctvNvrTreePanel.Children.Add(item.Card);
+        }
 
-            if (!match) continue;
+        _cctvNoSearchResultsMessage = new TextBlock
+        {
+            Text = "🔍 No matching NVRs or cameras found.\nTry a different search term or switch to 'All Hubs'.",
+            FontSize = 11.5,
+            Foreground = TextSubtle,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(8, 16, 8, 16),
+            Visibility = Visibility.Collapsed
+        };
+        _cctvNvrTreePanel.Children.Add(_cctvNoSearchResultsMessage);
 
-            _cctvNvrTreePanel.Children.Add(BuildNvrTreeItem(device));
+        ApplyCctvSidebarFilter();
+    }
+
+    private void ApplyCctvSidebarFilter()
+    {
+        if (_cctvNvrTreePanel == null) return;
+        string filter = _cctvSearchBox?.Text?.Trim().ToLower() ?? "";
+        bool hasFilter = !string.IsNullOrWhiteSpace(filter);
+
+        int visibleCount = 0;
+        int favCount = 0;
+
+        foreach (var item in _sidebarCards)
+        {
+            if (item.Device.IsFavorite) favCount++;
+
+            if (_cctvShowOnlyFavorites && !item.Device.IsFavorite)
+            {
+                item.Card.Visibility = Visibility.Collapsed;
+                continue;
+            }
+
+            if (!hasFilter)
+            {
+                item.Card.Visibility = Visibility.Visible;
+                visibleCount++;
+                continue;
+            }
+
+            bool nvrMatch = item.Device.Name.ToLower().Contains(filter) ||
+                            item.Device.Location.ToLower().Contains(filter) ||
+                            item.Device.SubLocation.ToLower().Contains(filter) ||
+                            item.Device.Host.ToLower().Contains(filter) ||
+                            item.Device.OwnerName.ToLower().Contains(filter);
+
+            bool chMatch = item.Device.Channels.Any(c => c.CustomName.ToLower().Contains(filter) ||
+                                                         $"ch {c.ChannelNumber}".Contains(filter) ||
+                                                         $"channel {c.ChannelNumber}".Contains(filter));
+
+            if (nvrMatch || chMatch)
+            {
+                item.Card.Visibility = Visibility.Visible;
+                visibleCount++;
+                if (chMatch)
+                {
+                    item.Expander.IsExpanded = true;
+                    item.EnsureChannelsPopulated();
+                }
+            }
+            else
+            {
+                item.Card.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        if (_btnFilterFavHubs != null) _btnFilterFavHubs.Content = $"⭐ Favorites ({favCount})";
+
+        if (_cctvNoSearchResultsMessage != null)
+        {
+            if (visibleCount == 0)
+            {
+                _cctvNoSearchResultsMessage.Text = _cctvShowOnlyFavorites
+                    ? "⭐ No favorite NVRs selected yet.\nClick the ☆ star on any NVR card to mark it as favorite."
+                    : $"🔍 No NVRs or cameras matching '{_cctvSearchBox?.Text}'.\nTry searching by campus, IP, or channel name.";
+                _cctvNoSearchResultsMessage.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                _cctvNoSearchResultsMessage.Visibility = Visibility.Collapsed;
+            }
         }
     }
 
-    private UIElement BuildNvrTreeItem(NvrDevice device)
+    private NvrSidebarCardItem BuildNvrSidebarCard(NvrDevice device)
     {
         var container = new Border
         {
@@ -976,17 +1235,40 @@ public partial class MainWindow
         headGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var infoStack = new StackPanel();
-        var nameRow = new StackPanel { Orientation = Orientation.Horizontal };
-        nameRow.Children.Add(new TextBlock
+        var nameGrid = new Grid { Margin = new Thickness(0, 0, 0, 2) };
+        nameGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        nameGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        // Star Button for Favorites
+        var btnFav = new Button
+        {
+            Content = device.IsFavorite ? "⭐" : "☆",
+            FontSize = 13,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = device.IsFavorite ? new SolidColorBrush(Color.FromRgb(245, 158, 11)) : TextSubtle,
+            ToolTip = device.IsFavorite ? "Favorited NVR (Click to remove from favorites)" : "Click to mark as Favorite NVR"
+        };
+        Grid.SetColumn(btnFav, 0);
+        nameGrid.Children.Add(btnFav);
+
+        var txtNvrName = new TextBlock
         {
             Text = "🏢 " + device.Name,
             FontSize = 12,
             FontWeight = FontWeights.Bold,
             Foreground = TextDark,
             TextTrimming = TextTrimming.CharacterEllipsis,
-            MaxWidth = 175
-        });
-        infoStack.Children.Add(nameRow);
+            ToolTip = $"🏢 {device.Name}\n📍 {device.Location} • {device.SubLocation}\nIP: {device.CleanHost}:{device.HttpPort} ({device.GetBrandDisplayName()})\nOwner: {device.OwnerName}\nChannels: {device.ChannelCount}",
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(txtNvrName, 1);
+        nameGrid.Children.Add(txtNvrName);
+        infoStack.Children.Add(nameGrid);
 
         if (!string.IsNullOrWhiteSpace(device.SubLocation))
         {
@@ -996,7 +1278,8 @@ public partial class MainWindow
                 FontSize = 9.5,
                 Foreground = SvllBlue,
                 FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 1, 0, 0)
+                Margin = new Thickness(0, 1, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
             });
         }
 
@@ -1006,7 +1289,8 @@ public partial class MainWindow
             Text = $"{device.CleanHost}:{device.HttpPort} • {device.GetBrandDisplayName()}{ownerInfo}",
             FontSize = 9.5,
             Foreground = TextSubtle,
-            Margin = new Thickness(0, 1, 0, 0)
+            Margin = new Thickness(0, 1, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
         Grid.SetColumn(infoStack, 0);
         headGrid.Children.Add(infoStack);
@@ -1058,14 +1342,13 @@ public partial class MainWindow
         headGrid.Children.Add(actStack);
         rootStack.Children.Add(headGrid);
 
-        // Channels List Expander (Lazy load channels to make 46 NVRs open in < 30ms)
-        bool isFirstNvr = (_cctvNvrTreePanel == null || _cctvNvrTreePanel.Children.Count == 0);
+        // Channels List Expander
         var expander = new Expander
         {
             Header = $"Cameras ({device.ChannelCount} Channels)",
             FontSize = 11,
             Foreground = TextSubtle,
-            IsExpanded = isFirstNvr,
+            IsExpanded = false,
             Margin = new Thickness(0, 4, 0, 0)
         };
 
@@ -1097,7 +1380,8 @@ public partial class MainWindow
                     Text = $"📹 Ch {chNum:D2}: {chName}",
                     FontSize = 11,
                     Foreground = TextDark,
-                    TextTrimming = TextTrimming.CharacterEllipsis
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    ToolTip = $"📹 Ch {chNum:D2}: {chName} ({device.Name})\n• Click row or [+ Live] to stream to slot #{_cctvSelectedSlot + 1}\n• Click [⏪ Play] to open in Playback Studio"
                 };
                 Grid.SetColumn(lblCh, 0);
                 chGrid.Children.Add(lblCh);
@@ -1125,7 +1409,7 @@ public partial class MainWindow
                     Text = "⏪ Play",
                     FontSize = 10,
                     FontWeight = FontWeights.Bold,
-                    Foreground = new SolidColorBrush(Color.FromRgb(124, 58, 237)),
+                    Foreground = new SolidColorBrush(Color.FromRgb(124, 58, 237)), // Purple
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 btnPlay.MouseLeftButtonDown += (s, e) =>
@@ -1139,29 +1423,44 @@ public partial class MainWindow
                 chGrid.Children.Add(actionRow);
 
                 chRow.Child = chGrid;
-                chRow.MouseEnter += (s, e) => chRow.Background = new SolidColorBrush(Color.FromRgb(224, 231, 255));
+                chRow.MouseEnter += (s, e) => chRow.Background = new SolidColorBrush(Color.FromRgb(241, 245, 249));
                 chRow.MouseLeave += (s, e) => chRow.Background = Brushes.Transparent;
-
-                chRow.MouseLeftButtonDown += (s, e) =>
-                {
-                    AssignChannelToSlot(_cctvSelectedSlot, device, chNum);
-                };
+                chRow.MouseLeftButtonDown += (s, e) => AssignChannelToSlot(_cctvSelectedSlot, device, chNum);
 
                 chListStack.Children.Add(chRow);
             }
         }
 
-        if (expander.IsExpanded)
-        {
-            PopulateChannelItems();
-        }
         expander.Expanded += (s, e) => PopulateChannelItems();
-
         expander.Content = chListStack;
         rootStack.Children.Add(expander);
 
         container.Child = rootStack;
-        return container;
+
+        // Wire Favorite Click
+        btnFav.Click += (s, e) =>
+        {
+            bool isFav = NvrDeviceStorage.Instance.ToggleFavorite(device.Id);
+            device.IsFavorite = isFav;
+            btnFav.Content = isFav ? "⭐" : "☆";
+            btnFav.Foreground = isFav ? new SolidColorBrush(Color.FromRgb(245, 158, 11)) : TextSubtle;
+            btnFav.ToolTip = isFav ? "Favorited NVR (Click to remove from favorites)" : "Click to mark as Favorite NVR";
+            ApplyCctvSidebarFilter();
+        };
+
+        return new NvrSidebarCardItem
+        {
+            Device = device,
+            Card = container,
+            Expander = expander,
+            EnsureChannelsPopulated = PopulateChannelItems,
+            FavButton = btnFav
+        };
+    }
+
+    private UIElement BuildNvrTreeItem(NvrDevice device)
+    {
+        return BuildNvrSidebarCard(device).Card;
     }
 
     private Button CreateSmallIconButton(string glyph, string tooltip, Action action)
@@ -1181,6 +1480,141 @@ public partial class MainWindow
         };
         btn.Click += (s, e) => action();
         return btn;
+    }
+
+    private static Button CreateSmallHeaderButton(string content, string tooltip, Action onClick)
+    {
+        var btn = new Button
+        {
+            Content = content,
+            Height = 24,
+            Padding = new Thickness(6, 0, 6, 0),
+            Margin = new Thickness(2, 0, 2, 0),
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Background = Brushes.White,
+            Foreground = TextDark,
+            BorderBrush = BorderMuted,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = tooltip
+        };
+        btn.Click += (s, e) => onClick();
+        return btn;
+    }
+
+    // ─── Digital Zoom & Magnification Engine ────────────────────────────────
+    private float GetSlotZoom(int slotIndex)
+    {
+        return _slotZoomLevels.TryGetValue(slotIndex, out var z) ? z : 1.0f;
+    }
+
+    private void SetSlotZoom(int slotIndex, float zoomLevel)
+    {
+        zoomLevel = Math.Clamp(zoomLevel, 1.0f, 4.0f);
+        _slotZoomLevels[slotIndex] = zoomLevel;
+
+        // 1. LibVLC Hardware Video Scaling
+        if (_slotMediaPlayers.TryGetValue(slotIndex, out var mp) && mp != null && mp.NativeReference != IntPtr.Zero)
+        {
+            try
+            {
+                mp.Scale = (zoomLevel <= 1.01f) ? 0.0f : zoomLevel;
+            }
+            catch { }
+        }
+
+        // 2. WPF Image Fallback / Snapshot Scaling
+        if (_cellUiCache.TryGetValue(slotIndex, out var cell))
+        {
+            cell.VideoImg.RenderTransformOrigin = new Point(0.5, 0.5);
+            cell.VideoImg.RenderTransform = new ScaleTransform(zoomLevel, zoomLevel);
+
+            if (_cctvSlots.TryGetValue(slotIndex, out var assigned))
+            {
+                string zoomBadge = (zoomLevel > 1.01f) ? $"  [🔍 {zoomLevel:0.0}x]" : "";
+                cell.OsdTitle.Text = $"SLOT {slotIndex + 1}: {assigned.Device.Name} (Ch {assigned.Channel}){zoomBadge}";
+            }
+        }
+
+        if (slotIndex == _cctvSelectedSlot)
+        {
+            UpdateZoomUiControls(zoomLevel);
+        }
+    }
+
+    private void UpdateZoomUiControls(float zoom)
+    {
+        string text = (zoom <= 1.01f) ? "1.0x" : $"{zoom:0.0}x";
+        if (_lblLiveZoomDisplay != null) _lblLiveZoomDisplay.Text = text;
+        if (_lblFullscreenZoomDisplay != null) _lblFullscreenZoomDisplay.Text = text;
+    }
+
+    private void ZoomInActiveSlot()
+    {
+        float cur = GetSlotZoom(_cctvSelectedSlot);
+        float next = cur switch
+        {
+            < 1.25f => 1.25f,
+            < 1.5f => 1.5f,
+            < 2.0f => 2.0f,
+            < 2.5f => 2.5f,
+            < 3.0f => 3.0f,
+            _ => 4.0f
+        };
+        SetSlotZoom(_cctvSelectedSlot, next);
+    }
+
+    private void ZoomOutActiveSlot()
+    {
+        float cur = GetSlotZoom(_cctvSelectedSlot);
+        float prev = cur switch
+        {
+            > 3.0f => 3.0f,
+            > 2.5f => 2.5f,
+            > 2.0f => 2.0f,
+            > 1.5f => 1.5f,
+            > 1.25f => 1.25f,
+            _ => 1.0f
+        };
+        SetSlotZoom(_cctvSelectedSlot, prev);
+    }
+
+    private void ResetZoomActiveSlot()
+    {
+        SetSlotZoom(_cctvSelectedSlot, 1.0f);
+    }
+
+    private void ToggleQuickZoomActiveSlot()
+    {
+        float cur = GetSlotZoom(_cctvSelectedSlot);
+        SetSlotZoom(_cctvSelectedSlot, cur > 1.01f ? 1.0f : 2.0f);
+    }
+
+    private void SetPlaybackZoom(float zoomLevel)
+    {
+        zoomLevel = Math.Clamp(zoomLevel, 1.0f, 4.0f);
+        _playbackZoomLevel = zoomLevel;
+
+        if (_playbackMediaPlayer != null && _playbackMediaPlayer.NativeReference != IntPtr.Zero)
+        {
+            try
+            {
+                _playbackMediaPlayer.Scale = (zoomLevel <= 1.01f) ? 0.0f : zoomLevel;
+            }
+            catch { }
+        }
+
+        if (_fallbackPlaybackMediaElement != null)
+        {
+            _fallbackPlaybackMediaElement.RenderTransformOrigin = new Point(0.5, 0.5);
+            _fallbackPlaybackMediaElement.RenderTransform = new ScaleTransform(zoomLevel, zoomLevel);
+        }
+
+        if (_lblPlaybackZoomDisplay != null)
+        {
+            _lblPlaybackZoomDisplay.Text = (zoomLevel <= 1.01f) ? "1.0x" : $"{zoomLevel:0.0}x";
+        }
     }
 
     // ─── 4. Dynamic Live Camera Grid & Hardware Video Players ────────────────
@@ -1444,6 +1878,18 @@ public partial class MainWindow
         };
         feedHost.Children.Add(lblOsdTime);
 
+        feedHost.ClipToBounds = true;
+        feedHost.PreviewMouseWheel += (s, e) =>
+        {
+            SelectCctvSlot(slotIndex);
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) || _cctvGridSize == 1)
+            {
+                if (e.Delta > 0) ZoomInActiveSlot();
+                else ZoomOutActiveSlot();
+                e.Handled = true;
+            }
+        };
+
         feedHost.MouseLeftButtonDown += (s, e) =>
         {
             SelectCctvSlot(slotIndex);
@@ -1498,6 +1944,14 @@ public partial class MainWindow
             }
         });
         actLeft.Children.Add(btnZoom);
+
+        var btnCellZoom = CreateCellActionButton("🔍 2x", () =>
+        {
+            SelectCctvSlot(slotIndex);
+            ToggleQuickZoomActiveSlot();
+        });
+        btnCellZoom.ToolTip = "Toggle 2.0x digital magnification for this camera";
+        actLeft.Children.Add(btnCellZoom);
 
         var btnSnap = CreateCellActionButton("📸 Snap", () => CaptureSingleSnapshot(slotIndex));
         actLeft.Children.Add(btnSnap);
@@ -1572,6 +2026,7 @@ public partial class MainWindow
             kvp.Value.CellBorder.BorderBrush = isSelected ? SvllLightBlue : new SolidColorBrush(Color.FromRgb(51, 65, 85));
             kvp.Value.CellBorder.BorderThickness = new Thickness(isSelected ? 2 : 1);
         }
+        UpdateZoomUiControls(GetSlotZoom(slotIndex));
     }
 
     private void AssignChannelToSlot(int slotIndex, NvrDevice device, int channel)
@@ -2261,6 +2716,41 @@ public partial class MainWindow
         btnOsdNext.Click += (s, e) => SelectNextCameraPlayback();
         osdSwitchStack.Children.Add(btnOsdNext);
 
+        // Playback Zoom Controls
+        var pbZoomSep = new Border { Width = 1, Height = 16, Background = new SolidColorBrush(Color.FromRgb(71, 85, 105)), Margin = new Thickness(6, 0, 6, 0) };
+        osdSwitchStack.Children.Add(pbZoomSep);
+
+        var btnPbZoomOut = CreateSmallHeaderButton("➖", "Zoom Out (or Ctrl + Scroll Down)", () => SetPlaybackZoom(_playbackZoomLevel switch
+        {
+            > 3.0f => 3.0f,
+            > 2.0f => 2.0f,
+            > 1.5f => 1.5f,
+            _ => 1.0f
+        }));
+        _lblPlaybackZoomDisplay = new TextBlock
+        {
+            Text = "1.0x",
+            FontSize = 10,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brushes.White,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 28,
+            TextAlignment = TextAlignment.Center
+        };
+        var btnPbZoomIn = CreateSmallHeaderButton("➕", "Zoom In (or Ctrl + Scroll Up)", () => SetPlaybackZoom(_playbackZoomLevel switch
+        {
+            < 1.5f => 1.5f,
+            < 2.0f => 2.0f,
+            < 3.0f => 3.0f,
+            _ => 4.0f
+        }));
+        var btnPbZoomReset = CreateSmallHeaderButton("🔄 Fit", "Reset Zoom to Fit", () => SetPlaybackZoom(1.0f));
+
+        osdSwitchStack.Children.Add(btnPbZoomOut);
+        osdSwitchStack.Children.Add(_lblPlaybackZoomDisplay);
+        osdSwitchStack.Children.Add(btnPbZoomIn);
+        osdSwitchStack.Children.Add(btnPbZoomReset);
+
         Grid.SetColumn(osdSwitchStack, 1);
         osdGrid.Children.Add(osdSwitchStack);
         osdTopBar.Child = osdGrid;
@@ -2269,7 +2759,16 @@ public partial class MainWindow
         playerLayoutGrid.Children.Add(osdTopBar);
 
         // Video Surface Host (Row 1)
-        var videoSurfaceHost = new Grid { Background = Brushes.Black };
+        var videoSurfaceHost = new Grid { Background = Brushes.Black, ClipToBounds = true };
+        videoSurfaceHost.PreviewMouseWheel += (s, e) =>
+        {
+            if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                if (e.Delta > 0) SetPlaybackZoom(_playbackZoomLevel + 0.25f);
+                else SetPlaybackZoom(_playbackZoomLevel - 0.25f);
+                e.Handled = true;
+            }
+        };
 
         if (_globalLibVLC != null)
         {
