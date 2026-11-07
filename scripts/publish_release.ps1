@@ -130,34 +130,37 @@ function Publish-GitHubRelease {
         Write-Host ("Uploading " + $assetName + " (" + $sizeMb + " MB)...") -ForegroundColor Cyan
         $uploadUri = $uploadBase + "?name=" + $assetName
 
-        $uploadHeaders = @{
-            "Authorization" = "token " + $token
-            "User-Agent"    = "SVLL-Release-Script"
-            "Content-Type"  = $assetType
-        }
-
         $retryCount = 0
         $uploaded = $false
-        $uploadFile = Join-Path $env:TEMP ("svll_upload_" + $assetName)
-        try { Copy-Item -Path $assetPath -Destination $uploadFile -Force } catch { $uploadFile = $assetPath }
 
         while ($retryCount -lt 4 -and -not $uploaded) {
             try {
                 $retryCount++
-                $res = Invoke-RestMethod -Uri $uploadUri -Headers $uploadHeaders -Method Post -InFile $uploadFile -TimeoutSec 1200
-                Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
-                $uploaded = $true
+                $curlOutput = & curl.exe -s -S -X POST `
+                    -H ("Authorization: token " + $token) `
+                    -H "User-Agent: SVLL-Release-Script" `
+                    -H ("Content-Type: " + $assetType) `
+                    --data-binary ("@" + $assetPath) `
+                    $uploadUri
+
+                $res = $curlOutput | ConvertFrom-Json
+                if ($res -and $res.name -and ($res.state -eq "uploaded" -or $res.browser_download_url)) {
+                    Write-Host ("Uploaded: " + $res.name + " -> " + $res.browser_download_url) -ForegroundColor Green
+                    $uploaded = $true
+                } else {
+                    $errMsg = if ($res -and $res.message) { $res.message } else { $curlOutput }
+                    throw ("Upload failed: " + $errMsg)
+                }
             } catch {
-                Write-Warning ("Upload attempt $retryCount failed: " + $_.Exception.Message)
+                Write-Warning ("Upload attempt $retryCount failed: " + $_)
                 if ($retryCount -lt 4) {
-                    Write-Host "Waiting 12 seconds before retry..." -ForegroundColor Yellow
-                    Start-Sleep -Seconds 12
+                    Write-Host "Waiting 10 seconds before retry..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 10
                 } else {
                     throw $_
                 }
             }
         }
-        try { Remove-Item $uploadFile -Force -ErrorAction SilentlyContinue } catch { }
     }
 
     Write-Host "Release '$Tag' ready at: $($release.html_url)" -ForegroundColor Green
